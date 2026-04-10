@@ -6,7 +6,7 @@
   "scope": "/promemoria-chermisiart/",
   "display": "standalone",
   "background_color": "#0e0c0a",
-  "theme_color": "#b5834a",
+  "theme_color": "#DC143C",
   "orientation": "portrait",
   "icons": [
     {

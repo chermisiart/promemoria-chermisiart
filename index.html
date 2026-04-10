@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ChèrmisiArt — Promemoria</title>
-<meta name="theme-color" content="#b5834a">
+<meta name="theme-color" content="#DC143C">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -16,7 +16,7 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --accent: #b5834a; --accent2: #7c5c3a; --bg: #0e0c0a; --card: #18140f;
+    --accent: #DC143C; --accent2: #a50e2d; --bg: #0e0c0a; --card: #18140f;
     --card2: #211c14; --border: #2e2416; --text: #f0e8dc; --muted: #7a6a57; --green: #5ba08a;
   }
   body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 300; min-height: 100vh; }
@@ -230,11 +230,7 @@
           </div>
           <div class="field">
             <label>Orario appuntamento</label>
-            <div class="time-trigger" onclick="openClock('r-appt-time', autoFillMsg)">
-              <span class="tv empty" id="r-appt-time-display">Seleziona orario</span>
-              <span>🕐</span>
-            </div>
-            <input type="hidden" id="r-appt-time">
+            <input type="time" id="r-appt-time" onchange="autoFillMsg()" style="color-scheme:dark">
           </div>
         </div>
         <div class="field">
@@ -258,11 +254,7 @@
             <input type="date" id="r-sendat-date" style="font-size:13px">
           </div>
           <div class="field" style="margin-bottom:0">
-            <div class="time-trigger" onclick="openClock('r-sendat-time', null)" style="padding:9px 14px">
-              <span class="tv empty" id="r-sendat-time-display">Ora</span>
-              <span>🕐</span>
-            </div>
-            <input type="hidden" id="r-sendat-time">
+            <input type="time" id="r-sendat-time" style="font-size:13px;color-scheme:dark">
           </div>
         </div>
         <div class="hint">Quando vuoi ricevere la notifica per scrivere</div>
@@ -589,9 +581,6 @@ function useEvent(title, dateVal, timeVal) {
   const rDate = `${reminderDate.getFullYear()}-${pad(reminderDate.getMonth()+1)}-${pad(reminderDate.getDate())}`;
   document.getElementById('r-sendat-date').value = rDate;
   document.getElementById('r-sendat-time').value = '10:00';
-  const sd = document.getElementById('r-sendat-time-display'); if(sd){sd.textContent='10:00';sd.classList.remove('empty');}
-  document.getElementById('r-appt-time').value = timeVal;
-  const ad = document.getElementById('r-appt-time-display'); if(ad&&timeVal){ad.textContent=timeVal;ad.classList.remove('empty');}
   document.getElementById('r-appt-date').value = dateVal;
   document.getElementById('r-trattamento').value = title;
   document.getElementById('r-type').value = 'appointment';
@@ -756,10 +745,8 @@ function addReminder() {
   document.getElementById('r-client').value='';
   document.getElementById('r-sendat-date').value='';
   document.getElementById('r-sendat-time').value='';
-  const sd = document.getElementById('r-sendat-time-display'); if(sd){sd.textContent='Ora';sd.classList.add('empty');}
   document.getElementById('r-appt-date').value='';
   document.getElementById('r-appt-time').value='';
-  const ad = document.getElementById('r-appt-time-display'); if(ad){ad.textContent='Seleziona orario';ad.classList.add('empty');}
   if(document.getElementById('r-trattamento')) document.getElementById('r-trattamento').value='';
   if(document.getElementById('r-seduta')) document.getElementById('r-seduta').value='';
   document.getElementById('r-template').value='';
@@ -835,7 +822,8 @@ function renderClients() {
   el.innerHTML=clients.map(c=>{
     const link=waLink(c.phone);
     const waBtn=link?`<a href="${escHtml(link)}" target="_blank" class="btn-wa">💬</a>`:'';
-    return `<div class="client-item" onclick="openStorico('${c.id}')"><div class="c-avatar">${escHtml(c.name.charAt(0).toUpperCase())}</div><div style="flex:1;min-width:0"><div class="c-name">${escHtml(c.name)}</div><div class="c-phone">${escHtml(c.phone||'—')}${c.notes?` &nbsp;·&nbsp; ${escHtml(c.notes)}`:''}</div></div><div class="c-actions">${waBtn}<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openStorico('${c.id}')">📋 Storico</button><button class="btn btn-danger" onclick="event.stopPropagation();deleteClient('${c.id}')">✕</button></div></div>`;
+    const noteMeta = c.notes ? ' &nbsp;·&nbsp; ' + escHtml(c.notes) : '';
+    return `<div class="client-item" onclick="openStorico('${c.id}')"><div class="c-avatar">${escHtml(c.name.charAt(0).toUpperCase())}</div><div style="flex:1;min-width:0"><div class="c-name">${escHtml(c.name)}</div><div class="c-phone">${escHtml(c.phone||'—')}${noteMeta}</div></div><div class="c-actions">${waBtn}<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openStorico('${c.id}')">📋 Storico</button><button class="btn btn-danger" onclick="event.stopPropagation();deleteClient('${c.id}')">✕</button></div></div>`;
   }).join('');
 }
 
