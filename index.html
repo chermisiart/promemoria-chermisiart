@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChèrmisiArt — Promemoria</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --accent: #b5834a; --accent2: #7c5c3a; --bg: #0e0c0a; --card: #18140f;
+    --card2: #211c14; --border: #2e2416; --text: #f0e8dc; --muted: #7a6a57; --green: #5ba08a;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 300; min-height: 100vh; }
+  .app { max-width: 860px; margin: 0 auto; padding: 0 16px 80px; }
+  .header { padding: 36px 0 24px; border-bottom: 1px solid var(--border); margin-bottom: 28px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .header-title { font-family: 'Cormorant Garamond', serif; font-size: clamp(24px, 5vw, 36px); font-weight: 300; letter-spacing: 0.02em; }
+  .header-title span { color: var(--accent); font-style: italic; }
+  .header-sub { font-size: 12px; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; margin-top: 4px; }
+  .tabs { display: flex; gap: 2px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 4px; margin-bottom: 28px; }
+  .tab { flex: 1; padding: 10px 8px; border: none; background: transparent; color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; border-radius: 7px; transition: all 0.2s; white-space: nowrap; }
+  .tab.active { background: var(--accent); color: #fff; font-weight: 500; }
+  .tab:hover:not(.active) { color: var(--text); background: var(--card2); }
+  .panel { display: none; } .panel.active { display: block; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 16px; }
+  .card-title { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 400; color: var(--text); margin-bottom: 18px; }
+  .field { margin-bottom: 14px; }
+  label { display: block; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  input, textarea, select { width: 100%; background: var(--card2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 300; outline: none; transition: border-color 0.2s; -webkit-appearance: none; appearance: none; }
+  input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a6a57' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+  /* Nasconde il picker nativo per date/time e lo sostituisce con bottone */
+  input[type="time"], input[type="date"], input[type="datetime-local"] { cursor: pointer; }
+  .row { display: flex; gap: 12px; } .row .field { flex: 1; min-width: 120px; }
+  @media (max-width: 500px) { .row { flex-direction: column; } }
+  .picker-row { display: flex; gap: 8px; align-items: stretch; } .picker-row select { flex: 1; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 400; letter-spacing: 0.04em; transition: all 0.2s; text-decoration: none; }
+  .btn-primary { background: var(--accent); color: #fff; } .btn-primary:hover { background: var(--accent2); }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); } .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+  .btn-danger { background: transparent; color: #c0504a; border: 1px solid #3a1a18; padding: 6px 12px; font-size: 12px; } .btn-danger:hover { background: #3a1a18; }
+  .btn-sm { padding: 7px 14px; font-size: 12px; }
+  .btn-contact { background: #1c2e28; color: var(--green); border: 1px solid #2a4a3a; padding: 10px 14px; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px; white-space: nowrap; flex-shrink: 0; transition: all 0.2s; } .btn-contact:hover { background: #243d33; }
+  .btn-wa { display: inline-flex; align-items: center; gap: 4px; background: #0a2218; color: #25d366; border: 1px solid #1a4430; padding: 6px 12px; font-size: 12px; border-radius: 8px; text-decoration: none; font-family: 'DM Sans', sans-serif; transition: all 0.2s; white-space: nowrap; cursor: pointer; } .btn-wa:hover { background: #102e20; }
+  .btn-gcal { background: #1a1f3a; color: #7a9fd4; border: 1px solid #2a3560; padding: 8px 16px; font-size: 12px; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; } .btn-gcal:hover { background: #222a4a; }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 5px; font-style: italic; }
+  .perm-box { background: #1c180e; border: 1px solid #3a2e18; border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 14px; }
+  .perm-icon { font-size: 22px; flex-shrink: 0; } .perm-text { font-size: 13px; color: #c8a86a; line-height: 1.5; }
+  .gcal-box { background: #111828; border: 1px solid #2a3560; border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .gcal-text { font-size: 13px; color: #7a9fd4; line-height: 1.5; flex: 1; min-width: 180px; }
+  .quick-add-box { background: var(--card2); border: 1px dashed var(--border); border-radius: 10px; padding: 14px; margin-top: 8px; display: none; } .quick-add-box.open { display: block; animation: fadeIn 0.2s ease; }
+  .quick-add-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .section-title { font-family: 'Cormorant Garamond', serif; font-size: 18px; color: var(--text); }
+  .section-count { font-size: 12px; color: var(--muted); }
+  .empty { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px; font-style: italic; }
+  .gcal-event { background: #111828; border: 1px solid #2a3560; border-radius: 10px; padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; transition: border-color 0.2s; }
+  .gcal-event:hover { border-color: #7a9fd4; }
+  .gcal-dot { width: 10px; height: 10px; border-radius: 50%; background: #7a9fd4; flex-shrink: 0; }
+  .gcal-info { flex: 1; min-width: 0; }
+  .gcal-name { font-size: 14px; color: var(--text); margin-bottom: 2px; }
+  .gcal-time { font-size: 12px; color: var(--muted); }
+  .gcal-use-btn { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 6px 14px; font-size: 12px; cursor: pointer; font-family: 'DM Sans', sans-serif; white-space: nowrap; transition: all 0.2s; } .gcal-use-btn:hover { background: var(--accent2); }
+  .reminder-item { background: var(--card2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 10px; display: flex; gap: 14px; align-items: flex-start; transition: border-color 0.2s; } .reminder-item:hover { border-color: var(--accent); }
+  .r-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+  .dot-confirm { background: #7a9fd4; } .dot-appointment { background: var(--green); } .dot-cycle { background: #c8a86a; } .dot-followup { background: var(--accent); } .dot-sent { background: var(--muted); opacity: 0.4; }
+  .r-info { flex: 1; min-width: 0; } .r-name { font-size: 15px; color: var(--text); margin-bottom: 3px; }
+  .r-meta { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .r-msg { font-size: 13px; color: #a89070; margin-top: 6px; font-style: italic; line-height: 1.5; word-break: break-word; }
+  .r-badges { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .r-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; flex-shrink: 0; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .badge-confirm { background: #1a2035; color: #7a9fd4; } .badge-appointment { background: #1a3530; color: var(--green); }
+  .badge-cycle { background: #2a2010; color: #c8a86a; } .badge-followup { background: #2e1f0a; color: var(--accent); }
+  .badge-sent { background: #1a1a1a; color: var(--muted); } .badge-pending { background: #1c180e; color: #c8a86a; }
+  .copy-btn { background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; color: var(--muted); font-size: 11px; cursor: pointer; transition: all 0.2s; font-family: 'DM Sans', sans-serif; white-space: nowrap; } .copy-btn:hover { color: var(--text); border-color: var(--accent); } .copy-btn.copied { color: var(--green); border-color: var(--green); }
+  .client-item { background: var(--card2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
+  .c-avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #7c5c3a, #b5834a); display: flex; align-items: center; justify-content: center; font-family: 'Cormorant Garamond', serif; font-size: 17px; color: #fff; flex-shrink: 0; }
+  .c-name { font-size: 15px; color: var(--text); } .c-phone { font-size: 12px; color: var(--muted); }
+  .c-actions { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+  .tpl-item { background: var(--card2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 10px; }
+  .tpl-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .tpl-name { font-size: 14px; color: var(--text); font-weight: 500; } .tpl-text { font-size: 13px; color: #a89070; line-height: 1.6; font-style: italic; }
+  .tpl-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .google-btn { display: inline-flex; align-items: center; gap: 8px; background: #fff; color: #333; border: 1px solid #ddd; border-radius: 8px; padding: 8px 16px; font-family: 'DM Sans', sans-serif; font-size: 13px; cursor: pointer; transition: all 0.2s; white-space: nowrap; } .google-btn:hover { background: #f5f5f5; }
+  .user-chip { display: inline-flex; align-items: center; gap: 8px; background: var(--card2); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px 6px 6px; font-size: 13px; color: var(--text); }
+  .user-chip img { width: 24px; height: 24px; border-radius: 50%; }
+  .logout-btn { background: transparent; border: none; color: var(--muted); cursor: pointer; font-size: 12px; margin-left: 4px; } .logout-btn:hover { color: #c0504a; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--accent); color: #fff; padding: 12px 24px; border-radius: 30px; font-size: 13px; font-weight: 500; box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 999; opacity: 0; transition: all 0.3s ease; pointer-events: none; white-space: nowrap; } .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .divider { display: flex; align-items: center; gap: 12px; margin: 16px 0; } .divider::before, .divider::after { content: ''; flex: 1; border-top: 1px solid var(--border); } .divider span { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+  .notif-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--green); margin-top: 8px; }
+  .notif-status.off { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div>
+      <div class="header-title">Chèrmisi<span>Art</span> — Promemoria</div>
+      <div class="header-sub">Gestione messaggi clienti WhatsApp</div>
+    </div>
+    <div id="auth-area" style="flex-shrink:0;padding-top:4px"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('reminders',this)">📅 Promemoria</button>
+    <button class="tab" onclick="switchTab('clients',this)">👤 Clienti</button>
+    <button class="tab" onclick="switchTab('templates',this)">💬 Messaggi</button>
+  </div>
+
+  <!-- ── PROMEMORIA ── -->
+  <div id="panel-reminders" class="panel active">
+
+    <div id="notif-box" class="perm-box" style="display:none">
+      <div class="perm-icon">🔔</div>
+      <div>
+        <div class="perm-text" id="notif-text">Attiva le notifiche push per ricevere gli avvisi anche con il telefono in standby.</div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="requestPushNotif()">Attiva notifiche</button>
+        <div id="notif-status-label" class="notif-status off" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">✦ Nuovo promemoria</div>
+
+      <div id="gcal-import-section" style="display:none">
+        <div style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div style="font-size:12px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase">📅 Prossimi appuntamenti</div>
+          <button class="btn-gcal" onclick="loadCalendarEvents()">↻ Aggiorna</button>
+        </div>
+        <div id="gcal-events-list"><div class="empty" style="padding:20px">Clicca "Aggiorna" per caricare gli appuntamenti</div></div>
+        <div class="divider"><span>oppure inserisci manualmente</span></div>
+      </div>
+
+      <div id="gcal-login-hint" class="gcal-box">
+        <div class="gcal-text">📅 Accedi con Google per importare gli appuntamenti direttamente dal calendario.</div>
+        <button class="google-btn" onclick="signIn()">
+          <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          Accedi con Google
+        </button>
+      </div>
+
+      <div class="field">
+        <label>Cliente</label>
+        <div class="picker-row">
+          <select id="r-client"></select>
+          <button class="btn-contact" id="btn-rubrica-r" onclick="pickContact('reminder')" style="display:none">📒</button>
+          <button class="btn btn-ghost btn-sm" onclick="toggleQuickAdd()" id="btn-quickadd">+ Nuova</button>
+        </div>
+      </div>
+
+      <div class="quick-add-box" id="quick-add-box">
+        <div class="quick-add-title">Aggiungi nuova cliente</div>
+        <div class="row">
+          <div class="field"><label>Nome</label><input id="qa-name" placeholder="Es. Giulia"></div>
+          <div class="field"><label>Numero WhatsApp</label><input id="qa-phone" placeholder="+39 333 1234567"></div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="quickAddClient()">Aggiungi e seleziona</button>
+      </div>
+
+      <div class="field">
+        <label>Tipo messaggio</label>
+        <select id="r-type" onchange="onTypeChange()">
+          <option value="confirm">Conferma appuntamento</option>
+          <option value="appointment">Promemoria appuntamento</option>
+          <option value="cycle">Promemoria seduta (ciclo)</option>
+          <option value="followup">Follow-up riprenota</option>
+        </select>
+      </div>
+
+      <!-- Campi contestuali appuntamento -->
+      <div id="fields-appt">
+        <div class="row">
+          <div class="field">
+            <label>Data appuntamento</label>
+            <input type="date" id="r-appt-date" onchange="autoFillMsg()">
+          </div>
+          <div class="field">
+            <label>Orario appuntamento</label>
+            <input type="time" id="r-appt-time" onchange="autoFillMsg()">
+          </div>
+        </div>
+        <div class="field">
+          <label>Trattamento</label>
+          <input id="r-trattamento" placeholder="Es. manicure, pedicure, massaggio..." onchange="autoFillMsg()">
+        </div>
+      </div>
+
+      <!-- Numero seduta (solo per ciclo) -->
+      <div id="field-seduta" style="display:none">
+        <div class="field">
+          <label>Numero seduta</label>
+          <input id="r-seduta" placeholder="Es. 2ª, 3ª..." onchange="autoFillMsg()">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Invia promemoria il</label>
+        <input type="datetime-local" id="r-sendat">
+        <div class="hint">Quando vuoi ricevere la notifica per scrivere</div>
+      </div>
+
+      <div class="field">
+        <label>Messaggio predefinito</label>
+        <select id="r-template" onchange="applyTemplate()">
+          <option value="">Nessuno (scrivi sotto)</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Messaggio da inviare</label>
+        <textarea id="r-msg" placeholder="Scrivi il messaggio, oppure seleziona un predefinito sopra..."></textarea>
+        <div class="hint">Usa {nome}, {data}, {ora}, {trattamento}, {seduta} come variabili</div>
+      </div>
+
+      <button class="btn btn-primary" onclick="addReminder()">Salva promemoria</button>
+    </div>
+
+    <div class="section-header">
+      <div class="section-title">Promemoria programmati</div>
+      <div class="section-count" id="pending-count"></div>
+    </div>
+    <div id="reminders-list"></div>
+  </div>
+
+  <!-- ── CLIENTI ── -->
+  <div id="panel-clients" class="panel">
+    <div class="card">
+      <div class="card-title">✦ Aggiungi cliente</div>
+      <div id="contact-picker-hint" style="margin-bottom:16px;display:none">
+        <button class="btn-contact" onclick="pickContact('client')">📒 Scegli dalla rubrica</button>
+        <div class="hint" style="margin-top:6px">I campi si compilano in automatico</div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Nome</label><input id="c-name" placeholder="Es. Giulia"></div>
+        <div class="field"><label>Numero WhatsApp</label><input id="c-phone" placeholder="+39 333 1234567"></div>
+      </div>
+      <div class="field"><label>Note (opzionale)</label><input id="c-notes" placeholder="Es. manicure mensile, massaggio ogni 3 settimane..."></div>
+      <button class="btn btn-primary" onclick="addClient()">Aggiungi</button>
+    </div>
+    <div class="section-header">
+      <div class="section-title">Archivio clienti</div>
+      <div class="section-count" id="clients-count"></div>
+    </div>
+    <div id="clients-list"></div>
+  </div>
+
+  <!-- ── MESSAGGI ── -->
+  <div id="panel-templates" class="panel">
+    <div class="card">
+      <div class="card-title" id="tpl-form-title">✦ Nuovo messaggio</div>
+      <div class="row">
+        <div class="field"><label>Nome messaggio</label><input id="t-name" placeholder="Es. Conferma ceretta"></div>
+        <div class="field"><label>Tipo</label>
+          <select id="t-type">
+            <option value="confirm">Conferma appuntamento</option>
+            <option value="appointment">Promemoria appuntamento</option>
+            <option value="cycle">Promemoria seduta (ciclo)</option>
+            <option value="followup">Follow-up riprenota</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Testo del messaggio</label>
+        <textarea id="t-text" placeholder="Ciao {nome}..." style="min-height:100px"></textarea>
+        <div class="hint">Usa {nome}, {data}, {ora}, {trattamento}, {seduta} come variabili</div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary" id="tpl-save-btn" onclick="saveTemplate()">Aggiungi</button>
+        <button class="btn btn-ghost" id="tpl-cancel-btn" onclick="cancelEditTemplate()" style="display:none">Annulla</button>
+      </div>
+    </div>
+    <div class="section-title" style="margin-bottom:14px">Messaggi salvati</div>
+    <div id="templates-list"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getMessaging, getToken, onMessage } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD9lmycIBZZm7Ef3GumXYBcYEYMLeo4y0c",
+  authDomain: "promemoria-chermisiart.firebaseapp.com",
+  projectId: "promemoria-chermisiart",
+  storageBucket: "promemoria-chermisiart.firebasestorage.app",
+  messagingSenderId: "1008023462326",
+  appId: "1:1008023462326:web:d31fd9ef1207e6e70e6117",
+  measurementId: "G-RE4SP1MW4G"
+};
+
+const VAPID_KEY = 'BLbzVS8xKGAElYafzma0JKo-sr36y4K4Tot2S-VFfIgcGnQ52FpQ4uTv5DVnU3L4DUzelohkWAdh5KQpJAEbFGQ';
+
+const app = initializeApp(firebaseConfig);
+const messaging = getMessaging(app);
+
+window._firebaseMessaging = messaging;
+window._vapidKey = VAPID_KEY;
+
+// Ascolta messaggi in foreground
+onMessage(messaging, (payload) => {
+  const title = payload.notification?.title || 'ChèrmisiArt';
+  const body = payload.notification?.body || '';
+  showToast('📲 ' + body);
+  if (Notification.permission === 'granted') {
+    new Notification(title, { body });
+  }
+});
+
+window._firebaseReady = true;
+document.dispatchEvent(new Event('firebaseReady'));
+</script>
+
+<script>
+// ── Firebase Service Worker registration ──
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/firebase-messaging-sw.js').catch(() => {});
+}
+
+const GCAL_CLIENT_ID = '1008023462326-a6lmnc40srkh6hkks1e5eed90psb9aim.apps.googleusercontent.com';
+const GCAL_SCOPES = 'https://www.googleapis.com/auth/calendar.readonly profile email openid';
+
+const KEY_CLIENTS   = 'chermisi_clients';
+const KEY_REMINDERS = 'chermisi_reminders';
+const KEY_TEMPLATES = 'chermisi_templates';
+const KEY_TOKEN     = 'chermisi_gtoken';
+const KEY_FCM       = 'chermisi_fcm_token';
+
+const DEFAULT_TEMPLATES = [
+  { id: 't1', name: 'Conferma appuntamento', type: 'confirm',
+    text: 'Ciao {nome}, ti confermo l\'appuntamento del {data} alle ore {ora} per {trattamento}. Per motivi organizzativi chiedo gentilmente di avvisare almeno 48 ore prima in caso di disdetta — in caso contrario verrà applicato un costo del 50% del servizio. In caso di mancata presentazione senza preavviso verrà applicato il costo intero. A presto! 🌸' },
+  { id: 't2', name: 'Promemoria appuntamento', type: 'appointment',
+    text: 'Ciao {nome}, ti invio un promemoria per l\'appuntamento del {data} alle ore {ora} per {trattamento}. A presto! 😊' },
+  { id: 't3', name: 'Promemoria seduta (ciclo)', type: 'cycle',
+    text: 'Ciao {nome}, ti invio un promemoria per l\'appuntamento del {data} alle ore {ora} per {trattamento} ({seduta}). A presto! 😊' },
+  { id: 't4', name: 'Follow-up riprenota', type: 'followup',
+    text: 'Ciao {nome}! Ti invio un promemoria per ricordarti che è il momento di riprogrammare il tuo appuntamento per {trattamento} — settimana prossima sarebbe il momento giusto per mantenere i risultati al meglio 😊 Fammi sapere quando sei disponibile. A presto!' },
+];
+
+function load(key, def) { try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : def; } catch { return def; } }
+function save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+
+let clients   = load(KEY_CLIENTS, []);
+let reminders = load(KEY_REMINDERS, []);
+let templates = load(KEY_TEMPLATES, DEFAULT_TEMPLATES);
+let gcalToken = localStorage.getItem(KEY_TOKEN) || null;
+let tokenClient = null;
+let userInfo = load('chermisi_userinfo', null);
+
+if (!templates.find(t => t.type === 'confirm')) { templates = DEFAULT_TEMPLATES; save(KEY_TEMPLATES, templates); }
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Firebase Push Notifications ──
+async function requestPushNotif() {
+  if (!window._firebaseReady) {
+    showToast('Firebase non ancora pronto, riprova tra un secondo');
+    return;
+  }
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { showToast('Notifiche non autorizzate'); return; }
+    const token = await window.getToken(window._firebaseMessaging, { vapidKey: window._vapidKey });
+    if (token) {
+      localStorage.setItem(KEY_FCM, token);
+      updateNotifUI(true);
+      showToast('✅ Notifiche push attivate!');
+    }
+  } catch(e) {
+    // Fallback alle notifiche browser normali
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') { updateNotifUI(true); showToast('✅ Notifiche attivate!'); }
+  }
+}
+
+function updateNotifUI(granted) {
+  const box = document.getElementById('notif-box');
+  const label = document.getElementById('notif-status-label');
+  if (granted) {
+    box.style.display = 'none';
+  } else {
+    box.style.display = 'flex';
+  }
+}
+
+function checkNotifUI() {
+  const granted = typeof Notification !== 'undefined' && Notification.permission === 'granted';
+  updateNotifUI(granted);
+}
+
+// Importa getToken da firebase quando è pronto
+document.addEventListener('firebaseReady', () => {
+  import('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js').then(({ getToken }) => {
+    window.getToken = getToken;
+  });
+  checkNotifUI();
+});
+
+// ── Google Calendar Auth ──
+function initGoogleAuth() {
+  if (typeof google === 'undefined') { setTimeout(initGoogleAuth, 500); return; }
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GCAL_CLIENT_ID, scope: GCAL_SCOPES,
+    callback: (resp) => {
+      if (resp.error) { showToast('Errore accesso Google'); return; }
+      gcalToken = resp.access_token;
+      localStorage.setItem(KEY_TOKEN, gcalToken);
+      fetchUserInfo();
+    }
+  });
+  if (gcalToken) fetchUserInfo();
+  updateAuthUI();
+}
+
+function signIn() {
+  if (!tokenClient) { showToast('Google non ancora caricato, riprova'); return; }
+  tokenClient.requestAccessToken({ prompt: 'select_account' });
+}
+
+function signOut() {
+  if (gcalToken) google.accounts.oauth2.revoke(gcalToken, () => {});
+  gcalToken = null; userInfo = null;
+  localStorage.removeItem(KEY_TOKEN); localStorage.removeItem('chermisi_userinfo');
+  updateAuthUI(); showToast('Disconnessa da Google');
+}
+
+async function fetchUserInfo() {
+  if (!gcalToken) return;
+  try {
+    const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: 'Bearer ' + gcalToken } });
+    if (!r.ok) { gcalToken = null; localStorage.removeItem(KEY_TOKEN); updateAuthUI(); return; }
+    userInfo = await r.json();
+    save('chermisi_userinfo', userInfo);
+    updateAuthUI(); loadCalendarEvents();
+  } catch { updateAuthUI(); }
+}
+
+function updateAuthUI() {
+  const area = document.getElementById('auth-area');
+  const loginHint = document.getElementById('gcal-login-hint');
+  const importSection = document.getElementById('gcal-import-section');
+  if (gcalToken && userInfo) {
+    area.innerHTML = `<div class="user-chip">${userInfo.picture ? `<img src="${userInfo.picture}" alt="">` : ''}<span style="font-size:12px">${userInfo.name||userInfo.email}</span><button class="logout-btn" onclick="signOut()" title="Disconnetti">✕</button></div>`;
+    loginHint.style.display = 'none'; importSection.style.display = 'block';
+  } else {
+    area.innerHTML = ''; loginHint.style.display = 'flex'; importSection.style.display = 'none';
+  }
+}
+
+async function loadCalendarEvents() {
+  if (!gcalToken) return;
+  const listEl = document.getElementById('gcal-events-list');
+  listEl.innerHTML = '<div class="empty" style="padding:16px">Caricamento...</div>';
+  try {
+    const now = new Date().toISOString();
+    const future = new Date(Date.now() + 60*24*60*60*1000).toISOString();
+    const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now}&timeMax=${future}&singleEvents=true&orderBy=startTime&maxResults=20`;
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + gcalToken } });
+    if (r.status === 401) { gcalToken = null; localStorage.removeItem(KEY_TOKEN); updateAuthUI(); showToast('Sessione scaduta, accedi di nuovo'); return; }
+    const data = await r.json();
+    const events = (data.items||[]).filter(e => e.start && (e.start.dateTime||e.start.date));
+    if (!events.length) { listEl.innerHTML = '<div class="empty" style="padding:16px">Nessun appuntamento nei prossimi 60 giorni</div>'; return; }
+    listEl.innerHTML = events.map(e => {
+      const startStr = e.start.dateTime||e.start.date;
+      const start = new Date(startStr);
+      const dateStr = start.toLocaleDateString('it-IT', { weekday:'short', day:'2-digit', month:'short' });
+      const timeStr = e.start.dateTime ? start.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' }) : 'Tutto il giorno';
+      const pad = n => String(n).padStart(2,'0');
+      const dateVal = `${start.getFullYear()}-${pad(start.getMonth()+1)}-${pad(start.getDate())}`;
+      const timeVal = e.start.dateTime ? `${pad(start.getHours())}:${pad(start.getMinutes())}` : '';
+      return `<div class="gcal-event">
+        <div class="gcal-dot"></div>
+        <div class="gcal-info"><div class="gcal-name">${escHtml(e.summary||'Appuntamento')}</div><div class="gcal-time">${dateStr} · ${timeStr}</div></div>
+        <button class="gcal-use-btn" onclick="useEvent('${escJs(e.summary||'Appuntamento')}','${escJs(dateVal)}','${escJs(timeVal)}')">Usa →</button>
+      </div>`;
+    }).join('');
+  } catch { listEl.innerHTML = '<div class="empty" style="padding:16px">Errore nel caricamento</div>'; }
+}
+
+function useEvent(title, dateVal, timeVal) {
+  const start = new Date(dateVal + 'T12:00:00');
+  const reminderDate = new Date(start);
+  reminderDate.setDate(reminderDate.getDate() - 1);
+  const pad = n => String(n).padStart(2,'0');
+  const dtLocal = `${reminderDate.getFullYear()}-${pad(reminderDate.getMonth()+1)}-${pad(reminderDate.getDate())}T10:00`;
+  document.getElementById('r-sendat').value = dtLocal;
+  document.getElementById('r-appt-time').value = timeVal;
+  document.getElementById('r-appt-date').value = dateVal;
+  document.getElementById('r-trattamento').value = title;
+  document.getElementById('r-type').value = 'appointment';
+  onTypeChange();
+  const tpl = templates.find(t => t.type==='appointment');
+  if (tpl) { document.getElementById('r-template').value = tpl.id; applyTemplate(); }
+  showToast('✅ Importato! Seleziona la cliente e salva.');
+  document.getElementById('r-client').scrollIntoView({ behavior:'smooth', block:'center' });
+}
+
+// ── Contact Picker ──
+function hasContactPicker() { return 'contacts' in navigator; }
+function initContactPicker() {
+  if (hasContactPicker()) {
+    document.getElementById('btn-rubrica-r').style.display = '';
+    document.getElementById('contact-picker-hint').style.display = '';
+  }
+}
+async function pickContact(target) {
+  if (!hasContactPicker()) { showToast('Non disponibile su questo browser'); return; }
+  try {
+    const contacts = await navigator.contacts.select(['name','tel'], { multiple:false });
+    if (!contacts||!contacts.length) return;
+    const c = contacts[0];
+    const name = (c.name&&c.name[0])||'';
+    const phone = (c.tel&&c.tel[0])||'';
+    if (target==='reminder') {
+      document.getElementById('qa-name').value = name;
+      document.getElementById('qa-phone').value = phone;
+      document.getElementById('quick-add-box').classList.add('open');
+      document.getElementById('btn-quickadd').textContent = '✕ Annulla';
+    } else {
+      document.getElementById('c-name').value = name;
+      document.getElementById('c-phone').value = phone;
+    }
+  } catch { showToast('Selezione annullata'); }
+}
+
+// ── Quick Add ──
+function toggleQuickAdd() {
+  const box = document.getElementById('quick-add-box');
+  const btn = document.getElementById('btn-quickadd');
+  const open = box.classList.toggle('open');
+  btn.textContent = open ? '✕ Annulla' : '+ Nuova';
+  if (!open) { document.getElementById('qa-name').value=''; document.getElementById('qa-phone').value=''; }
+}
+function quickAddClient() {
+  const name = document.getElementById('qa-name').value.trim();
+  const phone = document.getElementById('qa-phone').value.trim();
+  if (!name) { showToast('Inserisci almeno il nome'); return; }
+  const nc = { id:uid(), name, phone, notes:'', createdAt:new Date().toISOString() };
+  clients.push(nc); save(KEY_CLIENTS, clients);
+  renderClientSelect();
+  document.getElementById('r-client').value = nc.id;
+  document.getElementById('quick-add-box').classList.remove('open');
+  document.getElementById('btn-quickadd').textContent = '+ Nuova';
+  document.getElementById('qa-name').value=''; document.getElementById('qa-phone').value='';
+  showToast('✅ ' + name + ' aggiunta!');
+}
+
+// ── Helpers ──
+function fillTemplate(text, vars) {
+  return text
+    .replace(/{nome}/gi, vars.nome||'')
+    .replace(/{data}/gi, vars.data||'')
+    .replace(/{ora}/gi, vars.ora||'')
+    .replace(/{trattamento}/gi, vars.trattamento||'')
+    .replace(/{seduta}/gi, vars.seduta||'');
+}
+function waLink(phone, msg) {
+  if (!phone) return null;
+  const clean = phone.replace(/\D/g,''); if (!clean) return null;
+  const num = clean.startsWith('39') ? clean : '39'+(clean.startsWith('0')?clean.slice(1):clean);
+  return 'https://wa.me/'+num+(msg?'?text='+encodeURIComponent(msg):'');
+}
+function formatDate(iso) { if (!iso) return ''; return new Date(iso).toLocaleString('it-IT',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+function formatDateIT(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr+'T12:00:00');
+  return d.toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
+}
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escJs(s) { return String(s).replace(/'/g,"\\'").replace(/\n/g,' '); }
+
+const TYPE_LABELS = { confirm:'Conferma', appointment:'Promemoria', cycle:'Seduta', followup:'Follow-up' };
+const TYPE_DOT    = { confirm:'dot-confirm', appointment:'dot-appointment', cycle:'dot-cycle', followup:'dot-followup' };
+const TYPE_BADGE  = { confirm:'badge-confirm', appointment:'badge-appointment', cycle:'badge-cycle', followup:'badge-followup' };
+
+// ── Form logic ──
+function onTypeChange() {
+  const type = document.getElementById('r-type').value;
+  const showAppt = ['confirm','appointment','cycle'].includes(type);
+  document.getElementById('fields-appt').style.display = showAppt ? '' : 'none';
+  // Per il followup mostriamo solo il trattamento, non data e ora
+  if (type === 'followup') {
+    document.getElementById('fields-appt').style.display = 'block';
+    document.getElementById('fields-appt').querySelector('.row').style.display = 'none';
+  } else {
+    document.getElementById('fields-appt').querySelector('.row').style.display = '';
+  }
+  document.getElementById('field-seduta').style.display = type==='cycle' ? '' : 'none';
+  document.getElementById('r-template').value = '';
+  document.getElementById('r-msg').value = '';
+  renderTemplateSelect();
+}
+
+function getVars() {
+  const clientId = document.getElementById('r-client').value;
+  const client = clients.find(c=>c.id===clientId);
+  const dateStr = document.getElementById('r-appt-date').value;
+  return {
+    nome: client?.name||'',
+    data: formatDateIT(dateStr),
+    ora: document.getElementById('r-appt-time').value,
+    trattamento: document.getElementById('r-trattamento')?.value||'',
+    seduta: document.getElementById('r-seduta')?.value||''
+  };
+}
+
+function autoFillMsg() {
+  const tplId = document.getElementById('r-template').value;
+  if (!tplId) return;
+  const tpl = templates.find(t=>t.id===tplId);
+  if (tpl) document.getElementById('r-msg').value = fillTemplate(tpl.text, getVars());
+}
+
+function renderClientSelect() {
+  const sel = document.getElementById('r-client');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Seleziona...</option>' + clients.map(c=>`<option value="${c.id}"${c.id===cur?' selected':''}>${escHtml(c.name)}</option>`).join('');
+}
+function renderTemplateSelect() {
+  const type = document.getElementById('r-type').value;
+  const sel = document.getElementById('r-template');
+  sel.innerHTML = '<option value="">Nessuno (scrivi sotto)</option>' + templates.filter(t=>t.type===type).map(t=>`<option value="${t.id}">${escHtml(t.name)}</option>`).join('');
+}
+function applyTemplate() {
+  const tplId = document.getElementById('r-template').value;
+  const tpl = templates.find(t=>t.id===tplId); if (!tpl) return;
+  document.getElementById('r-msg').value = fillTemplate(tpl.text, getVars());
+}
+
+// ── Reminders ──
+function addReminder() {
+  const clientId = document.getElementById('r-client').value;
+  const sendAt = document.getElementById('r-sendat').value;
+  if (!clientId||!sendAt) { showToast('Seleziona cliente e data/ora'); return; }
+  const client = clients.find(c=>c.id===clientId);
+  const type = document.getElementById('r-type').value;
+  const vars = getVars();
+  const tplId = document.getElementById('r-template').value;
+  const tpl = templates.find(t=>t.id===tplId);
+  let msg = document.getElementById('r-msg').value.trim();
+  if (!msg && tpl) msg = fillTemplate(tpl.text, vars);
+  reminders.push({ id:uid(), clientId, type, templateId:tplId, sendAt, message:msg,
+    appointmentDate:vars.data, appointmentTime:vars.ora, trattamento:vars.trattamento,
+    seduta:vars.seduta, status:'pending', createdAt:new Date().toISOString() });
+  save(KEY_REMINDERS, reminders);
+  // Reset form
+  document.getElementById('r-client').value='';
+  document.getElementById('r-sendat').value='';
+  document.getElementById('r-appt-date').value='';
+  document.getElementById('r-appt-time').value='';
+  if(document.getElementById('r-trattamento')) document.getElementById('r-trattamento').value='';
+  if(document.getElementById('r-seduta')) document.getElementById('r-seduta').value='';
+  document.getElementById('r-template').value='';
+  document.getElementById('r-msg').value='';
+  showToast('✅ Promemoria salvato!');
+  renderReminders();
+  scheduleLocalNotification(reminders[reminders.length-1], client?.name);
+}
+
+function scheduleLocalNotification(reminder, clientName) {
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  const delay = new Date(reminder.sendAt) - new Date();
+  if (delay <= 0 || delay > 7*24*60*60*1000) return; // max 7 giorni
+  setTimeout(() => {
+    new Notification('⏰ ChèrmisiArt — Promemoria', {
+      body: 'È ora di scrivere a ' + (clientName||'cliente') + ' su WhatsApp!',
+      icon: '/icon.png',
+      tag: reminder.id,
+      requireInteraction: true
+    });
+    reminders = reminders.map(r => r.id===reminder.id ? {...r, status:'sent'} : r);
+    save(KEY_REMINDERS, reminders);
+    renderReminders();
+  }, delay);
+}
+
+function deleteReminder(id) { reminders=reminders.filter(r=>r.id!==id); save(KEY_REMINDERS,reminders); renderReminders(); }
+
+function copyMsg(id) {
+  const r = reminders.find(x=>x.id===id); if (!r?.message) return;
+  navigator.clipboard.writeText(r.message).then(()=>{
+    const btn = document.getElementById('copy-'+id);
+    if (btn) { btn.textContent='✓ Copiato'; btn.classList.add('copied'); setTimeout(()=>{ btn.textContent='Copia msg'; btn.classList.remove('copied'); },1800); }
+  });
+}
+
+function renderReminders() {
+  const sorted = [...reminders].sort((a,b)=>new Date(a.sendAt)-new Date(b.sendAt));
+  document.getElementById('pending-count').textContent = sorted.filter(r=>r.status==='pending').length+' in attesa';
+  const el = document.getElementById('reminders-list');
+  if (!sorted.length) { el.innerHTML='<div class="empty">Nessun promemoria ancora. Aggiungine uno sopra ✨</div>'; return; }
+  el.innerHTML = sorted.map(r=>{
+    const client = clients.find(c=>c.id===r.clientId);
+    const isPast = new Date(r.sendAt)<new Date();
+    const dotCls = r.status==='sent' ? 'dot-sent' : (TYPE_DOT[r.type]||'dot-appointment');
+    const statusBadge = r.status==='sent' ? '<span class="badge badge-sent">Inviato</span>' : isPast ? '<span class="badge badge-pending">Scaduto</span>' : '<span class="badge badge-pending">In attesa</span>';
+    const typeBadge = `<span class="badge ${TYPE_BADGE[r.type]||'badge-appointment'}">${TYPE_LABELS[r.type]||r.type}</span>`;
+    const link = waLink(client?.phone, r.message);
+    const waBtn = link ? `<a href="${escHtml(link)}" target="_blank" class="btn-wa">💬 WhatsApp</a>` : '';
+    const copyBtn = r.message ? `<button class="copy-btn" id="copy-${r.id}" onclick="copyMsg('${r.id}')">Copia msg</button>` : '';
+    const msgPreview = r.message ? `<div class="r-msg">"${escHtml(r.message.slice(0,110))}${r.message.length>110?'…':''}"</div>` : '';
+    const phoneMeta = client?.phone ? ` &nbsp;·&nbsp; 📱 ${escHtml(client.phone)}` : '';
+    return `<div class="reminder-item"><div class="r-dot ${dotCls}"></div><div class="r-info"><div class="r-name">${escHtml(client?.name||'—')}</div><div class="r-meta">📅 ${formatDate(r.sendAt)}${phoneMeta}</div>${msgPreview}<div class="r-badges">${statusBadge}${typeBadge}</div></div><div class="r-actions">${waBtn}${copyBtn}<button class="btn btn-danger" onclick="deleteReminder('${r.id}')">✕</button></div></div>`;
+  }).join('');
+}
+
+// ── Clients ──
+function addClient() {
+  const name=document.getElementById('c-name').value.trim();
+  const phone=document.getElementById('c-phone').value.trim();
+  const notes=document.getElementById('c-notes').value.trim();
+  if (!name) { showToast('Inserisci il nome'); return; }
+  clients.push({id:uid(),name,phone,notes,createdAt:new Date().toISOString()});
+  save(KEY_CLIENTS,clients);
+  document.getElementById('c-name').value=''; document.getElementById('c-phone').value=''; document.getElementById('c-notes').value='';
+  showToast('✅ Cliente aggiunta!'); renderClients(); renderClientSelect();
+}
+function deleteClient(id) { clients=clients.filter(c=>c.id!==id); save(KEY_CLIENTS,clients); renderClients(); renderClientSelect(); }
+function renderClients() {
+  document.getElementById('clients-count').textContent=clients.length+' clienti';
+  const el=document.getElementById('clients-list');
+  if (!clients.length) { el.innerHTML='<div class="empty">Nessuna cliente ancora. Aggiungine una sopra 🌸</div>'; return; }
+  el.innerHTML=clients.map(c=>{
+    const link=waLink(c.phone);
+    const waBtn=link?`<a href="${escHtml(link)}" target="_blank" class="btn-wa">💬</a>`:'';
+    return `<div class="client-item"><div class="c-avatar">${escHtml(c.name.charAt(0).toUpperCase())}</div><div style="flex:1;min-width:0"><div class="c-name">${escHtml(c.name)}</div><div class="c-phone">${escHtml(c.phone||'—')}${c.notes?` &nbsp;·&nbsp; ${escHtml(c.notes)}`:''}</div></div><div class="c-actions">${waBtn}<button class="btn btn-danger" onclick="deleteClient('${c.id}')">✕</button></div></div>`;
+  }).join('');
+}
+
+// ── Templates ──
+let editingTplId=null;
+function saveTemplate() {
+  const name=document.getElementById('t-name').value.trim();
+  const type=document.getElementById('t-type').value;
+  const text=document.getElementById('t-text').value.trim();
+  if (!name||!text) { showToast('Compila nome e testo'); return; }
+  if (editingTplId) { templates=templates.map(t=>t.id===editingTplId?{...t,name,type,text}:t); editingTplId=null; }
+  else { templates.push({id:uid(),name,type,text}); }
+  save(KEY_TEMPLATES,templates);
+  document.getElementById('t-name').value=''; document.getElementById('t-text').value='';
+  document.getElementById('tpl-form-title').textContent='✦ Nuovo messaggio';
+  document.getElementById('tpl-save-btn').textContent='Aggiungi';
+  document.getElementById('tpl-cancel-btn').style.display='none';
+  showToast('✅ Messaggio salvato!'); renderTemplates(); renderTemplateSelect();
+}
+function editTemplate(id) {
+  const t=templates.find(x=>x.id===id); if (!t) return;
+  editingTplId=id;
+  document.getElementById('t-name').value=t.name; document.getElementById('t-type').value=t.type; document.getElementById('t-text').value=t.text;
+  document.getElementById('tpl-form-title').textContent='✦ Modifica messaggio';
+  document.getElementById('tpl-save-btn').textContent='Salva modifiche';
+  document.getElementById('tpl-cancel-btn').style.display='';
+  document.getElementById('tpl-form-title').scrollIntoView({behavior:'smooth'});
+}
+function cancelEditTemplate() {
+  editingTplId=null;
+  document.getElementById('t-name').value=''; document.getElementById('t-text').value='';
+  document.getElementById('tpl-form-title').textContent='✦ Nuovo messaggio';
+  document.getElementById('tpl-save-btn').textContent='Aggiungi';
+  document.getElementById('tpl-cancel-btn').style.display='none';
+}
+function deleteTemplate(id) { templates=templates.filter(t=>t.id!==id); save(KEY_TEMPLATES,templates); renderTemplates(); renderTemplateSelect(); }
+function renderTemplates() {
+  const el=document.getElementById('templates-list');
+  el.innerHTML=templates.map(t=>{
+    const badgeCls=TYPE_BADGE[t.type]||'badge-appointment';
+    const badgeTxt=TYPE_LABELS[t.type]||t.type;
+    return `<div class="tpl-item"><div class="tpl-header"><div><div class="tpl-name">${escHtml(t.name)}</div><span class="badge ${badgeCls}" style="margin-top:4px;display:inline-block">${badgeTxt}</span></div><div class="tpl-actions"><button class="btn btn-ghost btn-sm" onclick="editTemplate('${t.id}')">Modifica</button><button class="btn btn-danger" onclick="deleteTemplate('${t.id}')">✕</button></div></div><div class="tpl-text">${escHtml(t.text)}</div></div>`;
+  }).join('');
+}
+
+// ── Riprogramma notifiche esistenti all'avvio ──
+function rescheduleAll() {
+  reminders.filter(r=>r.status==='pending').forEach(r=>{
+    const client = clients.find(c=>c.id===r.clientId);
+    scheduleLocalNotification(r, client?.name);
+  });
+}
+
+// ── Init ──
+onTypeChange();
+checkNotifUI();
+initContactPicker();
+renderClientSelect(); renderTemplateSelect(); renderReminders(); renderClients(); renderTemplates();
+rescheduleAll();
+window.addEventListener('load', initGoogleAuth);
+</script>
+</body>
+</html>
