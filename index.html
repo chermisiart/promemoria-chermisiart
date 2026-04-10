@@ -16,18 +16,18 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --accent: #DC143C; --accent2: #a50e2d; --bg: #0e0c0a; --card: #18140f;
+    --accent: #b5834a; --accent2: #7c5c3a; --crimson: #DC143C; --bg: #0e0c0a; --card: #18140f;
     --card2: #211c14; --border: #2e2416; --text: #f0e8dc; --muted: #7a6a57; --green: #5ba08a;
   }
   body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 300; min-height: 100vh; }
   .app { max-width: 860px; margin: 0 auto; padding: 0 16px 80px; }
   .header { padding: 36px 0 24px; border-bottom: 1px solid var(--border); margin-bottom: 28px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .header-title { font-family: 'Cormorant Garamond', serif; font-size: clamp(24px, 5vw, 36px); font-weight: 300; letter-spacing: 0.02em; }
-  .header-title span { color: var(--accent); font-style: italic; }
+  .header-title span { color: var(--crimson); font-style: italic; }
   .header-sub { font-size: 12px; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; margin-top: 4px; }
   .tabs { display: flex; gap: 2px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 4px; margin-bottom: 28px; }
   .tab { flex: 1; padding: 10px 8px; border: none; background: transparent; color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; border-radius: 7px; transition: all 0.2s; white-space: nowrap; }
-  .tab.active { background: var(--accent); color: #fff; font-weight: 500; }
+  .tab.active { background: var(--crimson); color: #fff; font-weight: 500; }
   .tab:hover:not(.active) { color: var(--text); background: var(--card2); }
   .panel { display: none; } .panel.active { display: block; }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 16px; }
