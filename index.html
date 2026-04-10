@@ -393,7 +393,7 @@ function installPWA() {
 }
 // ── Firebase Service Worker registration ──
 if ('serviceWorker' in navigator) {
-  const swPath = location.pathname.replace(//[^/]*$/, '/') + 'firebase-messaging-sw.js';
+  const swPath = location.pathname.replace(/\/[^\/]*$/, '/') + 'firebase-messaging-sw.js';
   navigator.serviceWorker.register(swPath).catch(() => {});
 }
 
