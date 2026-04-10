@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ChèrmisiArt — Promemoria</title>
+<meta name="theme-color" content="#b5834a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Promemoria">
+<link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -93,6 +99,42 @@
   .divider { display: flex; align-items: center; gap: 12px; margin: 16px 0; } .divider::before, .divider::after { content: ''; flex: 1; border-top: 1px solid var(--border); } .divider span { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
   .notif-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--green); margin-top: 8px; }
   .notif-status.off { color: var(--muted); }
+
+  /* Clock Picker */
+  .clock-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.15s ease; }
+  .clock-modal { background: #1a160f; border: 1px solid var(--border); border-radius: 20px; padding: 24px; width: 300px; max-width: 95vw; }
+  .clock-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 16px; }
+  .clock-display { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 20px; }
+  .clock-seg { font-family: 'Cormorant Garamond', serif; font-size: 48px; font-weight: 300; color: var(--text); background: var(--card2); border-radius: 10px; padding: 8px 16px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent; }
+  .clock-seg.active { border-color: var(--accent); color: var(--accent); }
+  .clock-colon { font-size: 40px; color: var(--muted); }
+  .clock-face { position: relative; width: 220px; height: 220px; margin: 0 auto 20px; border-radius: 50%; background: var(--card2); border: 1px solid var(--border); touch-action: none; }
+  .clock-center { position: absolute; top: 50%; left: 50%; width: 8px; height: 8px; background: var(--accent); border-radius: 50%; transform: translate(-50%,-50%); z-index: 2; }
+  .clock-hand { position: absolute; top: 50%; left: 50%; width: 2px; background: var(--accent); transform-origin: bottom center; border-radius: 2px; z-index: 1; transition: transform 0.1s; }
+  .clock-num { position: absolute; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 14px; color: var(--muted); cursor: pointer; transition: all 0.15s; transform: translate(-50%,-50%); }
+  .clock-num:hover, .clock-num.selected { background: var(--accent); color: #fff; }
+  .clock-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+  .time-trigger { display: flex; align-items: center; gap: 6px; background: var(--card2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; cursor: pointer; color: var(--text); font-size: 14px; transition: border-color 0.2s; width: 100%; }
+  .time-trigger:hover { border-color: var(--accent); }
+  .time-trigger .tv { flex: 1; color: var(--text); }
+  .time-trigger .tv.empty { color: var(--muted); }
+
+  /* Storico trattamenti */
+  .client-item { cursor: pointer; transition: border-color 0.2s; }
+  .client-item:hover { border-color: var(--accent); }
+  .storico-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; display: flex; align-items: flex-end; justify-content: center; animation: fadeIn 0.15s ease; }
+  .storico-modal { background: #1a160f; border: 1px solid var(--border); border-radius: 20px 20px 0 0; padding: 24px; width: 100%; max-width: 600px; max-height: 82vh; overflow-y: auto; }
+  .storico-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .storico-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 400; }
+  .storico-close { background: transparent; border: none; color: var(--muted); font-size: 22px; cursor: pointer; line-height: 1; }
+  .storico-close:hover { color: #c0504a; }
+  .seduta-item { background: var(--card2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 8px; }
+  .seduta-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .seduta-data { font-size: 11px; color: var(--muted); letter-spacing: 0.06em; }
+  .seduta-trattamento { font-size: 14px; color: var(--text); font-weight: 400; }
+  .seduta-note { font-size: 13px; color: #a89070; font-style: italic; margin-top: 6px; line-height: 1.5; }
+  .add-seduta-box { background: var(--card2); border: 1px dashed var(--border); border-radius: 10px; padding: 14px; margin-top: 12px; }
+  .add-seduta-title { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
 </style>
 </head>
 <body>
@@ -120,6 +162,14 @@
         <div class="perm-text" id="notif-text">Attiva le notifiche push per ricevere gli avvisi anche con il telefono in standby.</div>
         <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="requestPushNotif()">Attiva notifiche</button>
         <div id="notif-status-label" class="notif-status off" style="display:none"></div>
+      </div>
+    </div>
+
+    <div id="pwa-install-box" class="perm-box" style="display:none;background:#1a2810;border-color:#3a5020">
+      <div class="perm-icon">📲</div>
+      <div>
+        <div class="perm-text" style="color:#8ec86a">Installa l'app sul telefono per ricevere le notifiche anche a schermo spento.</div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px;border-color:#3a5020;color:#8ec86a" onclick="installPWA()">Installa app</button>
       </div>
     </div>
 
@@ -180,7 +230,11 @@
           </div>
           <div class="field">
             <label>Orario appuntamento</label>
-            <input type="time" id="r-appt-time" onchange="autoFillMsg()">
+            <div class="time-trigger" onclick="openClock('r-appt-time', autoFillMsg)">
+              <span class="tv empty" id="r-appt-time-display">Seleziona orario</span>
+              <span>🕐</span>
+            </div>
+            <input type="hidden" id="r-appt-time">
           </div>
         </div>
         <div class="field">
@@ -199,7 +253,18 @@
 
       <div class="field">
         <label>Invia promemoria il</label>
-        <input type="datetime-local" id="r-sendat">
+        <div class="row" style="gap:8px">
+          <div class="field" style="margin-bottom:0">
+            <input type="date" id="r-sendat-date" style="font-size:13px">
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <div class="time-trigger" onclick="openClock('r-sendat-time', null)" style="padding:9px 14px">
+              <span class="tv empty" id="r-sendat-time-display">Ora</span>
+              <span>🕐</span>
+            </div>
+            <input type="hidden" id="r-sendat-time">
+          </div>
+        </div>
         <div class="hint">Quando vuoi ricevere la notifica per scrivere</div>
       </div>
 
@@ -318,9 +383,26 @@ document.dispatchEvent(new Event('firebaseReady'));
 </script>
 
 <script>
+// ── PWA Install ──
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('pwa-install-box').style.display = 'flex';
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('pwa-install-box').style.display = 'none';
+  showToast('✅ App installata!');
+});
+function installPWA() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+}
 // ── Firebase Service Worker registration ──
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/firebase-messaging-sw.js').catch(() => {});
+  const swPath = location.pathname.replace(//[^/]*$/, '/') + 'firebase-messaging-sw.js';
+  navigator.serviceWorker.register(swPath).catch(() => {});
 }
 
 const GCAL_CLIENT_ID = '1008023462326-a6lmnc40srkh6hkks1e5eed90psb9aim.apps.googleusercontent.com';
@@ -489,10 +571,11 @@ async function loadCalendarEvents() {
       const pad = n => String(n).padStart(2,'0');
       const dateVal = `${start.getFullYear()}-${pad(start.getMonth()+1)}-${pad(start.getDate())}`;
       const timeVal = e.start.dateTime ? `${pad(start.getHours())}:${pad(start.getMinutes())}` : '';
-      return `<div class="gcal-event">
+      return `<div class="gcal-event" id="gcalevent-${escHtml(dateVal+timeVal+e.summary)}">
         <div class="gcal-dot"></div>
         <div class="gcal-info"><div class="gcal-name">${escHtml(e.summary||'Appuntamento')}</div><div class="gcal-time">${dateStr} · ${timeStr}</div></div>
         <button class="gcal-use-btn" onclick="useEvent('${escJs(e.summary||'Appuntamento')}','${escJs(dateVal)}','${escJs(timeVal)}')">Usa →</button>
+        <button onclick="this.closest('.gcal-event').remove()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1" title="Rimuovi">✕</button>
       </div>`;
     }).join('');
   } catch { listEl.innerHTML = '<div class="empty" style="padding:16px">Errore nel caricamento</div>'; }
@@ -503,9 +586,12 @@ function useEvent(title, dateVal, timeVal) {
   const reminderDate = new Date(start);
   reminderDate.setDate(reminderDate.getDate() - 1);
   const pad = n => String(n).padStart(2,'0');
-  const dtLocal = `${reminderDate.getFullYear()}-${pad(reminderDate.getMonth()+1)}-${pad(reminderDate.getDate())}T10:00`;
-  document.getElementById('r-sendat').value = dtLocal;
+  const rDate = `${reminderDate.getFullYear()}-${pad(reminderDate.getMonth()+1)}-${pad(reminderDate.getDate())}`;
+  document.getElementById('r-sendat-date').value = rDate;
+  document.getElementById('r-sendat-time').value = '10:00';
+  const sd = document.getElementById('r-sendat-time-display'); if(sd){sd.textContent='10:00';sd.classList.remove('empty');}
   document.getElementById('r-appt-time').value = timeVal;
+  const ad = document.getElementById('r-appt-time-display'); if(ad&&timeVal){ad.textContent=timeVal;ad.classList.remove('empty');}
   document.getElementById('r-appt-date').value = dateVal;
   document.getElementById('r-trattamento').value = title;
   document.getElementById('r-type').value = 'appointment';
@@ -651,7 +737,9 @@ function applyTemplate() {
 // ── Reminders ──
 function addReminder() {
   const clientId = document.getElementById('r-client').value;
-  const sendAt = document.getElementById('r-sendat').value;
+  const sendDate = document.getElementById('r-sendat-date').value;
+  const sendTime = document.getElementById('r-sendat-time').value;
+  const sendAt = sendDate && sendTime ? sendDate + 'T' + sendTime : '';
   if (!clientId||!sendAt) { showToast('Seleziona cliente e data/ora'); return; }
   const client = clients.find(c=>c.id===clientId);
   const type = document.getElementById('r-type').value;
@@ -666,9 +754,12 @@ function addReminder() {
   save(KEY_REMINDERS, reminders);
   // Reset form
   document.getElementById('r-client').value='';
-  document.getElementById('r-sendat').value='';
+  document.getElementById('r-sendat-date').value='';
+  document.getElementById('r-sendat-time').value='';
+  const sd = document.getElementById('r-sendat-time-display'); if(sd){sd.textContent='Ora';sd.classList.add('empty');}
   document.getElementById('r-appt-date').value='';
   document.getElementById('r-appt-time').value='';
+  const ad = document.getElementById('r-appt-time-display'); if(ad){ad.textContent='Seleziona orario';ad.classList.add('empty');}
   if(document.getElementById('r-trattamento')) document.getElementById('r-trattamento').value='';
   if(document.getElementById('r-seduta')) document.getElementById('r-seduta').value='';
   document.getElementById('r-template').value='';
@@ -744,7 +835,7 @@ function renderClients() {
   el.innerHTML=clients.map(c=>{
     const link=waLink(c.phone);
     const waBtn=link?`<a href="${escHtml(link)}" target="_blank" class="btn-wa">💬</a>`:'';
-    return `<div class="client-item"><div class="c-avatar">${escHtml(c.name.charAt(0).toUpperCase())}</div><div style="flex:1;min-width:0"><div class="c-name">${escHtml(c.name)}</div><div class="c-phone">${escHtml(c.phone||'—')}${c.notes?` &nbsp;·&nbsp; ${escHtml(c.notes)}`:''}</div></div><div class="c-actions">${waBtn}<button class="btn btn-danger" onclick="deleteClient('${c.id}')">✕</button></div></div>`;
+    return `<div class="client-item" onclick="openStorico('${c.id}')"><div class="c-avatar">${escHtml(c.name.charAt(0).toUpperCase())}</div><div style="flex:1;min-width:0"><div class="c-name">${escHtml(c.name)}</div><div class="c-phone">${escHtml(c.phone||'—')}${c.notes?` &nbsp;·&nbsp; ${escHtml(c.notes)}`:''}</div></div><div class="c-actions">${waBtn}<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openStorico('${c.id}')">📋 Storico</button><button class="btn btn-danger" onclick="event.stopPropagation();deleteClient('${c.id}')">✕</button></div></div>`;
   }).join('');
 }
 
@@ -796,6 +887,148 @@ function rescheduleAll() {
     const client = clients.find(c=>c.id===r.clientId);
     scheduleLocalNotification(r, client?.name);
   });
+}
+
+// ── Clock Picker ──
+let clockTarget = null, clockCallback = null, clockMode = 'h';
+let clockH = 0, clockM = 0;
+
+function openClock(targetId, cb) {
+  clockTarget = targetId;
+  clockCallback = cb;
+  const cur = document.getElementById(targetId).value;
+  if (cur) { const p = cur.split(':'); clockH = parseInt(p[0])||0; clockM = parseInt(p[1])||0; }
+  else { clockH = 9; clockM = 0; }
+  clockMode = 'h';
+  renderClock();
+}
+
+function renderClock() {
+  document.querySelectorAll('.clock-overlay').forEach(e => e.remove());
+  const overlay = document.createElement('div');
+  overlay.className = 'clock-overlay';
+  overlay.innerHTML = `
+    <div class="clock-modal" onclick="event.stopPropagation()">
+      <div class="clock-title">Seleziona orario</div>
+      <div class="clock-display">
+        <div class="clock-seg${clockMode==='h'?' active':''}" onclick="clockMode='h';renderClock()">${String(clockH).padStart(2,'0')}</div>
+        <div class="clock-colon">:</div>
+        <div class="clock-seg${clockMode==='m'?' active':''}" onclick="clockMode='m';renderClock()">${String(clockM).padStart(2,'0')}</div>
+      </div>
+      <div class="clock-face" id="clockFace">
+        <div class="clock-center"></div>
+        <div class="clock-hand" id="clockHand"></div>
+      </div>
+      <div class="clock-actions">
+        <button class="btn btn-ghost btn-sm" onclick="closeClock()">Annulla</button>
+        <button class="btn btn-primary btn-sm" onclick="confirmClock()">OK</button>
+      </div>
+    </div>`;
+  overlay.onclick = closeClock;
+  document.body.appendChild(overlay);
+
+  const face = document.getElementById('clockFace');
+  const R = face.offsetWidth / 2;
+  const nums = clockMode === 'h'
+    ? [12,1,2,3,4,5,6,7,8,9,10,11]
+    : [0,5,10,15,20,25,30,35,40,45,50,55];
+  const r = R * 0.78;
+  nums.forEach((n, i) => {
+    const angle = (i / 12) * Math.PI * 2 - Math.PI / 2;
+    const x = R + r * Math.cos(angle);
+    const y = R + r * Math.sin(angle);
+    const el = document.createElement('div');
+    el.className = 'clock-num' + ((clockMode==='h' && (n===clockH||(n===12&&clockH===0))) || (clockMode==='m' && n===clockM) ? ' selected' : '');
+    el.textContent = n;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.onclick = () => { if(clockMode==='h'){clockH=(n===12?0:n);clockMode='m';}else{clockM=n;} renderClock(); };
+    face.appendChild(el);
+  });
+
+  // Lancetta
+  const val = clockMode === 'h' ? (clockH % 12) : clockM / 5;
+  const angle = (val / 12) * 360 - 90;
+  const hand = document.getElementById('clockHand');
+  hand.style.height = (R * 0.7) + 'px';
+  hand.style.marginLeft = '-1px';
+  hand.style.bottom = '50%';
+  hand.style.transform = `rotate(${angle + 90}deg)`;
+}
+
+function closeClock() { document.querySelectorAll('.clock-overlay').forEach(e => e.remove()); }
+
+function confirmClock() {
+  const val = String(clockH).padStart(2,'0') + ':' + String(clockM).padStart(2,'0');
+  document.getElementById(clockTarget).value = val;
+  const disp = document.getElementById(clockTarget + '-display');
+  if (disp) { disp.textContent = val; disp.classList.remove('empty'); }
+  closeClock();
+  if (clockCallback) clockCallback();
+}
+
+// ── Storico Trattamenti ──
+const KEY_STORICO = 'chermisi_storico';
+let storico = load(KEY_STORICO, {}); // { clientId: [{id, data, trattamento, note}] }
+
+function openStorico(clientId) {
+  const client = clients.find(c => c.id === clientId);
+  if (!client) return;
+  const sedute = (storico[clientId] || []).sort((a,b) => new Date(b.data) - new Date(a.data));
+  document.querySelectorAll('.storico-overlay').forEach(e => e.remove());
+  const overlay = document.createElement('div');
+  overlay.className = 'storico-overlay';
+  overlay.innerHTML = `
+    <div class="storico-modal" onclick="event.stopPropagation()">
+      <div class="storico-header">
+        <div class="storico-title">📋 ${escHtml(client.name)}</div>
+        <button class="storico-close" onclick="closeStorico()">✕</button>
+      </div>
+      <div id="sedute-list">
+        ${sedute.length ? sedute.map(s => `
+          <div class="seduta-item">
+            <div class="seduta-header">
+              <div class="seduta-data">📅 ${new Date(s.data+'T12:00:00').toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'})}</div>
+              <button onclick="deleteSeduta('${clientId}','${s.id}')" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px">✕</button>
+            </div>
+            <div class="seduta-trattamento">${escHtml(s.trattamento)}</div>
+            ${s.note ? `<div class="seduta-note">${escHtml(s.note)}</div>` : ''}
+          </div>`).join('') : '<div class="empty" style="padding:20px">Nessuna seduta registrata</div>'}
+      </div>
+      <div class="add-seduta-box">
+        <div class="add-seduta-title">✦ Aggiungi seduta</div>
+        <div class="row">
+          <div class="field"><label>Data</label><input type="date" id="ns-data" value="${new Date().toISOString().slice(0,10)}"></div>
+          <div class="field"><label>Trattamento</label><input id="ns-tratt" placeholder="Es. manicure, massaggio..."></div>
+        </div>
+        <div class="field"><label>Osservazioni (opzionale)</label><textarea id="ns-note" placeholder="Note sulla seduta..." style="min-height:60px"></textarea></div>
+        <button class="btn btn-primary btn-sm" onclick="addSeduta('${clientId}')">Aggiungi</button>
+      </div>
+    </div>`;
+  overlay.onclick = closeStorico;
+  document.body.appendChild(overlay);
+}
+
+function closeStorico() { document.querySelectorAll('.storico-overlay').forEach(e => e.remove()); }
+
+function addSeduta(clientId) {
+  const data = document.getElementById('ns-data').value;
+  const trattamento = document.getElementById('ns-tratt').value.trim();
+  const note = document.getElementById('ns-note').value.trim();
+  if (!data || !trattamento) { showToast('Inserisci data e trattamento'); return; }
+  if (!storico[clientId]) storico[clientId] = [];
+  storico[clientId].push({ id: uid(), data, trattamento, note });
+  save(KEY_STORICO, storico);
+  const client = clients.find(c => c.id === clientId);
+  showToast('✅ Seduta aggiunta!');
+  openStorico(clientId);
+}
+
+function deleteSeduta(clientId, sedutaId) {
+  if (!storico[clientId]) return;
+  storico[clientId] = storico[clientId].filter(s => s.id !== sedutaId);
+  save(KEY_STORICO, storico);
+  openStorico(clientId);
 }
 
 // ── Init ──
