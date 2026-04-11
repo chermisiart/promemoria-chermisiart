@@ -16,7 +16,7 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --accent: #b5834a; --accent2: #7c5c3a; --crimson: #DC143C; --bg: #0e0c0a; --card: #18140f;
+    --accent: #25d366; --accent2: #1aad4f; --crimson: #DC143C; --bg: #0e0c0a; --card: #18140f;
     --card2: #211c14; --border: #2e2416; --text: #f0e8dc; --muted: #7a6a57; --green: #5ba08a;
   }
   body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 300; min-height: 100vh; }
@@ -341,6 +341,7 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getMessaging, getToken, onMessage } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js';
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD9lmycIBZZm7Ef3GumXYBcYEYMLeo4y0c",
@@ -356,9 +357,17 @@ const VAPID_KEY = 'BLbzVS8xKGAElYafzma0JKo-sr36y4K4Tot2S-VFfIgcGnQ52FpQ4uTv5DVnU
 
 const app = initializeApp(firebaseConfig);
 const messaging = getMessaging(app);
+const db = getFirestore(app);
 
 window._firebaseMessaging = messaging;
 window._vapidKey = VAPID_KEY;
+window._db = db;
+window._fsDoc = doc;
+window._fsSetDoc = setDoc;
+window._fsGetDoc = getDoc;
+window._fsCollection = collection;
+window._fsGetDocs = getDocs;
+window._fsDeleteDoc = deleteDoc;
 
 // Ascolta messaggi in foreground
 onMessage(messaging, (payload) => {
@@ -405,6 +414,7 @@ const KEY_REMINDERS = 'chermisi_reminders';
 const KEY_TEMPLATES = 'chermisi_templates';
 const KEY_TOKEN     = 'chermisi_gtoken';
 const KEY_FCM       = 'chermisi_fcm_token';
+const KEY_STORICO   = 'chermisi_storico';
 
 const DEFAULT_TEMPLATES = [
   { id: 't1', name: 'Conferma appuntamento', type: 'confirm',
@@ -417,8 +427,59 @@ const DEFAULT_TEMPLATES = [
     text: 'Ciao {nome}! Ti invio un promemoria per ricordarti che è il momento di riprogrammare il tuo appuntamento per {trattamento} — settimana prossima sarebbe il momento giusto per mantenere i risultati al meglio 😊 Fammi sapere quando sei disponibile. A presto!' },
 ];
 
-function load(key, def) { try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : def; } catch { return def; } }
-function save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+// ── Storage: localStorage + Firestore sync ──
+const USER_DOC = 'chermisiart_user';
+
+function load(key, def) { 
+  try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : def; } 
+  catch { return def; } 
+}
+function save(key, val) { 
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch {} 
+  // Sync su Firestore in background
+  fsSync(key, val);
+}
+
+async function fsSync(key, val) {
+  if (!window._db) return;
+  try {
+    await window._fsSetDoc(
+      window._fsDoc(window._db, 'chermisiart', key),
+      { data: JSON.stringify(val), updatedAt: new Date().toISOString() }
+    );
+  } catch(e) { console.warn('Firestore sync error:', e); }
+}
+
+async function fsLoadAll() {
+  if (!window._db) return;
+  try {
+    const keys = [KEY_CLIENTS, KEY_REMINDERS, KEY_TEMPLATES, KEY_STORICO];
+    for (const key of keys) {
+      const snap = await window._fsGetDoc(window._fsDoc(window._db, 'chermisiart', key));
+      if (snap.exists()) {
+        const val = JSON.parse(snap.data().data);
+        localStorage.setItem(key, JSON.stringify(val));
+        // Aggiorna variabili in memoria
+        if (key === KEY_CLIENTS) { clients = val; }
+        if (key === KEY_REMINDERS) { reminders = val; }
+        if (key === KEY_TEMPLATES) { templates = val.length ? val : DEFAULT_TEMPLATES; }
+        if (key === KEY_STORICO) { storico = val; }
+      }
+    }
+    showToast('✅ Dati sincronizzati dal cloud!');
+    renderClients(); renderReminders(); renderTemplates(); renderClientSelect(); renderTemplateSelect();
+    rescheduleAll();
+  } catch(e) { console.warn('Firestore load error:', e); }
+}
+
+// Carica da Firestore quando Firebase è pronto
+document.addEventListener('firebaseReady', () => {
+  import('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js').then(({ getToken }) => {
+    window.getToken = getToken;
+  });
+  checkNotifUI();
+  setTimeout(fsLoadAll, 1000);
+});
 
 let clients   = load(KEY_CLIENTS, []);
 let reminders = load(KEY_REMINDERS, []);
@@ -483,13 +544,7 @@ function checkNotifUI() {
   updateNotifUI(granted);
 }
 
-// Importa getToken da firebase quando è pronto
-document.addEventListener('firebaseReady', () => {
-  import('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js').then(({ getToken }) => {
-    window.getToken = getToken;
-  });
-  checkNotifUI();
-});
+// firebaseReady listener già definito sopra con fsLoadAll
 
 // ── Google Calendar Auth ──
 function initGoogleAuth() {
@@ -582,6 +637,7 @@ function useEvent(title, dateVal, timeVal) {
   document.getElementById('r-sendat-date').value = rDate;
   document.getElementById('r-sendat-time').value = '10:00';
   document.getElementById('r-appt-date').value = dateVal;
+  if (timeVal) document.getElementById('r-appt-time').value = timeVal;
   document.getElementById('r-trattamento').value = title;
   document.getElementById('r-type').value = 'appointment';
   onTypeChange();
@@ -956,13 +1012,14 @@ function confirmClock() {
 }
 
 // ── Storico Trattamenti ──
-const KEY_STORICO = 'chermisi_storico';
+// KEY_STORICO già definito sopra
 let storico = load(KEY_STORICO, {}); // { clientId: [{id, data, trattamento, note}] }
 
 function openStorico(clientId) {
   const client = clients.find(c => c.id === clientId);
   if (!client) return;
   const sedute = (storico[clientId] || []).sort((a,b) => new Date(b.data) - new Date(a.data));
+  const precauzioni = (storico[clientId+'_precauzioni'] || '');
   document.querySelectorAll('.storico-overlay').forEach(e => e.remove());
   const overlay = document.createElement('div');
   overlay.className = 'storico-overlay';
@@ -972,15 +1029,29 @@ function openStorico(clientId) {
         <div class="storico-title">📋 ${escHtml(client.name)}</div>
         <button class="storico-close" onclick="closeStorico()">✕</button>
       </div>
+      <div style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="font-size:11px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase">Note / Precauzioni</div>
+          <button class="btn btn-ghost btn-sm" onclick="togglePrecauzioni('${clientId}')" id="btn-prec-toggle">✏️ Modifica</button>
+        </div>
+        <div id="prec-display" style="font-size:13px;color:#f0e8dc;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;min-height:36px">${precauzioni ? escHtml(precauzioni) : '<span style="color:var(--muted);font-style:italic">Nessuna nota</span>'}</div>
+        <div id="prec-edit" style="display:none">
+          <textarea id="prec-text" style="width:100%;margin-top:6px;min-height:70px">${escHtml(precauzioni)}</textarea>
+          <button class="btn btn-primary btn-sm" style="margin-top:6px" onclick="savePrecauzioni('${clientId}')">Salva</button>
+        </div>
+      </div>
       <div id="sedute-list">
         ${sedute.length ? sedute.map(s => `
-          <div class="seduta-item">
+          <div class="seduta-item" id="seduta-${s.id}">
             <div class="seduta-header">
               <div class="seduta-data">📅 ${new Date(s.data+'T12:00:00').toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'})}</div>
-              <button onclick="deleteSeduta('${clientId}','${s.id}')" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px">✕</button>
+              <div style="display:flex;gap:6px">
+                <button onclick="editSeduta('${clientId}','${s.id}')" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:13px">✏️</button>
+                <button onclick="deleteSeduta('${clientId}','${s.id}')" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px">✕</button>
+              </div>
             </div>
-            <div class="seduta-trattamento">${escHtml(s.trattamento)}</div>
-            ${s.note ? `<div class="seduta-note">${escHtml(s.note)}</div>` : ''}
+            <div class="seduta-trattamento" id="tratt-${s.id}">${escHtml(s.trattamento)}</div>
+            ${s.note ? `<div class="seduta-note" id="note-${s.id}">${escHtml(s.note)}</div>` : `<div class="seduta-note" id="note-${s.id}" style="display:none"></div>`}
           </div>`).join('') : '<div class="empty" style="padding:20px">Nessuna seduta registrata</div>'}
       </div>
       <div class="add-seduta-box">
@@ -995,6 +1066,55 @@ function openStorico(clientId) {
     </div>`;
   overlay.onclick = closeStorico;
   document.body.appendChild(overlay);
+}
+
+function togglePrecauzioni(clientId) {
+  const display = document.getElementById('prec-display');
+  const edit = document.getElementById('prec-edit');
+  if (edit.style.display === 'none') {
+    edit.style.display = 'block';
+    display.style.display = 'none';
+  } else {
+    edit.style.display = 'none';
+    display.style.display = 'block';
+  }
+}
+
+function savePrecauzioni(clientId) {
+  const val = document.getElementById('prec-text').value.trim();
+  storico[clientId+'_precauzioni'] = val;
+  save(KEY_STORICO, storico);
+  showToast('✅ Note salvate!');
+  openStorico(clientId);
+}
+
+function editSeduta(clientId, sedutaId) {
+  const s = (storico[clientId]||[]).find(x => x.id === sedutaId);
+  if (!s) return;
+  const trattEl = document.getElementById('tratt-'+sedutaId);
+  const noteEl = document.getElementById('note-'+sedutaId);
+  const sedutaEl = document.getElementById('seduta-'+sedutaId);
+  // Sostituisce il contenuto con un form di modifica inline
+  const origHTML = sedutaEl.innerHTML;
+  sedutaEl.innerHTML = `
+    <div class="field" style="margin-bottom:8px"><label>Trattamento</label><input id="edit-tratt-${sedutaId}" value="${escHtml(s.trattamento)}"></div>
+    <div class="field" style="margin-bottom:8px"><label>Data</label><input type="date" id="edit-data-${sedutaId}" value="${s.data}"></div>
+    <div class="field" style="margin-bottom:8px"><label>Note</label><textarea id="edit-note-${sedutaId}" style="min-height:50px">${escHtml(s.note||'')}</textarea></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" onclick="saveSeduta('${clientId}','${sedutaId}')">Salva</button>
+      <button class="btn btn-ghost btn-sm" onclick="openStorico('${clientId}')">Annulla</button>
+    </div>`;
+}
+
+function saveSeduta(clientId, sedutaId) {
+  const trattamento = document.getElementById('edit-tratt-'+sedutaId).value.trim();
+  const data = document.getElementById('edit-data-'+sedutaId).value;
+  const note = document.getElementById('edit-note-'+sedutaId).value.trim();
+  if (!trattamento || !data) { showToast('Inserisci data e trattamento'); return; }
+  storico[clientId] = (storico[clientId]||[]).map(s => s.id===sedutaId ? {...s, trattamento, data, note} : s);
+  save(KEY_STORICO, storico);
+  showToast('✅ Seduta aggiornata!');
+  openStorico(clientId);
 }
 
 function closeStorico() { document.querySelectorAll('.storico-overlay').forEach(e => e.remove()); }
