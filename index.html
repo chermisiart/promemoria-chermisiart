@@ -387,6 +387,15 @@ window._fsGetDoc = getDoc;
 window._fsCollection = collection;
 window._fsGetDocs = getDocs;
 window._fsDeleteDoc = deleteDoc;
+window._swRegistration = null;
+
+// Registra il SW qui nel modulo e salva il riferimento,
+// così getToken() userà questa registrazione invece di tentarne una propria.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/firebase-messaging-sw.js')
+    .then(reg => { window._swRegistration = reg; })
+    .catch(err => console.warn('SW registration failed:', err));
+}
 
 // Ascolta messaggi in foreground
 onMessage(messaging, (payload) => {
@@ -419,11 +428,7 @@ function installPWA() {
   deferredPrompt.prompt();
   deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
 }
-// ── Firebase Service Worker registration ──
-if ('serviceWorker' in navigator) {
-  const swPath = location.pathname.replace(/\/[^\/]*$/, '/') + 'firebase-messaging-sw.js';
-  navigator.serviceWorker.register(swPath).catch(() => {});
-}
+// SW registrato nel modulo Firebase (vedi script type="module" sopra)
 
 const GCAL_CLIENT_ID = '1008023462326-a6lmnc40srkh6hkks1e5eed90psb9aim.apps.googleusercontent.com';
 const GCAL_SCOPES = 'https://www.googleapis.com/auth/calendar.readonly profile email openid';
@@ -530,6 +535,16 @@ function switchTab(tab, btn) {
   btn.classList.add('active');
 }
 
+// Attende che il Service Worker sia registrato (max 5s)
+async function getSwRegistration() {
+  let attempts = 0;
+  while (!window._swRegistration && attempts < 25) {
+    await new Promise(r => setTimeout(r, 200));
+    attempts++;
+  }
+  return window._swRegistration || undefined;
+}
+
 // ── Firebase Push Notifications ──
 async function requestPushNotif() {
   if (!window._firebaseReady) {
@@ -539,7 +554,8 @@ async function requestPushNotif() {
   try {
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') { showToast('Notifiche non autorizzate'); return; }
-    const token = await window._getToken(window._firebaseMessaging, { vapidKey: window._vapidKey });
+    const swReg = await getSwRegistration();
+    const token = await window._getToken(window._firebaseMessaging, { vapidKey: window._vapidKey, serviceWorkerRegistration: swReg });
     if (token) {
       localStorage.setItem(KEY_FCM, token);
       // Salva il token su Firestore così la Cloud Function può usarlo
@@ -548,9 +564,8 @@ async function requestPushNotif() {
       showToast('✅ Notifiche push attivate!');
     }
   } catch(e) {
-    // Fallback alle notifiche browser normali
-    const perm = await Notification.requestPermission();
-    if (perm === 'granted') { updateNotifUI(true); showToast('✅ Notifiche attivate!'); }
+    showToast('❌ Errore notifiche: ' + e.message.slice(0, 60));
+    console.error('requestPushNotif error:', e);
   }
 }
 
@@ -587,7 +602,8 @@ async function forceSaveToken() {
   try {
     if (!window._firebaseReady) { showToast('❌ Firebase non pronto, riprova'); return; }
     if (Notification.permission !== 'granted') { showToast('❌ Notifiche non autorizzate'); return; }
-    const token = await window._getToken(window._firebaseMessaging, { vapidKey: window._vapidKey });
+    const swReg = await getSwRegistration();
+    const token = await window._getToken(window._firebaseMessaging, { vapidKey: window._vapidKey, serviceWorkerRegistration: swReg });
     if (token) {
       localStorage.setItem('chermisi_fcm_token', token);
       await saveFcmToken(token);
@@ -596,6 +612,7 @@ async function forceSaveToken() {
     }
   } catch(e) {
     showToast('❌ ' + e.message.slice(0,50));
+    console.error('forceSaveToken error:', e);
   }
 }
 
