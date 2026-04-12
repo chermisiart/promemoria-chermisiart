@@ -389,10 +389,15 @@ window._fsGetDocs = getDocs;
 window._fsDeleteDoc = deleteDoc;
 window._swRegistration = null;
 
-// Registra il SW qui nel modulo e salva il riferimento,
-// così getToken() userà questa registrazione invece di tentarne una propria.
+// Registra il SW con path relativo alla pagina corrente:
+// - Firebase Hosting (root):  /firebase-messaging-sw.js  ✓
+// - GitHub Pages (subdir):    /promemoria-chermisiart/firebase-messaging-sw.js  ✓
+// Il path assoluto '/firebase-messaging-sw.js' fallirebbe su GitHub Pages.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/firebase-messaging-sw.js')
+  const swBase = location.pathname.endsWith('/')
+    ? location.pathname
+    : location.pathname.replace(/\/[^/]*$/, '/');
+  navigator.serviceWorker.register(swBase + 'firebase-messaging-sw.js', { scope: swBase })
     .then(reg => { window._swRegistration = reg; })
     .catch(err => console.warn('SW registration failed:', err));
 }
@@ -535,14 +540,22 @@ function switchTab(tab, btn) {
   btn.classList.add('active');
 }
 
-// Attende che il Service Worker sia registrato (max 5s)
+// Attende che il Service Worker sia registrato (max 5s).
+// Se il SW non è ancora pronto, prova a recuperarlo dal browser
+// tramite navigator.serviceWorker.ready come fallback.
 async function getSwRegistration() {
   let attempts = 0;
   while (!window._swRegistration && attempts < 25) {
     await new Promise(r => setTimeout(r, 200));
     attempts++;
   }
-  return window._swRegistration || undefined;
+  if (window._swRegistration) return window._swRegistration;
+  // Fallback: usa il SW attivo sul browser (già registrato in precedenza)
+  try {
+    return await navigator.serviceWorker.ready;
+  } catch (e) {
+    return undefined;
+  }
 }
 
 // ── Firebase Push Notifications ──
