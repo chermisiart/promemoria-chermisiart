@@ -379,6 +379,7 @@ const db = getFirestore(app);
 
 window._firebaseMessaging = messaging;
 window._vapidKey = VAPID_KEY;
+window._getToken = getToken;
 window._db = db;
 window._fsDoc = doc;
 window._fsSetDoc = setDoc;
@@ -499,9 +500,6 @@ async function fsLoadAll() {
 
 // Carica da Firestore quando Firebase è pronto
 document.addEventListener('firebaseReady', () => {
-  import('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js').then(({ getToken }) => {
-    window.getToken = getToken;
-  });
   checkNotifUI();
   setTimeout(fsLoadAll, 1000);
 });
@@ -541,7 +539,7 @@ async function requestPushNotif() {
   try {
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') { showToast('Notifiche non autorizzate'); return; }
-    const token = await window.getToken(window._firebaseMessaging, { vapidKey: window._vapidKey });
+    const token = await window._getToken(window._firebaseMessaging, { vapidKey: window._vapidKey });
     if (token) {
       localStorage.setItem(KEY_FCM, token);
       // Salva il token su Firestore così la Cloud Function può usarlo
@@ -589,7 +587,7 @@ async function forceSaveToken() {
   try {
     if (!window._firebaseReady) { showToast('❌ Firebase non pronto, riprova'); return; }
     if (Notification.permission !== 'granted') { showToast('❌ Notifiche non autorizzate'); return; }
-    const token = await window.getToken(window._firebaseMessaging, { vapidKey: window._vapidKey });
+    const token = await window._getToken(window._firebaseMessaging, { vapidKey: window._vapidKey });
     if (token) {
       localStorage.setItem('chermisi_fcm_token', token);
       await saveFcmToken(token);
