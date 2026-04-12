@@ -773,7 +773,8 @@ function autoFillMsg() {
 function renderClientSelect() {
   const sel = document.getElementById('r-client');
   const cur = sel.value;
-  sel.innerHTML = '<option value="">Seleziona...</option>' + clients.map(c=>`<option value="${c.id}"${c.id===cur?' selected':''}>${escHtml(c.name)}</option>`).join('');
+  const sorted = [...clients].sort((a,b) => a.name.localeCompare(b.name, 'it'));
+  sel.innerHTML = '<option value="">Seleziona...</option>' + sorted.map(c=>`<option value="${c.id}"${c.id===cur?' selected':''}>${escHtml(c.name)}</option>`).join('');
 }
 function renderTemplateSelect() {
   const type = document.getElementById('r-type').value;
@@ -882,7 +883,8 @@ function renderClients() {
   document.getElementById('clients-count').textContent=clients.length+' clienti';
   const el=document.getElementById('clients-list');
   if (!clients.length) { el.innerHTML='<div class="empty">Nessuna cliente ancora. Aggiungine una sopra 🌸</div>'; return; }
-  el.innerHTML=clients.map(c=>{
+  const sorted=[...clients].sort((a,b)=>a.name.localeCompare(b.name,'it'));
+  el.innerHTML=sorted.map(c=>{
     const link=waLink(c.phone);
     const waBtn=link?`<a href="${escHtml(link)}" target="_blank" class="btn-wa">💬</a>`:'';
     const noteMeta = c.notes ? ' &nbsp;·&nbsp; ' + escHtml(c.notes) : '';
@@ -1047,6 +1049,15 @@ function openStorico(clientId) {
           <button class="btn btn-primary btn-sm" style="margin-top:6px" onclick="savePrecauzioni('${clientId}')">Salva</button>
         </div>
       </div>
+      <div class="add-seduta-box" style="margin-bottom:14px">
+        <div class="add-seduta-title">✦ Aggiungi seduta</div>
+        <div class="row">
+          <div class="field"><label>Data</label><input type="date" id="ns-data" value="${new Date().toISOString().slice(0,10)}"></div>
+          <div class="field"><label>Trattamento</label><input id="ns-tratt" placeholder="Es. manicure, massaggio..."></div>
+        </div>
+        <div class="field"><label>Osservazioni (opzionale)</label><textarea id="ns-note" placeholder="Note sulla seduta..." style="min-height:60px"></textarea></div>
+        <button class="btn btn-primary btn-sm" onclick="addSeduta('${clientId}')">Aggiungi</button>
+      </div>
       <div id="sedute-list">
         ${sedute.length ? sedute.map(s => `
           <div class="seduta-item" id="seduta-${s.id}">
@@ -1060,15 +1071,6 @@ function openStorico(clientId) {
             <div class="seduta-trattamento" id="tratt-${s.id}">${escHtml(s.trattamento)}</div>
             ${s.note ? `<div class="seduta-note" id="note-${s.id}">${escHtml(s.note)}</div>` : `<div class="seduta-note" id="note-${s.id}" style="display:none"></div>`}
           </div>`).join('') : '<div class="empty" style="padding:20px">Nessuna seduta registrata</div>'}
-      </div>
-      <div class="add-seduta-box">
-        <div class="add-seduta-title">✦ Aggiungi seduta</div>
-        <div class="row">
-          <div class="field"><label>Data</label><input type="date" id="ns-data" value="${new Date().toISOString().slice(0,10)}"></div>
-          <div class="field"><label>Trattamento</label><input id="ns-tratt" placeholder="Es. manicure, massaggio..."></div>
-        </div>
-        <div class="field"><label>Osservazioni (opzionale)</label><textarea id="ns-note" placeholder="Note sulla seduta..." style="min-height:60px"></textarea></div>
-        <button class="btn btn-primary btn-sm" onclick="addSeduta('${clientId}')">Aggiungi</button>
       </div>
     </div>`;
   overlay.onclick = closeStorico;
