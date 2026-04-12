@@ -441,12 +441,19 @@ function save(key, val) {
 }
 
 async function fsSync(key, val) {
+  // Aspetta fino a 3 secondi che Firebase sia pronto
+  let attempts = 0;
+  while (!window._db && attempts < 30) {
+    await new Promise(r => setTimeout(r, 100));
+    attempts++;
+  }
   if (!window._db) return;
   try {
     await window._fsSetDoc(
       window._fsDoc(window._db, 'chermisiart', key),
       { data: JSON.stringify(val), updatedAt: new Date().toISOString() }
     );
+    console.log('Firestore sync OK:', key);
   } catch(e) { console.warn('Firestore sync error:', e); }
 }
 
