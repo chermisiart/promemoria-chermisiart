@@ -562,15 +562,16 @@ async function saveFcmToken(token) {
     await new Promise(r => setTimeout(r, 200));
     attempts++;
   }
-  if (!window._db) { console.warn('DB non disponibile per salvataggio token'); return; }
-  if (!window._fsDoc || !window._fsSetDoc) { console.warn('Firestore functions non disponibili'); return; }
+  if (!window._db) { showToast('❌ DB non pronto'); return; }
   try {
-    const docId = token.slice(-28).replace(/[^a-zA-Z0-9]/g, 'x');
-    const tokenDoc = window._fsDoc(window._db, 'fcm_tokens', docId);
-    await window._fsSetDoc(tokenDoc, { token, updatedAt: new Date().toISOString(), device: navigator.userAgent.slice(0,50) });
-    console.log('Token FCM salvato su Firestore:', docId);
+    const tokenDoc = window._fsDoc(window._db, 'chermisiart', 'fcm_token_main');
+    await window._fsSetDoc(tokenDoc, { token, updatedAt: new Date().toISOString() });
+    console.log('Token FCM salvato:', token.slice(-10));
     showToast('✅ Token notifiche registrato!');
-  } catch(e) { console.warn('Errore salvataggio token FCM:', e.message); }
+  } catch(e) { 
+    showToast('❌ Errore: ' + e.message.slice(0,40));
+    console.warn('Errore token FCM:', e.message);
+  }
 }
 
 function updateNotifUI(granted) {
@@ -584,14 +585,20 @@ function updateNotifUI(granted) {
 }
 
 async function forceSaveToken() {
-  const stored = localStorage.getItem(KEY_FCM);
-  if (stored) {
-    showToast('Registrazione token in corso...');
-    await saveFcmToken(stored);
-    return;
+  showToast('Recupero token...');
+  try {
+    if (!window._firebaseReady) { showToast('❌ Firebase non pronto, riprova'); return; }
+    if (Notification.permission !== 'granted') { showToast('❌ Notifiche non autorizzate'); return; }
+    const token = await window.getToken(window._firebaseMessaging, { vapidKey: window._vapidKey });
+    if (token) {
+      localStorage.setItem('chermisi_fcm_token', token);
+      await saveFcmToken(token);
+    } else {
+      showToast('❌ Token non ottenuto da Firebase');
+    }
+  } catch(e) {
+    showToast('❌ ' + e.message.slice(0,50));
   }
-  // Nessun token salvato — richiedi di nuovo
-  await requestPushNotif();
 }
 
 function checkNotifUI() {
