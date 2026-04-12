@@ -11,11 +11,12 @@ exports.sendReminderNotifications = onSchedule(
     const db = getFirestore();
     const messaging = getMessaging();
 
-    // Leggi token FCM salvati
-    const tokenSnap = await db.collection("fcm_tokens").get();
-    if (tokenSnap.empty) return;
-    const tokens = tokenSnap.docs.map(d => d.data().token).filter(Boolean);
-    if (!tokens.length) return;
+    // Leggi token FCM salvato
+    const tokenSnap = await db.collection("chermisiart").doc("fcm_token_main").get();
+    if (!tokenSnap.exists) { console.log('Nessun token FCM trovato'); return; }
+    const token = tokenSnap.data().token;
+    if (!token) { console.log('Token vuoto'); return; }
+    const tokens = [token];
 
     // Leggi i promemoria
     const remSnap = await db.collection("chermisiart").doc("chermisi_reminders").get();
