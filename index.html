@@ -174,6 +174,7 @@
       <div>
         <div class="perm-text" id="notif-text">Attiva le notifiche push per ricevere gli avvisi anche con il telefono in standby.</div>
         <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="requestPushNotif()">Attiva notifiche</button>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px;margin-left:6px" onclick="forceSaveToken()">🔄 Registra token</button>
         <div id="notif-status-label" class="notif-status off" style="display:none"></div>
       </div>
     </div>
@@ -557,17 +558,19 @@ async function requestPushNotif() {
 
 async function saveFcmToken(token) {
   let attempts = 0;
-  while (!window._db && attempts < 30) {
-    await new Promise(r => setTimeout(r, 100));
+  while (!window._db && attempts < 60) {
+    await new Promise(r => setTimeout(r, 200));
     attempts++;
   }
-  if (!window._db) return;
+  if (!window._db) { console.warn('DB non disponibile per salvataggio token'); return; }
+  if (!window._fsDoc || !window._fsSetDoc) { console.warn('Firestore functions non disponibili'); return; }
   try {
-    // Usa il token stesso come ID documento (univoco per dispositivo)
-    const tokenDoc = window._fsDoc(window._db, 'fcm_tokens', token.slice(-20));
-    await window._fsSetDoc(tokenDoc, { token, updatedAt: new Date().toISOString() });
-    console.log('Token FCM salvato su Firestore');
-  } catch(e) { console.warn('Errore salvataggio token FCM:', e); }
+    const docId = token.slice(-28).replace(/[^a-zA-Z0-9]/g, 'x');
+    const tokenDoc = window._fsDoc(window._db, 'fcm_tokens', docId);
+    await window._fsSetDoc(tokenDoc, { token, updatedAt: new Date().toISOString(), device: navigator.userAgent.slice(0,50) });
+    console.log('Token FCM salvato su Firestore:', docId);
+    showToast('✅ Token notifiche registrato!');
+  } catch(e) { console.warn('Errore salvataggio token FCM:', e.message); }
 }
 
 function updateNotifUI(granted) {
@@ -580,9 +583,26 @@ function updateNotifUI(granted) {
   }
 }
 
+async function forceSaveToken() {
+  const stored = localStorage.getItem(KEY_FCM);
+  if (stored) {
+    showToast('Registrazione token in corso...');
+    await saveFcmToken(stored);
+    return;
+  }
+  // Nessun token salvato — richiedi di nuovo
+  await requestPushNotif();
+}
+
 function checkNotifUI() {
   const granted = typeof Notification !== 'undefined' && Notification.permission === 'granted';
   updateNotifUI(granted);
+  // Se già concesse, mostra comunque il box con il pulsante "Registra token"
+  if (granted) {
+    const box = document.getElementById('notif-box');
+    box.style.display = 'flex';
+    document.getElementById('notif-text').textContent = 'Notifiche attive. Se non ricevi avvisi, clicca "Registra token".';
+  }
 }
 
 // firebaseReady listener già definito sopra con fsLoadAll
