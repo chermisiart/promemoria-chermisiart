@@ -100,6 +100,19 @@
   .notif-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--green); margin-top: 8px; }
   .notif-status.off { color: var(--muted); }
 
+  /* Ricerca clienti nel select */
+  .select-search-wrap { position: relative; }
+  .select-search-input { width: 100%; background: var(--card2); border: 1px solid var(--border); border-bottom: none; border-radius: 8px 8px 0 0; padding: 8px 14px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none; }
+  .select-search-input:focus { border-color: var(--accent); }
+  .select-search-input + select { border-radius: 0 0 8px 8px; }
+  /* Ricerca archivio */
+  .archive-search { width: 100%; background: var(--card2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 14px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none; margin-bottom: 14px; }
+  .archive-search:focus { border-color: var(--accent); }
+  /* Copia numero */
+  .btn-copy-phone { background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; color: var(--muted); font-size: 11px; cursor: pointer; transition: all 0.2s; font-family: 'DM Sans', sans-serif; white-space: nowrap; }
+  .btn-copy-phone:hover { color: var(--text); border-color: var(--accent); }
+  .btn-copy-phone.copied { color: var(--green); border-color: var(--green); }
+
   /* Clock Picker */
   .clock-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.15s ease; }
   .clock-modal { background: #1a160f; border: 1px solid var(--border); border-radius: 20px; padding: 24px; width: 300px; max-width: 95vw; }
@@ -196,7 +209,10 @@
       <div class="field">
         <label>Cliente</label>
         <div class="picker-row">
-          <select id="r-client"></select>
+          <div class="select-search-wrap" style="flex:1">
+            <input class="select-search-input" id="r-client-search" placeholder="🔍 Cerca cliente..." oninput="filterClientSelect()" autocomplete="off">
+            <select id="r-client" style="border-radius:0 0 8px 8px"></select>
+          </div>
           <button class="btn-contact" id="btn-rubrica-r" onclick="pickContact('reminder')" style="display:none">📒</button>
           <button class="btn btn-ghost btn-sm" onclick="toggleQuickAdd()" id="btn-quickadd">+ Nuova</button>
         </div>
@@ -302,6 +318,7 @@
       <div class="section-title">Archivio clienti</div>
       <div class="section-count" id="clients-count"></div>
     </div>
+    <input class="archive-search" id="clients-search" placeholder="🔍 Cerca nell'archivio..." oninput="renderClients()" autocomplete="off">
     <div id="clients-list"></div>
   </div>
 
@@ -526,6 +543,8 @@ async function requestPushNotif() {
     const token = await window.getToken(window._firebaseMessaging, { vapidKey: window._vapidKey });
     if (token) {
       localStorage.setItem(KEY_FCM, token);
+      // Salva il token su Firestore così la Cloud Function può usarlo
+      await saveFcmToken(token);
       updateNotifUI(true);
       showToast('✅ Notifiche push attivate!');
     }
@@ -534,6 +553,21 @@ async function requestPushNotif() {
     const perm = await Notification.requestPermission();
     if (perm === 'granted') { updateNotifUI(true); showToast('✅ Notifiche attivate!'); }
   }
+}
+
+async function saveFcmToken(token) {
+  let attempts = 0;
+  while (!window._db && attempts < 30) {
+    await new Promise(r => setTimeout(r, 100));
+    attempts++;
+  }
+  if (!window._db) return;
+  try {
+    // Usa il token stesso come ID documento (univoco per dispositivo)
+    const tokenDoc = window._fsDoc(window._db, 'fcm_tokens', token.slice(-20));
+    await window._fsSetDoc(tokenDoc, { token, updatedAt: new Date().toISOString() });
+    console.log('Token FCM salvato su Firestore');
+  } catch(e) { console.warn('Errore salvataggio token FCM:', e); }
 }
 
 function updateNotifUI(granted) {
@@ -770,11 +804,30 @@ function autoFillMsg() {
   if (tpl) document.getElementById('r-msg').value = fillTemplate(tpl.text, getVars());
 }
 
+function copyPhone(id, phone) {
+  navigator.clipboard.writeText(phone).then(() => {
+    const btn = document.getElementById('cpphone-' + id);
+    if (btn) { btn.textContent = '✓ Copiato'; btn.classList.add('copied'); setTimeout(() => { btn.textContent = '📋 Numero'; btn.classList.remove('copied'); }, 1800); }
+  });
+}
+
+function filterClientSelect() {
+  const q = (document.getElementById('r-client-search')?.value || '').toLowerCase().trim();
+  const sorted = [...clients].sort((a, b) => a.name.localeCompare(b.name, 'it'));
+  const filtered = q ? sorted.filter(c => c.name.toLowerCase().includes(q) || (c.phone || '').includes(q)) : sorted;
+  const sel = document.getElementById('r-client');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Seleziona...</option>' + filtered.map(c => `<option value="${c.id}"${c.id === cur ? ' selected' : ''}>${escHtml(c.name)}${c.phone ? ' · ' + escHtml(c.phone) : ''}</option>`).join('');
+}
+
 function renderClientSelect() {
   const sel = document.getElementById('r-client');
   const cur = sel.value;
   const sorted = [...clients].sort((a,b) => a.name.localeCompare(b.name, 'it'));
-  sel.innerHTML = '<option value="">Seleziona...</option>' + sorted.map(c=>`<option value="${c.id}"${c.id===cur?' selected':''}>${escHtml(c.name)}</option>`).join('');
+  sel.innerHTML = '<option value="">Seleziona...</option>' + sorted.map(c=>`<option value="${c.id}"${c.id===cur?' selected':''}>${escHtml(c.name)}${c.phone ? ' · ' + escHtml(c.phone) : ''}</option>`).join('');
+  // Reset ricerca
+  const search = document.getElementById('r-client-search');
+  if (search) search.value = '';
 }
 function renderTemplateSelect() {
   const type = document.getElementById('r-type').value;
@@ -861,9 +914,10 @@ function renderReminders() {
     const link = waLink(client?.phone, r.message);
     const waBtn = link ? `<a href="${escHtml(link)}" target="_blank" class="btn-wa">💬 WhatsApp</a>` : '';
     const copyBtn = r.message ? `<button class="copy-btn" id="copy-${r.id}" onclick="copyMsg('${r.id}')">Copia msg</button>` : '';
+    const copyPhoneBtn = client?.phone ? `<button class="btn-copy-phone" id="cpphone-${r.id}" onclick="copyPhone('${r.id}','${escJs(client.phone)}')">📋 Numero</button>` : '';
     const msgPreview = r.message ? `<div class="r-msg">"${escHtml(r.message.slice(0,110))}${r.message.length>110?'…':''}"</div>` : '';
     const phoneMeta = client?.phone ? ` &nbsp;·&nbsp; 📱 ${escHtml(client.phone)}` : '';
-    return `<div class="reminder-item"><div class="r-dot ${dotCls}"></div><div class="r-info"><div class="r-name">${escHtml(client?.name||'—')}</div><div class="r-meta">📅 ${formatDate(r.sendAt)}${phoneMeta}</div>${msgPreview}<div class="r-badges">${statusBadge}${typeBadge}</div></div><div class="r-actions">${waBtn}${copyBtn}<button class="btn btn-danger" onclick="deleteReminder('${r.id}')">✕</button></div></div>`;
+    return `<div class="reminder-item"><div class="r-dot ${dotCls}"></div><div class="r-info"><div class="r-name">${escHtml(client?.name||'—')}</div><div class="r-meta">📅 ${formatDate(r.sendAt)}${phoneMeta}</div>${msgPreview}<div class="r-badges">${statusBadge}${typeBadge}</div></div><div class="r-actions">${waBtn}${copyBtn}${copyPhoneBtn}<button class="btn btn-danger" onclick="deleteReminder('${r.id}')">✕</button></div></div>`;
   }).join('');
 }
 
@@ -883,8 +937,11 @@ function renderClients() {
   document.getElementById('clients-count').textContent=clients.length+' clienti';
   const el=document.getElementById('clients-list');
   if (!clients.length) { el.innerHTML='<div class="empty">Nessuna cliente ancora. Aggiungine una sopra 🌸</div>'; return; }
+  const q = (document.getElementById('clients-search')?.value || '').toLowerCase().trim();
   const sorted=[...clients].sort((a,b)=>a.name.localeCompare(b.name,'it'));
-  el.innerHTML=sorted.map(c=>{
+  const filtered = q ? sorted.filter(c => c.name.toLowerCase().includes(q) || (c.phone||'').includes(q) || (c.notes||'').toLowerCase().includes(q)) : sorted;
+  if (!filtered.length) { el.innerHTML='<div class="empty">Nessun risultato per "'+escHtml(q)+'"</div>'; return; }
+  el.innerHTML=filtered.map(c=>{
     const link=waLink(c.phone);
     const waBtn=link?`<a href="${escHtml(link)}" target="_blank" class="btn-wa">💬</a>`:'';
     const noteMeta = c.notes ? ' &nbsp;·&nbsp; ' + escHtml(c.notes) : '';
