@@ -571,6 +571,11 @@ async function requestPushNotif() {
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') { showToast('Notifiche non autorizzate'); return; }
     const swReg = await getSwRegistration();
+    // Forza una nuova sottoscrizione push (elimina quella vecchia con VAPID errata)
+    try {
+      const existingSub = await swReg.pushManager.getSubscription();
+      if (existingSub) { await existingSub.unsubscribe(); console.log('Vecchia subscription eliminata'); }
+    } catch (ue) { console.warn('unsubscribe fallito:', ue.message); }
     const token = await window._getToken(window._firebaseMessaging, { vapidKey: window._vapidKey, serviceWorkerRegistration: swReg });
     if (token) {
       localStorage.setItem(KEY_FCM, token);
@@ -619,6 +624,11 @@ async function forceSaveToken() {
     if (!window._firebaseReady) { showToast('❌ Firebase non pronto, riprova'); return; }
     if (Notification.permission !== 'granted') { showToast('❌ Notifiche non autorizzate'); return; }
     const swReg = await getSwRegistration();
+    // Forza una nuova sottoscrizione push (elimina quella vecchia con VAPID errata)
+    try {
+      const existingSub = await swReg.pushManager.getSubscription();
+      if (existingSub) { await existingSub.unsubscribe(); console.log('Vecchia subscription eliminata (forceSave)'); }
+    } catch (ue) { console.warn('unsubscribe fallito:', ue.message); }
     const token = await window._getToken(window._firebaseMessaging, { vapidKey: window._vapidKey, serviceWorkerRegistration: swReg });
     if (token) {
       localStorage.setItem('chermisi_fcm_token', token);
