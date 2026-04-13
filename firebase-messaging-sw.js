@@ -15,25 +15,29 @@ const messaging = firebase.messaging();
 const APP_URL = 'https://chermisiart.github.io/promemoria-chermisiart/';
 
 // Gestisce i messaggi in background (app chiusa o non in focus).
+// Nota: con webpush.notification nel payload, Firebase SDK potrebbe non chiamare
+// questo handler — le opzioni ricche sono quindi impostate anche lato server.
+// Questo rimane come backup per i casi in cui Firebase lo chiama.
 messaging.onBackgroundMessage((payload) => {
   const title = payload.data?.title || payload.notification?.title || '\u23F0 Ch\u00E8rmisiArt \u2014 Promemoria';
   const body  = payload.data?.body  || payload.notification?.body  || '\u00C8 ora di inviare un messaggio!';
   const tag   = payload.data?.reminderId || 'reminder';
+  const waUrl = payload.data?.waUrl || '';
+
+  const actions = waUrl
+    ? [{ action: 'whatsapp', title: '\uD83D\uDCAC WhatsApp' }, { action: 'dismiss', title: 'Ignora' }]
+    : [{ action: 'open',     title: 'Apri app' },              { action: 'dismiss', title: 'Ignora' }];
 
   return self.registration.showNotification(title, {
     body,
-    icon:             '/promemoria-chermisiart/icon-192.png',
-    badge:            '/promemoria-chermisiart/icon-192.png',
+    icon:               '/promemoria-chermisiart/icon-192.png',
+    badge:              '/promemoria-chermisiart/icon-192.png',
     requireInteraction: true,
-    vibrate:          [200, 100, 200, 100, 400],
+    vibrate:            [200, 100, 200, 100, 400],
     tag,
-    renotify:         true,   // ri-vibra anche se esiste già una notifica con lo stesso tag
-    data:             { url: APP_URL, ...payload.data },
-    actions: [
-      { action: 'open',      title: 'Apri app' },
-      { action: 'whatsapp',  title: '💬 WhatsApp' },
-      { action: 'dismiss',   title: 'Ignora' },
-    ],
+    renotify:           true,
+    data:               { url: APP_URL, waUrl, ...payload.data },
+    actions,
   });
 });
 
@@ -45,12 +49,13 @@ self.addEventListener('notificationclick', (event) => {
   // ── Azione WhatsApp: apre WA con messaggio precompilato e cancella il promemoria ──
   if (event.action === 'whatsapp') {
     const data       = event.notification.data || {};
-    const phone      = (data.phone || '').replace(/\D/g, '');
-    const message    = data.message || '';
     const reminderId = data.reminderId || '';
-    const waUrl      = phone
-      ? 'https://wa.me/' + phone + '?text=' + encodeURIComponent(message)
-      : null;
+    // Usa waUrl pre-costruita dal server (se disponibile), altrimenti la costruisce dal numero
+    const waUrl = data.waUrl || (() => {
+      const phone   = (data.phone || '').replace(/\D/g, '');
+      const message = data.message || '';
+      return phone ? 'https://wa.me/' + phone + '?text=' + encodeURIComponent(message) : null;
+    })();
 
     event.waitUntil(
       clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
