@@ -428,14 +428,29 @@ if ('serviceWorker' in navigator) {
     .catch(err => console.warn('SW registration failed:', err));
 }
 
-// Ascolta messaggi in foreground (data-only: notification non è presente)
+// Ascolta messaggi in foreground
 onMessage(messaging, (payload) => {
   const title = payload.data?.title || payload.notification?.title || 'Ch\u00E8rmisiArt';
   const body  = payload.data?.body  || payload.notification?.body  || '';
+  const tag   = payload.data?.reminderId || 'reminder';
+  const waUrl = payload.data?.waUrl || '';
   showToast('\uD83D\uDCF2 ' + body);
   if (Notification.permission === 'granted') {
+    const actions = waUrl
+      ? [{ action: 'whatsapp', title: '\uD83D\uDCAC WhatsApp' }, { action: 'dismiss', title: 'Ignora' }]
+      : [{ action: 'open',     title: 'Apri app' },              { action: 'dismiss', title: 'Ignora' }];
     navigator.serviceWorker.ready.then(reg => {
-      reg.showNotification(title, { body, icon: '/promemoria-chermisiart/icon-192.png', tag: payload.data?.reminderId || 'reminder' });
+      reg.showNotification(title, {
+        body,
+        icon:               '/promemoria-chermisiart/icon-192.png',
+        badge:              '/promemoria-chermisiart/icon-192.png',
+        requireInteraction: true,
+        vibrate:            [200, 100, 200, 100, 400],
+        tag,
+        renotify:           true,
+        data:               { url: 'https://chermisiart.github.io/promemoria-chermisiart/', waUrl, ...payload.data },
+        actions,
+      });
     });
   }
 });

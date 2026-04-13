@@ -45,49 +45,53 @@ exports.sendReminderNotifications = onSchedule(
       const TITLE = "\u23F0 Ch\u00E8rmisiArt \u2014 Promemoria";
       const BODY  = "\u00C8 ora di scrivere a " + nome + " su WhatsApp!";
 
+      // URL WhatsApp diretta con testo pre-compilato (se disponibile numero e messaggio).
+      const rawPhone = (client?.phone || "").replace(/\D/g, "");
+      const waText   = r.message || ("Ciao " + nome + "!");
+      const waUrl    = rawPhone
+        ? "https://wa.me/" + rawPhone + "?text=" + encodeURIComponent(waText)
+        : "";
+
+      // Firebase SDK NON chiama onBackgroundMessage quando webpush.notification è presente:
+      // auto-mostra la notifica e basta. Per questo tutte le opzioni ricche (actions,
+      // vibrate, requireInteraction, data con waUrl) vanno direttamente qui nel payload.
+      // Il SW gestisce solo notificationclick (WhatsApp, dismiss, open).
+      const APP_URL = "https://chermisiart.github.io/promemoria-chermisiart/";
+      const actions = waUrl
+        ? [{ action: "whatsapp", title: "\uD83D\uDCAC WhatsApp" }, { action: "dismiss", title: "Ignora" }]
+        : [{ action: "open",     title: "Apri app" },              { action: "dismiss", title: "Ignora" }];
+
       const message = {
-        // Campo notification: necessario per la priorità alta su Android Chrome
-        // e per il fallback automatico del browser se il SW non risponde.
-        notification: {
-          title: TITLE,
-          body:  BODY,
-        },
-
-        // Campo data: usato dal SW onBackgroundMessage e dall'onMessage della pagina.
+        // data: usato dall'onMessage in foreground e come backup
         data: {
-          title:       TITLE,
-          body:        BODY,
-          reminderId:  r.id,
-          clientName:  nome,
-          phone:       client?.phone || "",
+          title:      TITLE,
+          body:       BODY,
+          reminderId: r.id,
+          clientName: nome,
+          phone:      client?.phone || "",
+          waUrl:      waUrl,
         },
 
-        // Priorità alta per Android: sveglia il dispositivo immediatamente.
+        // priority: "high" sveglia il dispositivo Android dal Doze mode.
         android: {
           priority: "high",
-          notification: {
-            channel_id:  "promemoria_chermisiart",
-            priority:    "high",
-            visibility:  "public",
-            sound:       "default",
-            default_vibrate_timings: true,
-          },
         },
 
-        // Urgency alta per Chrome Web Push su Android/Desktop.
         webpush: {
           headers: { Urgency: "high" },
           notification: {
-            requireInteraction: true,
-            vibrate:            [200, 100, 200, 100, 400],
-            icon:               "https://chermisiart.github.io/promemoria-chermisiart/icon-192.png",
-            badge:              "https://chermisiart.github.io/promemoria-chermisiart/icon-192.png",
+            title:              TITLE,
+            body:               BODY,
+            icon:               APP_URL + "icon-192.png",
+            badge:              APP_URL + "icon-192.png",
             tag:                r.id || "reminder",
+            requireInteraction: true,
             renotify:           true,
+            vibrate:            [200, 100, 200, 100, 400],
+            data:               { url: APP_URL, waUrl },
+            actions,
           },
-          fcm_options: {
-            link: "https://chermisiart.github.io/promemoria-chermisiart/",
-          },
+          fcm_options: { link: APP_URL },
         },
 
         token,
