@@ -445,6 +445,32 @@ document.dispatchEvent(new Event('firebaseReady'));
 </script>
 
 <script>
+// ── Auto-refresh token FCM ad ogni apertura della PWA ──
+// Viene eseguito in silenzio dopo che Firebase è pronto, solo se le
+// notifiche sono già autorizzate. Sovrascrive il token su Firestore
+// con quello dell'installazione corrente (GitHub Pages).
+document.addEventListener('firebaseReady', async function autoRefreshFcmToken() {
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  if (!window._firebaseReady || !window._getToken || !window._firebaseMessaging) return;
+  try {
+    const swReg = await getSwRegistration();
+    if (!swReg) { console.warn('[autoRefresh] SW non disponibile'); return; }
+    const token = await window._getToken(window._firebaseMessaging, {
+      vapidKey: window._vapidKey,
+      serviceWorkerRegistration: swReg,
+    });
+    if (token) {
+      localStorage.setItem('chermisi_fcm_token', token);
+      await saveFcmToken(token);
+      console.log('[autoRefresh] Token FCM aggiornato su Firestore:', token.slice(-12));
+    }
+  } catch(e) {
+    console.warn('[autoRefresh] Errore:', e.message);
+  }
+});
+</script>
+
+<script>
 // ── PWA Install ──
 let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
