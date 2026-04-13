@@ -355,6 +355,29 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- Patch: rimuove applicationPubKey dal body delle registrazioni FCM.
+     La chiave VAPID in Firebase Console non corrisponde a quella nel codice, causando HTTP 401.
+     Per Chrome/FCM, la consegna push non richiede VAPID lato server, quindi questo fix è sicuro. -->
+<script>
+(function() {
+  var _fetch = window.fetch.bind(window);
+  window.fetch = function(input, init) {
+    if (typeof input === 'string' && input.includes('fcmregistrations') &&
+        init && init.method === 'POST' && typeof init.body === 'string') {
+      try {
+        var body = JSON.parse(init.body);
+        if (body && body.web && body.web.applicationPubKey) {
+          delete body.web.applicationPubKey;
+          init = Object.assign({}, init, { body: JSON.stringify(body) });
+          console.log('[FCM patch] applicationPubKey rimosso dalla registrazione');
+        }
+      } catch(e) {}
+    }
+    return _fetch(input, init);
+  };
+})();
+</script>
+
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
