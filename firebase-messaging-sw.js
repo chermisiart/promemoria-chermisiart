@@ -5,6 +5,10 @@
 
 const APP_URL = 'https://chermisiart.github.io/promemoria-chermisiart/';
 
+// Attiva subito il nuovo SW senza aspettare la chiusura di tutti i tab.
+self.addEventListener('install',  () => self.skipWaiting());
+self.addEventListener('activate', () => self.clients.claim());
+
 self.addEventListener('push', (event) => {
   if (!event.data) return;
 
