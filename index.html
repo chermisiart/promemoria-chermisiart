@@ -430,8 +430,8 @@ if ('serviceWorker' in navigator) {
 
 // Ascolta messaggi in foreground (data-only: notification non è presente)
 onMessage(messaging, (payload) => {
-  const title = payload.data?.title || 'Ch\u00E8rmisiArt';
-  const body  = payload.data?.body  || '';
+  const title = payload.data?.title || payload.notification?.title || 'Ch\u00E8rmisiArt';
+  const body  = payload.data?.body  || payload.notification?.body  || '';
   showToast('\uD83D\uDCF2 ' + body);
   if (Notification.permission === 'granted') {
     navigator.serviceWorker.ready.then(reg => {

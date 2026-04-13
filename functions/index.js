@@ -16,7 +16,6 @@ exports.sendReminderNotifications = onSchedule(
     if (!tokenSnap.exists) { console.log('Nessun token FCM trovato'); return; }
     const token = tokenSnap.data().token;
     if (!token) { console.log('Token vuoto'); return; }
-    const tokens = [token];
 
     // Leggi i promemoria
     const remSnap = await db.collection("chermisiart").doc("chermisi_reminders").get();
@@ -43,22 +42,60 @@ exports.sendReminderNotifications = onSchedule(
       const client = clients.find(c => c.id === r.clientId);
       const nome = client?.name || "cliente";
 
+      const TITLE = "\u23F0 Ch\u00E8rmisiArt \u2014 Promemoria";
+      const BODY  = "\u00C8 ora di scrivere a " + nome + " su WhatsApp!";
+
       const message = {
+        // Campo notification: necessario per la priorità alta su Android Chrome
+        // e per il fallback automatico del browser se il SW non risponde.
         notification: {
-          title: "â° ChÃ¨rmisiArt â€” Promemoria",
-          body: `Ãˆ ora di scrivere a ${nome} su WhatsApp!`,
+          title: TITLE,
+          body:  BODY,
         },
+
+        // Campo data: usato dal SW onBackgroundMessage e dall'onMessage della pagina.
         data: {
-          reminderId: r.id,
-          clientName: nome,
-          phone: client?.phone || "",
+          title:       TITLE,
+          body:        BODY,
+          reminderId:  r.id,
+          clientName:  nome,
+          phone:       client?.phone || "",
         },
-        tokens,
+
+        // Priorità alta per Android: sveglia il dispositivo immediatamente.
+        android: {
+          priority: "high",
+          notification: {
+            channel_id:  "promemoria_chermisiart",
+            priority:    "high",
+            visibility:  "public",
+            sound:       "default",
+            default_vibrate_timings: true,
+          },
+        },
+
+        // Urgency alta per Chrome Web Push su Android/Desktop.
+        webpush: {
+          headers: { Urgency: "high" },
+          notification: {
+            requireInteraction: true,
+            vibrate:            [200, 100, 200, 100, 400],
+            icon:               "https://chermisiart.github.io/promemoria-chermisiart/icon-192.png",
+            badge:              "https://chermisiart.github.io/promemoria-chermisiart/icon-192.png",
+            tag:                r.id || "reminder",
+            renotify:           true,
+          },
+          fcm_options: {
+            link: "https://chermisiart.github.io/promemoria-chermisiart/",
+          },
+        },
+
+        token,
       };
 
       try {
-        await messaging.sendEachForMulticast(message);
-        console.log(`Notifica inviata per ${nome} (${r.id})`);
+        const result = await messaging.send(message);
+        console.log(`Notifica inviata per ${nome} (${r.id}): ${result}`);
       } catch (e) {
         console.error("Errore invio notifica:", e);
       }
