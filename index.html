@@ -389,15 +389,18 @@ window._fsGetDocs = getDocs;
 window._fsDeleteDoc = deleteDoc;
 window._swRegistration = null;
 
-// Registra il SW con path relativo alla pagina corrente:
-// - Firebase Hosting (root):  /firebase-messaging-sw.js  ✓
-// - GitHub Pages (subdir):    /promemoria-chermisiart/firebase-messaging-sw.js  ✓
-// Il path assoluto '/firebase-messaging-sw.js' fallirebbe su GitHub Pages.
+// Registra il SW con path esplicito per ambiente:
+// - GitHub Pages (github.io): /promemoria-chermisiart/firebase-messaging-sw.js
+// - Firebase Hosting / altri: /firebase-messaging-sw.js
 if ('serviceWorker' in navigator) {
-  const swBase = location.pathname.endsWith('/')
-    ? location.pathname
-    : location.pathname.replace(/\/[^/]*$/, '/');
-  navigator.serviceWorker.register(swBase + 'firebase-messaging-sw.js', { scope: swBase })
+  const isGitHubPages = location.hostname.endsWith('github.io');
+  const swPath  = isGitHubPages
+    ? '/promemoria-chermisiart/firebase-messaging-sw.js'
+    : '/firebase-messaging-sw.js';
+  const swScope = isGitHubPages
+    ? '/promemoria-chermisiart/'
+    : '/';
+  navigator.serviceWorker.register(swPath, { scope: swScope })
     .then(reg => { window._swRegistration = reg; })
     .catch(err => console.warn('SW registration failed:', err));
 }
