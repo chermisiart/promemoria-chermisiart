@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ChèrmisiArt — Promemoria</title>
-<meta name="theme-color" content="#DC143C">
+<meta name="theme-color" content="#1565C0">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -16,7 +16,7 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --accent: #25d366; --accent2: #1aad4f; --crimson: #DC143C; --bg: #0e0c0a; --card: #18140f;
+    --accent: #25d366; --accent2: #1aad4f; --crimson: #1565C0; --bg: #0e0c0a; --card: #18140f;
     --card2: #211c14; --border: #2e2416; --text: #f0e8dc; --muted: #7a6a57; --green: #5ba08a;
   }
   body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 300; min-height: 100vh; }
@@ -112,6 +112,10 @@
   .btn-copy-phone { background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; color: var(--muted); font-size: 11px; cursor: pointer; transition: all 0.2s; font-family: 'DM Sans', sans-serif; white-space: nowrap; }
   .btn-copy-phone:hover { color: var(--text); border-color: var(--accent); }
   .btn-copy-phone.copied { color: var(--green); border-color: var(--green); }
+
+  /* Edit Reminder Modal */
+  .edit-reminder-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; display: none; align-items: flex-end; justify-content: center; animation: fadeIn 0.15s ease; }
+  .edit-reminder-overlay.open { display: flex; }
 
   /* Clock Picker */
   .clock-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.15s ease; }
@@ -353,6 +357,38 @@
   </div>
 </div>
 
+<!-- Modal Modifica Promemoria -->
+<div id="edit-reminder-overlay" class="edit-reminder-overlay" onclick="closeEditReminder()">
+  <div class="storico-modal" onclick="event.stopPropagation()" style="max-height:72vh">
+    <div class="storico-header">
+      <div class="storico-title">✏️ Modifica promemoria</div>
+      <button class="storico-close" onclick="closeEditReminder()">✕</button>
+    </div>
+    <div class="field" style="margin-bottom:12px">
+      <label>Cliente</label>
+      <div id="edit-r-client-name" style="font-size:15px;color:var(--text);padding:10px 14px;background:var(--card2);border:1px solid var(--border);border-radius:8px"></div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>Data invio</label>
+        <input type="date" id="edit-r-date">
+      </div>
+      <div class="field">
+        <label>Orario invio</label>
+        <input type="time" id="edit-r-time">
+      </div>
+    </div>
+    <div class="field">
+      <label>Messaggio WhatsApp</label>
+      <textarea id="edit-r-msg" style="min-height:120px"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn btn-primary" onclick="saveEditReminder()">Salva modifiche</button>
+      <button class="btn btn-ghost" onclick="closeEditReminder()">Annulla</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- Patch: rimuove applicationPubKey dal body delle registrazioni FCM.
@@ -572,6 +608,28 @@ let clients   = load(KEY_CLIENTS, []);
 let reminders = load(KEY_REMINDERS, []);
 let templates = load(KEY_TEMPLATES, DEFAULT_TEMPLATES);
 let gcalToken = localStorage.getItem(KEY_TOKEN) || null;
+
+// Gestisce ?deleteReminder=ID (app aperta dal SW dopo azione WhatsApp notifica)
+(function() {
+  const params = new URLSearchParams(location.search);
+  const delId = params.get('deleteReminder');
+  if (delId) {
+    history.replaceState({}, '', location.pathname);
+    reminders = reminders.filter(r => r.id !== delId);
+    save(KEY_REMINDERS, reminders);
+  }
+})();
+
+// Ascolta messaggi dal Service Worker (es. azione WhatsApp sulla notifica)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data?.type === 'deleteReminder' && event.data?.id) {
+      reminders = reminders.filter(r => r.id !== event.data.id);
+      save(KEY_REMINDERS, reminders);
+      renderReminders();
+    }
+  });
+}
 let tokenClient = null;
 let userInfo = load('chermisi_userinfo', null);
 
@@ -1011,6 +1069,51 @@ function scheduleLocalNotification(reminder, clientName) {
 
 function deleteReminder(id) { reminders=reminders.filter(r=>r.id!==id); save(KEY_REMINDERS,reminders); renderReminders(); }
 
+let _editingReminderId = null;
+function editReminder(id) {
+  const r = reminders.find(x => x.id === id);
+  if (!r) return;
+  const client = clients.find(c => c.id === r.clientId);
+  _editingReminderId = id;
+  document.getElementById('edit-r-client-name').textContent = client?.name || '—';
+  const sendAt = r.sendAt || '';
+  const tIdx = sendAt.indexOf('T');
+  const date = tIdx > -1 ? sendAt.slice(0, tIdx) : sendAt;
+  const time = tIdx > -1 ? sendAt.slice(tIdx + 1, tIdx + 6) : '';
+  document.getElementById('edit-r-date').value = date;
+  document.getElementById('edit-r-time').value = time;
+  document.getElementById('edit-r-msg').value = r.message || '';
+  document.getElementById('edit-reminder-overlay').classList.add('open');
+}
+function closeEditReminder() {
+  document.getElementById('edit-reminder-overlay').classList.remove('open');
+  _editingReminderId = null;
+}
+function saveEditReminder() {
+  if (!_editingReminderId) return;
+  const date = document.getElementById('edit-r-date').value;
+  const time = document.getElementById('edit-r-time').value;
+  const msg  = document.getElementById('edit-r-msg').value.trim();
+  if (!date || !time) { showToast('Inserisci data e ora'); return; }
+  reminders = reminders.map(r => r.id === _editingReminderId
+    ? { ...r, sendAt: date + 'T' + time, message: msg }
+    : r
+  );
+  save(KEY_REMINDERS, reminders);
+  closeEditReminder();
+  renderReminders();
+  showToast('✅ Promemoria aggiornato!');
+}
+
+function openWa(id) {
+  const r = reminders.find(x => x.id === id);
+  if (!r) return;
+  const client = clients.find(c => c.id === r.clientId);
+  const link = waLink(client?.phone, r.message);
+  if (link) window.open(link, '_blank');
+  deleteReminder(id);
+}
+
 function copyMsg(id) {
   const r = reminders.find(x=>x.id===id); if (!r?.message) return;
   navigator.clipboard.writeText(r.message).then(()=>{
@@ -1031,12 +1134,13 @@ function renderReminders() {
     const statusBadge = r.status==='sent' ? '<span class="badge badge-sent">Inviato</span>' : isPast ? '<span class="badge badge-pending">Scaduto</span>' : '<span class="badge badge-pending">In attesa</span>';
     const typeBadge = `<span class="badge ${TYPE_BADGE[r.type]||'badge-appointment'}">${TYPE_LABELS[r.type]||r.type}</span>`;
     const link = waLink(client?.phone, r.message);
-    const waBtn = link ? `<a href="${escHtml(link)}" target="_blank" class="btn-wa">💬 WhatsApp</a>` : '';
+    const waBtn = link ? `<button class="btn-wa" onclick="openWa('${r.id}')">💬 WhatsApp</button>` : '';
+    const editBtn = `<button class="copy-btn" onclick="editReminder('${r.id}')">✏️ Modifica</button>`;
     const copyBtn = r.message ? `<button class="copy-btn" id="copy-${r.id}" onclick="copyMsg('${r.id}')">Copia msg</button>` : '';
     const copyPhoneBtn = client?.phone ? `<button class="btn-copy-phone" id="cpphone-${r.id}" onclick="copyPhone('${r.id}','${escJs(client.phone)}')">📋 Numero</button>` : '';
     const msgPreview = r.message ? `<div class="r-msg">"${escHtml(r.message.slice(0,110))}${r.message.length>110?'…':''}"</div>` : '';
     const phoneMeta = client?.phone ? ` &nbsp;·&nbsp; 📱 ${escHtml(client.phone)}` : '';
-    return `<div class="reminder-item"><div class="r-dot ${dotCls}"></div><div class="r-info"><div class="r-name">${escHtml(client?.name||'—')}</div><div class="r-meta">📅 ${formatDate(r.sendAt)}${phoneMeta}</div>${msgPreview}<div class="r-badges">${statusBadge}${typeBadge}</div></div><div class="r-actions">${waBtn}${copyBtn}${copyPhoneBtn}<button class="btn btn-danger" onclick="deleteReminder('${r.id}')">✕</button></div></div>`;
+    return `<div class="reminder-item"><div class="r-dot ${dotCls}"></div><div class="r-info"><div class="r-name">${escHtml(client?.name||'—')}</div><div class="r-meta">📅 ${formatDate(r.sendAt)}${phoneMeta}</div>${msgPreview}<div class="r-badges">${statusBadge}${typeBadge}</div></div><div class="r-actions">${waBtn}${editBtn}${copyBtn}${copyPhoneBtn}<button class="btn btn-danger" onclick="deleteReminder('${r.id}')">✕</button></div></div>`;
   }).join('');
 }
 

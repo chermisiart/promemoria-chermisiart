@@ -30,27 +30,54 @@ messaging.onBackgroundMessage((payload) => {
     renotify:         true,   // ri-vibra anche se esiste già una notifica con lo stesso tag
     data:             { url: APP_URL, ...payload.data },
     actions: [
-      { action: 'open', title: 'Apri app' },
-      { action: 'dismiss', title: 'Ignora' },
+      { action: 'open',      title: 'Apri app' },
+      { action: 'whatsapp',  title: '💬 WhatsApp' },
+      { action: 'dismiss',   title: 'Ignora' },
     ],
   });
 });
 
-// Click sulla notifica o sull'azione "open": porta in primo piano l'app
+// Click sulla notifica o sulle azioni
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   if (event.action === 'dismiss') return;
 
+  // ── Azione WhatsApp: apre WA con messaggio precompilato e cancella il promemoria ──
+  if (event.action === 'whatsapp') {
+    const data       = event.notification.data || {};
+    const phone      = (data.phone || '').replace(/\D/g, '');
+    const message    = data.message || '';
+    const reminderId = data.reminderId || '';
+    const waUrl      = phone
+      ? 'https://wa.me/' + phone + '?text=' + encodeURIComponent(message)
+      : null;
+
+    event.waitUntil(
+      clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+        const appClients = list.filter(c => c.url.startsWith(APP_URL));
+        // Notifica l'app aperta di cancellare il promemoria
+        if (reminderId) appClients.forEach(c => c.postMessage({ type: 'deleteReminder', id: reminderId }));
+        const tasks = [];
+        if (waUrl) tasks.push(clients.openWindow(waUrl));
+        // Se l'app non è aperta, aprila con il param per la cancellazione
+        if (!appClients.length && reminderId) {
+          tasks.push(clients.openWindow(APP_URL + '?deleteReminder=' + encodeURIComponent(reminderId)));
+        }
+        return Promise.all(tasks);
+      })
+    );
+    return;
+  }
+
+  // ── Azione "open" o tap sulla notifica: porta in primo piano l'app ──
   const target = event.notification.data?.url || APP_URL;
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-      // Se l'app è già aperta in un tab, portala in focus
       for (const client of list) {
         if (client.url.startsWith(APP_URL) && 'focus' in client) {
           return client.focus();
         }
       }
-      // Altrimenti apri una nuova finestra
       return clients.openWindow(target);
     })
   );
