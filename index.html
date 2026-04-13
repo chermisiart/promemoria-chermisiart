@@ -428,13 +428,15 @@ if ('serviceWorker' in navigator) {
     .catch(err => console.warn('SW registration failed:', err));
 }
 
-// Ascolta messaggi in foreground
+// Ascolta messaggi in foreground (data-only: notification non è presente)
 onMessage(messaging, (payload) => {
-  const title = payload.notification?.title || 'ChèrmisiArt';
-  const body = payload.notification?.body || '';
-  showToast('📲 ' + body);
+  const title = payload.data?.title || 'Ch\u00E8rmisiArt';
+  const body  = payload.data?.body  || '';
+  showToast('\uD83D\uDCF2 ' + body);
   if (Notification.permission === 'granted') {
-    new Notification(title, { body });
+    navigator.serviceWorker.ready.then(reg => {
+      reg.showNotification(title, { body, icon: '/promemoria-chermisiart/icon-192.png', tag: payload.data?.reminderId || 'reminder' });
+    });
   }
 });
 

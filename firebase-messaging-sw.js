@@ -12,14 +12,21 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
+// Gestisce i messaggi in background (app chiusa o non in focus).
+// IMPORTANTE: restituisce la Promise di showNotification() affinché
+// il browser non termini il SW prima che la notifica venga mostrata.
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title || '⏰ ChèrmisiArt — Promemoria';
-  const body  = payload.notification?.body  || 'È ora di inviare un messaggio!';
-  self.registration.showNotification(title, {
+  // La Cloud Function invia titolo e body nel campo data (messaggio data-only)
+  const title = payload.data?.title || '\u23F0 Ch\u00E8rmisiArt \u2014 Promemoria';
+  const body  = payload.data?.body  || '\u00C8 ora di inviare un messaggio!';
+  const tag   = payload.data?.reminderId || 'reminder';
+
+  return self.registration.showNotification(title, {
     body,
-    icon: '/icon.png',
-    badge: '/icon.png',
+    icon:  '/promemoria-chermisiart/icon-192.png',
+    badge: '/promemoria-chermisiart/icon-192.png',
     requireInteraction: true,
-    tag: payload.data?.reminderId || 'reminder'
+    tag,
+    data: payload.data,
   });
 });
