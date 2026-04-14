@@ -25,6 +25,11 @@ self.addEventListener('activate', () => self.clients.claim());
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  // DEBUG: mostra la struttura completa dei dati della notifica
+  console.log('[SW notificationclick] action:', event.action);
+  console.log('[SW notificationclick] data:', JSON.stringify(event.notification.data));
+
   if (event.action === 'dismiss') return;
 
   // Firebase auto-display salva il payload FCM in event.notification.data.
