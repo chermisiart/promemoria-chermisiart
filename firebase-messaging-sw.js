@@ -81,14 +81,35 @@ self.addEventListener('notificationclick', (event) => {
     return;
   }
 
-  // ── Azione "open" o tap sulla notifica: porta in primo piano l'app ──
-  const target = event.notification.data?.url || APP_URL;
+  // ── Tap sul corpo della notifica (o azione "open"): apre WhatsApp se disponibile,
+  //    altrimenti porta in primo piano l'app. ──
+  const d      = event.notification.data || {};
+  const waUrl  = d.waUrl || (() => {
+    const phone   = (d.phone || '').replace(/\D/g, '');
+    const message = d.message || '';
+    return phone ? 'https://wa.me/' + phone + '?text=' + encodeURIComponent(message) : null;
+  })();
+  const reminderId = d.reminderId || '';
+  const target     = waUrl || d.url || APP_URL;
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-      for (const client of list) {
-        if (client.url.startsWith(APP_URL) && 'focus' in client) {
-          return client.focus();
+      const appClients = list.filter(c => c.url.startsWith(APP_URL));
+      // Auto-cancella il promemoria se l'app è aperta
+      if (reminderId) appClients.forEach(c => c.postMessage({ type: 'deleteReminder', id: reminderId }));
+
+      if (waUrl) {
+        // Apri WhatsApp e, se l'app non è aperta, aprila in background con deleteReminder
+        const tasks = [clients.openWindow(waUrl)];
+        if (!appClients.length && reminderId) {
+          tasks.push(clients.openWindow(APP_URL + '?deleteReminder=' + encodeURIComponent(reminderId)));
         }
+        return Promise.all(tasks);
+      }
+
+      // Nessun numero: porta in primo piano l'app
+      for (const client of list) {
+        if (client.url.startsWith(APP_URL) && 'focus' in client) return client.focus();
       }
       return clients.openWindow(target);
     })
