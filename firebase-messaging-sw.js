@@ -18,26 +18,22 @@ self.addEventListener('install',  () => self.skipWaiting());
 self.addEventListener('activate', () => self.clients.claim());
 
 // Gestisce i messaggi in background (app chiusa o non in focus).
-messaging.onBackgroundMessage((payload) => {
-  const title = payload.data?.title || payload.notification?.title || '\u23F0 Ch\u00E8rmisiArt \u2014 Promemoria';
-  const body  = payload.data?.body  || payload.notification?.body  || '\u00C8 ora di inviare un messaggio!';
-  const tag   = payload.data?.reminderId || 'reminder';
-  const waUrl = payload.data?.waUrl || '';
-
-  const actions = waUrl
-    ? [{ action: 'whatsapp', title: '\uD83D\uDCAC WhatsApp' }, { action: 'dismiss', title: 'Ignora' }]
-    : [{ action: 'open',     title: 'Apri app' },              { action: 'dismiss', title: 'Ignora' }];
+// Opzioni semplificate al massimo per massima compatibilità Android.
+messaging.onBackgroundMessage(function(payload) {
+  var data  = (payload && payload.data) || {};
+  var notif = (payload && payload.notification) || {};
+  var title = data.title || notif.title || '\u23F0 Ch\u00E8rmisiArt \u2014 Promemoria';
+  var body  = data.body  || notif.body  || '\u00C8 ora di inviare un messaggio!';
+  var tag   = data.reminderId || 'reminder';
+  var waUrl = data.waUrl || '';
 
   return self.registration.showNotification(title, {
-    body,
-    icon:               '/promemoria-chermisiart/icon-192.png',
-    badge:              '/promemoria-chermisiart/icon-192.png',
-    requireInteraction: true,
-    vibrate:            [200, 100, 200, 100, 400],
-    tag,
-    renotify:           true,
-    data:               { url: APP_URL, waUrl, ...payload.data },
-    actions,
+    body:   body,
+    icon:   '/promemoria-chermisiart/icon-192.png',
+    badge:  '/promemoria-chermisiart/icon-192.png',
+    tag:    tag,
+    renotify: true,
+    data:   { url: APP_URL, waUrl: waUrl, reminderId: tag, phone: data.phone || '', message: data.message || '' },
   });
 });
 
