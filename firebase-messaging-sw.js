@@ -27,10 +27,6 @@ messaging.onBackgroundMessage((payload) => {
   const reminderId = d.reminderId || '';
   const tag        = reminderId   || 'reminder';
 
-  const actions = waUrl
-    ? [{ action: 'whatsapp', title: '\uD83D\uDCAC WhatsApp' }, { action: 'dismiss', title: 'Ignora' }]
-    : [{ action: 'open',     title: 'Apri app' },              { action: 'dismiss', title: 'Ignora' }];
-
   return self.registration.showNotification(title, {
     body,
     icon:               ICON,
@@ -40,7 +36,6 @@ messaging.onBackgroundMessage((payload) => {
     requireInteraction: true,
     vibrate:            [200, 100, 200, 100, 400],
     data:               { waUrl, reminderId, url: APP_URL },
-    actions,
   });
 });
 
@@ -59,19 +54,21 @@ self.addEventListener('notificationclick', (event) => {
       // Cancella il promemoria se l'app è aperta
       if (reminderId) appClients.forEach(c => c.postMessage({ type: 'deleteReminder', id: reminderId }));
 
-      // Tap su WhatsApp o sul corpo → apri WhatsApp
-      if (waUrl && event.action !== 'open') {
-        if (appClients.length) {
-          // App aperta: postMessage → window.location.href (scatta intent Android)
-          appClients[0].postMessage({ type: 'openWhatsApp', waUrl });
-          return appClients[0].focus();
-        }
-        // App chiusa: aprila con ?wa= → l'app legge il param e fa window.location.href
+      // Tap sulla notifica → apri WhatsApp
+      if (waUrl) {
         const del = reminderId ? '&del=' + encodeURIComponent(reminderId) : '';
-        return clients.openWindow(APP_URL + '?wa=' + encodeURIComponent(waUrl) + del);
+        const waParam = APP_URL + '?wa=' + encodeURIComponent(waUrl) + del;
+        if (appClients.length) {
+          // App in memoria: porta in primo piano PRIMA di inviare il redirect
+          return appClients[0].focus().then((client) => {
+            if (client) client.postMessage({ type: 'openWhatsApp', waUrl });
+            else clients.openWindow(waParam);
+          });
+        }
+        return clients.openWindow(waParam);
       }
 
-      // Nessun numero o azione "Apri app"
+      // Nessun numero → apri solo l'app
       if (appClients.length) return appClients[0].focus();
       return clients.openWindow(APP_URL);
     })
