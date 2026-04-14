@@ -17,11 +17,32 @@ const APP_URL   = 'https://chermisiart.github.io/promemoria-chermisiart/';
 self.addEventListener('install',  () => self.skipWaiting());
 self.addEventListener('activate', () => self.clients.claim());
 
-// Non usiamo onBackgroundMessage: su Android showNotification non ha
-// i permessi nel contesto Firebase e causa il fallback Chrome.
-// Firebase usa il campo "notification" del payload per auto-display.
-// L'intero payload FCM viene salvato in event.notification.data,
-// quindi notificationclick può leggere waUrl da lì.
+const ICON = APP_URL + 'icon-192.png';
+
+messaging.onBackgroundMessage((payload) => {
+  const d          = payload.data || {};
+  const title      = d.title      || '\u23F0 Ch\u00E8rmisiArt \u2014 Promemoria';
+  const body       = d.body       || '\u00C8 ora di inviare un messaggio!';
+  const waUrl      = d.waUrl      || '';
+  const reminderId = d.reminderId || '';
+  const tag        = reminderId   || 'reminder';
+
+  const actions = waUrl
+    ? [{ action: 'whatsapp', title: '\uD83D\uDCAC WhatsApp' }, { action: 'dismiss', title: 'Ignora' }]
+    : [{ action: 'open',     title: 'Apri app' },              { action: 'dismiss', title: 'Ignora' }];
+
+  return self.registration.showNotification(title, {
+    body,
+    icon:               ICON,
+    badge:              ICON,
+    tag,
+    renotify:           true,
+    requireInteraction: true,
+    vibrate:            [200, 100, 200, 100, 400],
+    data:               { waUrl, reminderId, url: APP_URL },
+    actions,
+  });
+});
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
