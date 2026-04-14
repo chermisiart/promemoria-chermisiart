@@ -59,16 +59,19 @@ self.addEventListener('notificationclick', (event) => {
       // Cancella il promemoria se l'app è aperta
       if (reminderId) appClients.forEach(c => c.postMessage({ type: 'deleteReminder', id: reminderId }));
 
-      // Tap su WhatsApp o sul corpo della notifica → apri WhatsApp direttamente
+      // Tap su WhatsApp o sul corpo → apri WhatsApp
       if (waUrl && event.action !== 'open') {
         if (appClients.length) {
+          // App aperta: postMessage → window.location.href (scatta intent Android)
           appClients[0].postMessage({ type: 'openWhatsApp', waUrl });
           return appClients[0].focus();
         }
-        return clients.openWindow(waUrl);
+        // App chiusa: aprila con ?wa= → l'app legge il param e fa window.location.href
+        const del = reminderId ? '&del=' + encodeURIComponent(reminderId) : '';
+        return clients.openWindow(APP_URL + '?wa=' + encodeURIComponent(waUrl) + del);
       }
 
-      // Nessun numero o azione "Apri app" → porta in primo piano l'app
+      // Nessun numero o azione "Apri app"
       if (appClients.length) return appClients[0].focus();
       return clients.openWindow(APP_URL);
     })
