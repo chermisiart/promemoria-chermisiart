@@ -650,26 +650,21 @@ if ('serviceWorker' in navigator) {
 let toastTimer; // dichiarato qui per evitare TDZ quando handleWaParam chiama renderReminders
 
 // Se l'app è stata aperta dal SW con ?wa= (app era chiusa al click notifica),
-// naviga verso WhatsApp dopo che la pagina è inizializzata.
+// naviga verso WhatsApp dopo che Firebase è pronto (app completamente inizializzata).
 (function handleWaParam() {
   const p = new URLSearchParams(window.location.search);
   const wa  = p.get('wa');
   const del = p.get('del');
   if (del) { reminders = reminders.filter(r => r.id !== del); save(KEY_REMINDERS, reminders); renderReminders(); }
-  if (wa)  {
-    window.history.replaceState({}, '', window.location.pathname);
-    const waDecoded = decodeURIComponent(wa);
-    const doRedirect = () => { window.location.href = waDecoded; };
-    if (document.visibilityState === 'visible') {
-      setTimeout(doRedirect, 300);
-    } else {
-      document.addEventListener('visibilitychange', function onVisible() {
-        if (document.visibilityState === 'visible') {
-          document.removeEventListener('visibilitychange', onVisible);
-          setTimeout(doRedirect, 300);
-        }
-      });
-    }
+  if (!wa) return;
+  window.history.replaceState({}, '', window.location.pathname);
+  const waDecoded = decodeURIComponent(wa);
+  const doRedirect = () => { window.location.href = waDecoded; };
+  // Aspetta che Firebase sia pronto: a quel punto l'app è inizializzata e visibile.
+  if (window._firebaseReady) {
+    setTimeout(doRedirect, 300);
+  } else {
+    document.addEventListener('firebaseReady', () => setTimeout(doRedirect, 300), { once: true });
   }
 })();
 let tokenClient = null;
