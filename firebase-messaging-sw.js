@@ -57,12 +57,9 @@ self.addEventListener('notificationclick', (event) => {
           appClients[0].postMessage({ type: 'openWhatsApp', waUrl });
           return appClients[0].focus();
         }
-        // App chiusa: apri WhatsApp direttamente (il click sulla notifica è un user gesture)
-        // Se l'OS blocca l'URL esterno, cade sul fallback con ?wa=
+        // App chiusa: aprila con ?wa= così la rileva al caricamento e apre WhatsApp
         const del = reminderId ? '&del=' + encodeURIComponent(reminderId) : '';
-        return clients.openWindow(waUrl).catch(() =>
-          clients.openWindow(APP_URL + '?wa=' + encodeURIComponent(waUrl) + del)
-        );
+        return clients.openWindow(APP_URL + '?wa=' + encodeURIComponent(waUrl) + del);
       }
 
       // Nessun numero o azione open: porta solo in primo piano l'app
