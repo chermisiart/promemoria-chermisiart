@@ -651,14 +651,16 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+let toastTimer; // dichiarato qui per evitare TDZ quando handleWaParam chiama renderReminders
+
 // Se l'app è stata aperta dal SW con ?wa= (app era chiusa al click notifica),
-// naviga subito verso WhatsApp e rimuovi il param dall'URL.
+// naviga verso WhatsApp dopo che la pagina è inizializzata.
 (function handleWaParam() {
   const p = new URLSearchParams(window.location.search);
   const wa  = p.get('wa');
   const del = p.get('del');
   if (del) { reminders = reminders.filter(r => r.id !== del); save(KEY_REMINDERS, reminders); renderReminders(); }
-  if (wa)  { window.history.replaceState({}, '', window.location.pathname); window.location.href = decodeURIComponent(wa); }
+  if (wa)  { window.history.replaceState({}, '', window.location.pathname); setTimeout(() => { window.location.href = decodeURIComponent(wa); }, 300); }
 })();
 let tokenClient = null;
 let userInfo = load('chermisi_userinfo', null);
@@ -667,7 +669,6 @@ if (!templates.find(t => t.type === 'confirm')) { templates = DEFAULT_TEMPLATES;
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
-let toastTimer;
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
