@@ -1170,10 +1170,8 @@ function renderReminders() {
     const waBtn = link ? `<button class="btn-wa" onclick="openWa('${r.id}')">💬 WhatsApp</button>` : '';
     const editBtn = `<button class="copy-btn" onclick="editReminder('${r.id}')">✏️ Modifica</button>`;
     const copyBtn = r.message ? `<button class="copy-btn" id="copy-${r.id}" onclick="copyMsg('${r.id}')">Copia msg</button>` : '';
-    const copyPhoneBtn = client?.phone ? `<button class="btn-copy-phone" id="cpphone-${r.id}" onclick="copyPhone('${r.id}','${escJs(client.phone)}')">📋 Numero</button>` : '';
     const msgPreview = r.message ? `<div class="r-msg">"${escHtml(r.message.slice(0,110))}${r.message.length>110?'…':''}"</div>` : '';
-    const phoneMeta = client?.phone ? ` &nbsp;·&nbsp; 📱 ${escHtml(client.phone)}` : '';
-    return `<div class="reminder-item"><div class="r-dot ${dotCls}"></div><div class="r-info"><div class="r-name">${escHtml(client?.name||'—')}</div><div class="r-meta">📅 ${formatDate(r.sendAt)}${phoneMeta}</div>${msgPreview}<div class="r-badges">${statusBadge}${typeBadge}</div></div><div class="r-actions">${waBtn}${editBtn}${copyBtn}${copyPhoneBtn}<button class="btn btn-danger" onclick="deleteReminder('${r.id}')">✕</button></div></div>`;
+    return `<div class="reminder-item"><div class="r-dot ${dotCls}"></div><div class="r-info"><div class="r-name">${escHtml(client?.name||'—')}</div><div class="r-meta">📅 ${formatDate(r.sendAt)}</div>${msgPreview}<div class="r-badges">${statusBadge}${typeBadge}</div></div><div class="r-actions">${waBtn}${editBtn}${copyBtn}<button class="btn btn-danger" onclick="deleteReminder('${r.id}')">✕</button></div></div>`;
   }).join('');
 }
 
@@ -1200,8 +1198,8 @@ function renderClients() {
   el.innerHTML=filtered.map(c=>{
     const link=waLink(c.phone);
     const waBtn=link?`<a href="${escHtml(link)}" target="_blank" class="btn-wa">💬</a>`:'';
-    const noteMeta = c.notes ? ' &nbsp;·&nbsp; ' + escHtml(c.notes) : '';
-    return `<div class="client-item" onclick="openStorico('${c.id}')"><div class="c-avatar">${escHtml(c.name.charAt(0).toUpperCase())}</div><div style="flex:1;min-width:0"><div class="c-name">${escHtml(c.name)}</div><div class="c-phone">${escHtml(c.phone||'—')}${noteMeta}</div></div><div class="c-actions">${waBtn}<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openStorico('${c.id}')">📋 Storico</button><button class="btn btn-danger" onclick="event.stopPropagation();deleteClient('${c.id}')">✕</button></div></div>`;
+    const noteMeta = c.notes ? `<div class="c-phone">${escHtml(c.notes)}</div>` : '';
+    return `<div class="client-item" onclick="openStorico('${c.id}')"><div class="c-avatar">${escHtml(c.name.charAt(0).toUpperCase())}</div><div style="flex:1;min-width:0"><div class="c-name">${escHtml(c.name)}</div>${noteMeta}</div><div class="c-actions">${waBtn}<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openStorico('${c.id}')">📋 Storico</button><button class="btn btn-danger" onclick="event.stopPropagation();deleteClient('${c.id}')">✕</button></div></div>`;
   }).join('');
 }
 
