@@ -656,7 +656,21 @@ let toastTimer; // dichiarato qui per evitare TDZ quando handleWaParam chiama re
   const wa  = p.get('wa');
   const del = p.get('del');
   if (del) { reminders = reminders.filter(r => r.id !== del); save(KEY_REMINDERS, reminders); renderReminders(); }
-  if (wa)  { window.history.replaceState({}, '', window.location.pathname); setTimeout(() => { window.location.href = decodeURIComponent(wa); }, 300); }
+  if (wa)  {
+    window.history.replaceState({}, '', window.location.pathname);
+    const waDecoded = decodeURIComponent(wa);
+    const doRedirect = () => { window.location.href = waDecoded; };
+    if (document.visibilityState === 'visible') {
+      setTimeout(doRedirect, 300);
+    } else {
+      document.addEventListener('visibilitychange', function onVisible() {
+        if (document.visibilityState === 'visible') {
+          document.removeEventListener('visibilitychange', onVisible);
+          setTimeout(doRedirect, 300);
+        }
+      });
+    }
+  }
 })();
 let tokenClient = null;
 let userInfo = load('chermisi_userinfo', null);
