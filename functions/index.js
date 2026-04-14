@@ -52,17 +52,17 @@ exports.sendReminderNotifications = onSchedule(
         ? "https://wa.me/" + rawPhone + "?text=" + encodeURIComponent(waText)
         : "";
 
-      // Firebase SDK NON chiama onBackgroundMessage quando webpush.notification è presente:
-      // auto-mostra la notifica e basta. Per questo tutte le opzioni ricche (actions,
-      // vibrate, requireInteraction, data con waUrl) vanno direttamente qui nel payload.
-      // Il SW gestisce solo notificationclick (WhatsApp, dismiss, open).
       const APP_URL = "https://chermisiart.github.io/promemoria-chermisiart/";
-      const actions = waUrl
-        ? [{ action: "whatsapp", title: "\uD83D\uDCAC WhatsApp" }, { action: "dismiss", title: "Ignora" }]
-        : [{ action: "open",     title: "Apri app" },              { action: "dismiss", title: "Ignora" }];
 
       const message = {
-        // data: usato dall'onMessage in foreground e come backup
+        // top-level notification: necessario per svegliare Chrome Android.
+        // Il SW (onBackgroundMessage) lo sostituisce con la notifica ricca.
+        notification: {
+          title: TITLE,
+          body:  BODY,
+        },
+
+        // data: letto dal SW onBackgroundMessage e dall'onMessage in foreground.
         data: {
           title:      TITLE,
           body:       BODY,
@@ -73,25 +73,10 @@ exports.sendReminderNotifications = onSchedule(
           waUrl:      waUrl,
         },
 
-        // priority: "high" sveglia il dispositivo Android dal Doze mode.
-        android: {
-          priority: "high",
-        },
+        android: { priority: "high" },
 
         webpush: {
-          headers: { Urgency: "high" },
-          notification: {
-            title:              TITLE,
-            body:               BODY,
-            icon:               APP_URL + "icon-192.png",
-            badge:              APP_URL + "icon-192.png",
-            tag:                r.id || "reminder",
-            requireInteraction: true,
-            renotify:           true,
-            vibrate:            [200, 100, 200, 100, 400],
-            data:               { url: APP_URL, waUrl },
-            actions,
-          },
+          headers:     { Urgency: "high" },
           fcm_options: { link: APP_URL },
         },
 

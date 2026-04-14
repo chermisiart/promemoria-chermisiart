@@ -1,113 +1,77 @@
-// Service Worker per notifiche push FCM.
-// Non usa firebase-messaging-compat (che ignora le actions nel payload),
-// gestisce invece direttamente l'evento push raw per controllo completo.
-// Il token FCM è gestito dalla pagina tramite Firebase JS SDK — il SW non lo tocca.
+importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
 
-const APP_URL = 'https://chermisiart.github.io/promemoria-chermisiart/';
+firebase.initializeApp({
+  apiKey: "AIzaSyD9lmycIBZZm7Ef3GumXYBcYEYMLeo4y0c",
+  authDomain: "promemoria-chermisiart.firebaseapp.com",
+  projectId: "promemoria-chermisiart",
+  storageBucket: "promemoria-chermisiart.firebasestorage.app",
+  messagingSenderId: "1008023462326",
+  appId: "1:1008023462326:web:d31fd9ef1207e6e70e6117"
+});
+
+const messaging = firebase.messaging();
+const APP_URL   = 'https://chermisiart.github.io/promemoria-chermisiart/';
 
 // Attiva subito il nuovo SW senza aspettare la chiusura di tutti i tab.
 self.addEventListener('install',  () => self.skipWaiting());
 self.addEventListener('activate', () => self.clients.claim());
 
-self.addEventListener('push', (event) => {
-  if (!event.data) return;
+// Gestisce i messaggi in background (app chiusa o non in focus).
+messaging.onBackgroundMessage((payload) => {
+  const title = payload.data?.title || payload.notification?.title || '\u23F0 Ch\u00E8rmisiArt \u2014 Promemoria';
+  const body  = payload.data?.body  || payload.notification?.body  || '\u00C8 ora di inviare un messaggio!';
+  const tag   = payload.data?.reminderId || 'reminder';
+  const waUrl = payload.data?.waUrl || '';
 
-  let payload;
-  try { payload = event.data.json(); } catch (e) { return; }
+  const actions = waUrl
+    ? [{ action: 'whatsapp', title: '\uD83D\uDCAC WhatsApp' }, { action: 'dismiss', title: 'Ignora' }]
+    : [{ action: 'open',     title: 'Apri app' },              { action: 'dismiss', title: 'Ignora' }];
 
-  // FCM mappa webpush.notification → payload.notification
-  // e il campo data top-level → payload.data
-  const notif = payload.notification || {};
-  const data  = payload.data         || {};
-
-  const title   = notif.title   || data.title   || '\u23F0 Ch\u00E8rmisiArt \u2014 Promemoria';
-  const body    = notif.body    || data.body     || '\u00C8 ora di inviare un messaggio!';
-  const tag     = notif.tag     || data.reminderId || 'reminder';
-  const icon    = notif.icon    || '/promemoria-chermisiart/icon-192.png';
-  const badge   = notif.badge   || '/promemoria-chermisiart/icon-192.png';
-  const vibrate = notif.vibrate || [200, 100, 200, 100, 400];
-
-  // waUrl: preferisce quello pre-costruito dal server
-  const waUrl = (notif.data && notif.data.waUrl) || data.waUrl || '';
-
-  const actions = notif.actions && notif.actions.length
-    ? notif.actions
-    : waUrl
-      ? [{ action: 'whatsapp', title: '\uD83D\uDCAC WhatsApp' }, { action: 'dismiss', title: 'Ignora' }]
-      : [{ action: 'open',     title: 'Apri app' },              { action: 'dismiss', title: 'Ignora' }];
-
-  event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      icon,
-      badge,
-      requireInteraction: notif.requireInteraction !== false,
-      vibrate,
-      tag,
-      renotify: true,
-      data: { url: APP_URL, waUrl, ...data, ...(notif.data || {}) },
-      actions,
-    })
-  );
+  return self.registration.showNotification(title, {
+    body,
+    icon:               '/promemoria-chermisiart/icon-192.png',
+    badge:              '/promemoria-chermisiart/icon-192.png',
+    requireInteraction: true,
+    vibrate:            [200, 100, 200, 100, 400],
+    tag,
+    renotify:           true,
+    data:               { url: APP_URL, waUrl, ...payload.data },
+    actions,
+  });
 });
 
-// Click sulla notifica o sulle azioni
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   if (event.action === 'dismiss') return;
 
-  // ── Azione WhatsApp: apre WA con messaggio precompilato e cancella il promemoria ──
-  if (event.action === 'whatsapp') {
-    const d          = event.notification.data || {};
-    const reminderId = d.reminderId || '';
-    const waUrl      = d.waUrl || (() => {
-      const phone   = (d.phone || '').replace(/\D/g, '');
-      const message = d.message || '';
-      return phone ? 'https://wa.me/' + phone + '?text=' + encodeURIComponent(message) : null;
-    })();
+  const d          = event.notification.data || {};
+  const reminderId = d.reminderId || '';
+  const waUrl      = d.waUrl || (() => {
+    const phone   = (d.phone || '').replace(/\D/g, '');
+    const message = d.message || '';
+    return phone ? 'https://wa.me/' + phone + '?text=' + encodeURIComponent(message) : '';
+  })();
 
+  // Azione "whatsapp" OPPURE tap sul corpo della notifica → apre WhatsApp
+  if (event.action === 'whatsapp' || (event.action === '' && waUrl)) {
     event.waitUntil(
       clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
         const appClients = list.filter(c => c.url.startsWith(APP_URL));
         if (reminderId) appClients.forEach(c => c.postMessage({ type: 'deleteReminder', id: reminderId }));
-        const tasks = [];
-        if (waUrl) tasks.push(clients.openWindow(waUrl));
-        if (!appClients.length && reminderId) {
+        const tasks = [clients.openWindow(waUrl)];
+        if (!appClients.length && reminderId)
           tasks.push(clients.openWindow(APP_URL + '?deleteReminder=' + encodeURIComponent(reminderId)));
-        }
         return Promise.all(tasks);
       })
     );
     return;
   }
 
-  // ── Tap sul corpo della notifica (o azione "open"): apre WhatsApp se disponibile,
-  //    altrimenti porta in primo piano l'app. ──
-  const d      = event.notification.data || {};
-  const waUrl  = d.waUrl || (() => {
-    const phone   = (d.phone || '').replace(/\D/g, '');
-    const message = d.message || '';
-    return phone ? 'https://wa.me/' + phone + '?text=' + encodeURIComponent(message) : null;
-  })();
-  const reminderId = d.reminderId || '';
-  const target     = waUrl || d.url || APP_URL;
-
+  // Azione "open" o tap senza numero: porta in primo piano l'app
+  const target = d.url || APP_URL;
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-      const appClients = list.filter(c => c.url.startsWith(APP_URL));
-      // Auto-cancella il promemoria se l'app è aperta
-      if (reminderId) appClients.forEach(c => c.postMessage({ type: 'deleteReminder', id: reminderId }));
-
-      if (waUrl) {
-        // Apri WhatsApp e, se l'app non è aperta, aprila in background con deleteReminder
-        const tasks = [clients.openWindow(waUrl)];
-        if (!appClients.length && reminderId) {
-          tasks.push(clients.openWindow(APP_URL + '?deleteReminder=' + encodeURIComponent(reminderId)));
-        }
-        return Promise.all(tasks);
-      }
-
-      // Nessun numero: porta in primo piano l'app
       for (const client of list) {
         if (client.url.startsWith(APP_URL) && 'focus' in client) return client.focus();
       }
