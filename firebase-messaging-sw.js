@@ -17,37 +17,26 @@ const APP_URL   = 'https://chermisiart.github.io/promemoria-chermisiart/';
 self.addEventListener('install',  () => self.skipWaiting());
 self.addEventListener('activate', () => self.clients.claim());
 
-// Gestisce i messaggi in background (app chiusa o non in focus).
-// Opzioni semplificate al massimo per massima compatibilità Android.
-messaging.onBackgroundMessage(function(payload) {
-  var data  = (payload && payload.data) || {};
-  var notif = (payload && payload.notification) || {};
-  var title = data.title || notif.title || '\u23F0 Ch\u00E8rmisiArt \u2014 Promemoria';
-  var body  = data.body  || notif.body  || '\u00C8 ora di inviare un messaggio!';
-  var tag   = data.reminderId || 'reminder';
-  var waUrl = data.waUrl || '';
-
-  return self.registration.showNotification(title, {
-    body:   body,
-    icon:   '/promemoria-chermisiart/icon-192.png',
-    badge:  '/promemoria-chermisiart/icon-192.png',
-    tag:    tag,
-    renotify: true,
-    data:   { url: APP_URL, waUrl: waUrl, reminderId: tag, phone: data.phone || '', message: data.message || '' },
-  });
-});
+// Non usiamo onBackgroundMessage: su Android showNotification non ha
+// i permessi nel contesto Firebase e causa il fallback Chrome.
+// Firebase usa il campo "notification" del payload per auto-display.
+// L'intero payload FCM viene salvato in event.notification.data,
+// quindi notificationclick può leggere waUrl da lì.
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   if (event.action === 'dismiss') return;
 
-  const d          = event.notification.data || {};
-  const reminderId = d.reminderId || '';
-  const waUrl      = d.waUrl || (() => {
-    const phone   = (d.phone || '').replace(/\D/g, '');
-    const message = d.message || '';
+  // Firebase auto-display salva il payload FCM in event.notification.data.
+  // I campi custom FCM sono in .data (top-level) oppure direttamente nell'oggetto.
+  var nd         = event.notification.data || {};
+  var fcmData    = nd.data || nd;                 // Firebase a volte nidifica in .data
+  var reminderId = fcmData.reminderId || nd.reminderId || '';
+  var waUrl      = fcmData.waUrl || nd.waUrl || (function() {
+    var phone   = ((fcmData.phone || nd.phone || '')).replace(/\D/g, '');
+    var message = fcmData.message || nd.message || '';
     return phone ? 'https://wa.me/' + phone + '?text=' + encodeURIComponent(message) : '';
-  })();
+  }());
 
   const openWa = event.action === 'whatsapp' || event.action === '' || event.action === 'open';
 
