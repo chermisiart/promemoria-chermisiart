@@ -19,7 +19,13 @@ self.addEventListener('activate', () => self.clients.claim());
 
 const ICON = APP_URL + 'icon-192.png';
 
-messaging.onBackgroundMessage((payload) => {
+messaging.onBackgroundMessage(async (payload) => {
+  // Se l'app è visibile in foreground, onMessage nel page mostra già la notifica.
+  // Evitare la doppia notifica (la nostra + il fallback Chrome).
+  const allClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+  const appVisible = allClients.some(c => c.url.startsWith(APP_URL) && c.visibilityState === 'visible');
+  if (appVisible) return;
+
   const d          = payload.data || {};
   const title      = d.title      || '\u23F0 Ch\u00E8rmisiArt \u2014 Promemoria';
   const body       = d.body       || '\u00C8 ora di inviare un messaggio!';
