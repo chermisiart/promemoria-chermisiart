@@ -260,6 +260,14 @@
         </div>
       </div>
 
+      <!-- Ora fine (solo per conferma appuntamento → Google Calendar) -->
+      <div id="field-appt-end" style="display:none">
+        <div class="field">
+          <label>Orario fine appuntamento <span style="color:var(--muted);font-size:11px">(per Google Calendar)</span></label>
+          <input type="time" id="r-appt-time-end" style="color-scheme:dark">
+        </div>
+      </div>
+
       <!-- Numero seduta (solo per ciclo) -->
       <div id="field-seduta" style="display:none">
         <div class="field">
@@ -541,7 +549,7 @@ function installPWA() {
 // SW registrato nel modulo Firebase (vedi script type="module" sopra)
 
 const GCAL_CLIENT_ID = '1008023462326-a6lmnc40srkh6hkks1e5eed90psb9aim.apps.googleusercontent.com';
-const GCAL_SCOPES = 'https://www.googleapis.com/auth/calendar.readonly profile email openid';
+const GCAL_SCOPES = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly profile email openid';
 
 const KEY_CLIENTS   = 'chermisi_clients';
 const KEY_REMINDERS = 'chermisi_reminders';
@@ -623,6 +631,10 @@ let clients   = load(KEY_CLIENTS, []);
 let reminders = load(KEY_REMINDERS, []);
 let templates = load(KEY_TEMPLATES, DEFAULT_TEMPLATES);
 let gcalToken = localStorage.getItem(KEY_TOKEN) || null;
+// Se il token era stato ottenuto prima dello scope calendar.events, forza il re-login
+if (gcalToken && localStorage.getItem('chermisi_gcal_v') !== '2') {
+  gcalToken = null; localStorage.removeItem(KEY_TOKEN);
+}
 
 // Gestisce ?deleteReminder=ID (app aperta dal SW dopo azione WhatsApp notifica)
 (function() {
@@ -787,7 +799,9 @@ async function forceSaveToken() {
 function checkNotifUI() {
   const granted = typeof Notification !== 'undefined' && Notification.permission === 'granted';
   updateNotifUI(granted);
-  // Se già concesse, mostra comunque il box con il pulsante "Registra token"
+  // Se notifiche attive E token già salvato → box nascosto (tutto ok, nessuna azione richiesta)
+  if (granted && localStorage.getItem(KEY_FCM)) return;
+  // Token mancante ma permesso concesso → mostra solo il bottone "Registra token"
   if (granted) {
     const box = document.getElementById('notif-box');
     box.style.display = 'flex';
@@ -806,6 +820,7 @@ function initGoogleAuth() {
       if (resp.error) { showToast('Errore accesso Google'); return; }
       gcalToken = resp.access_token;
       localStorage.setItem(KEY_TOKEN, gcalToken);
+      localStorage.setItem('chermisi_gcal_v', '2');
       fetchUserInfo();
     }
   });
@@ -869,17 +884,43 @@ async function loadCalendarEvents() {
       const pad = n => String(n).padStart(2,'0');
       const dateVal = `${start.getFullYear()}-${pad(start.getMonth()+1)}-${pad(start.getDate())}`;
       const timeVal = e.start.dateTime ? `${pad(start.getHours())}:${pad(start.getMinutes())}` : '';
+      const endObj = e.end?.dateTime ? new Date(e.end.dateTime) : null;
+      const endVal = endObj ? `${pad(endObj.getHours())}:${pad(endObj.getMinutes())}` : '';
       return `<div class="gcal-event" id="gcalevent-${escHtml(dateVal+timeVal+e.summary)}">
         <div class="gcal-dot"></div>
-        <div class="gcal-info"><div class="gcal-name">${escHtml(e.summary||'Appuntamento')}</div><div class="gcal-time">${dateStr} · ${timeStr}</div></div>
-        <button class="gcal-use-btn" onclick="useEvent('${escJs(e.summary||'Appuntamento')}','${escJs(dateVal)}','${escJs(timeVal)}')">Usa →</button>
+        <div class="gcal-info"><div class="gcal-name">${escHtml(e.summary||'Appuntamento')}</div><div class="gcal-time">${dateStr} · ${timeStr}${endVal ? ' → ' + endVal : ''}</div></div>
+        <button class="gcal-use-btn" onclick="useEvent('${escJs(e.summary||'Appuntamento')}','${escJs(dateVal)}','${escJs(timeVal)}','${escJs(endVal)}')">Usa →</button>
         <button onclick="this.closest('.gcal-event').remove()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1" title="Rimuovi">✕</button>
       </div>`;
     }).join('');
   } catch { listEl.innerHTML = '<div class="empty" style="padding:16px">Errore nel caricamento</div>'; }
 }
 
-function useEvent(title, dateVal, timeVal) {
+async function createCalendarEvent(summary, description, dateISO, startTime, endTime) {
+  if (!gcalToken || !dateISO || !startTime || !endTime) return;
+  const event = {
+    summary,
+    description: description || '',
+    start: { dateTime: dateISO + 'T' + startTime + ':00', timeZone: 'Europe/Rome' },
+    end:   { dateTime: dateISO + 'T' + endTime   + ':00', timeZone: 'Europe/Rome' },
+  };
+  try {
+    const r = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + gcalToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(event),
+    });
+    if (r.status === 401 || r.status === 403) {
+      gcalToken = null; localStorage.removeItem(KEY_TOKEN); updateAuthUI();
+      showToast('❌ Sessione Google scaduta — accedi di nuovo per creare eventi');
+      return;
+    }
+    if (!r.ok) { showToast('❌ Errore creazione evento su Calendar'); return; }
+    showToast('📅 Evento aggiunto a Google Calendar!');
+  } catch (e) { console.error('createCalendarEvent:', e); showToast('❌ Errore connessione a Calendar'); }
+}
+
+function useEvent(title, dateVal, timeVal, endVal) {
   const start = new Date(dateVal + 'T12:00:00');
   const reminderDate = new Date(start);
   reminderDate.setDate(reminderDate.getDate() - 1);
@@ -889,10 +930,11 @@ function useEvent(title, dateVal, timeVal) {
   document.getElementById('r-sendat-time').value = '10:00';
   document.getElementById('r-appt-date').value = dateVal;
   if (timeVal) document.getElementById('r-appt-time').value = timeVal;
+  if (endVal)  document.getElementById('r-appt-time-end').value = endVal;
   document.getElementById('r-trattamento').value = title;
-  document.getElementById('r-type').value = 'appointment';
+  document.getElementById('r-type').value = 'confirm';
   onTypeChange();
-  const tpl = templates.find(t => t.type==='appointment');
+  const tpl = templates.find(t => t.type==='confirm');
   if (tpl) { document.getElementById('r-template').value = tpl.id; applyTemplate(); }
   showToast('✅ Importato! Seleziona la cliente e salva.');
   document.getElementById('r-client').scrollIntoView({ behavior:'smooth', block:'center' });
@@ -989,6 +1031,7 @@ function onTypeChange() {
     document.getElementById('fields-appt').querySelector('.row').style.display = '';
   }
   document.getElementById('field-seduta').style.display = type==='cycle' ? '' : 'none';
+  document.getElementById('field-appt-end').style.display = type==='confirm' ? '' : 'none';
   document.getElementById('r-template').value = '';
   document.getElementById('r-msg').value = '';
   renderTemplateSelect();
@@ -1064,9 +1107,11 @@ function addReminder() {
   const tpl = templates.find(t=>t.id===tplId);
   let msg = document.getElementById('r-msg').value.trim();
   if (!msg && tpl) msg = fillTemplate(tpl.text, vars);
+  const apptDateRaw = document.getElementById('r-appt-date').value;
+  const apptEndTime = type === 'confirm' ? (document.getElementById('r-appt-time-end').value || '') : '';
   reminders.push({ id:uid(), clientId, type, templateId:tplId, sendAt, message:msg,
-    appointmentDate:vars.data, appointmentTime:vars.ora, trattamento:vars.trattamento,
-    seduta:vars.seduta, status:'pending', createdAt:new Date().toISOString() });
+    appointmentDate:vars.data, appointmentTime:vars.ora, endTime:apptEndTime,
+    trattamento:vars.trattamento, seduta:vars.seduta, status:'pending', createdAt:new Date().toISOString() });
   save(KEY_REMINDERS, reminders);
   // Reset form
   document.getElementById('r-client').value='';
@@ -1074,6 +1119,7 @@ function addReminder() {
   document.getElementById('r-sendat-time').value='';
   document.getElementById('r-appt-date').value='';
   document.getElementById('r-appt-time').value='';
+  document.getElementById('r-appt-time-end').value='';
   if(document.getElementById('r-trattamento')) document.getElementById('r-trattamento').value='';
   if(document.getElementById('r-seduta')) document.getElementById('r-seduta').value='';
   document.getElementById('r-template').value='';
@@ -1081,6 +1127,11 @@ function addReminder() {
   showToast('✅ Promemoria salvato!');
   renderReminders();
   scheduleLocalNotification(reminders[reminders.length-1], client?.name);
+  // Crea evento su Google Calendar (solo per conferma appuntamento, se connessa e ora fine specificata)
+  if (type === 'confirm' && gcalToken && apptDateRaw && vars.ora && apptEndTime) {
+    const calTitle = (client?.name || 'Appuntamento') + (vars.trattamento ? ' — ' + vars.trattamento : '');
+    createCalendarEvent(calTitle, msg, apptDateRaw, vars.ora, apptEndTime);
+  }
 }
 
 function scheduleLocalNotification(reminder, clientName) {
