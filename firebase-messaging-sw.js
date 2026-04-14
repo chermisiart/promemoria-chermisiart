@@ -53,29 +53,25 @@ self.addEventListener('notificationclick', (event) => {
     return phone ? 'https://wa.me/' + phone + '?text=' + encodeURIComponent(message) : '';
   })();
 
-  // Azione "whatsapp" OPPURE tap sul corpo della notifica → apre WhatsApp
-  if (event.action === 'whatsapp' || (event.action === '' && waUrl)) {
-    event.waitUntil(
-      clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-        const appClients = list.filter(c => c.url.startsWith(APP_URL));
-        if (reminderId) appClients.forEach(c => c.postMessage({ type: 'deleteReminder', id: reminderId }));
-        const tasks = [clients.openWindow(waUrl)];
-        if (!appClients.length && reminderId)
-          tasks.push(clients.openWindow(APP_URL + '?deleteReminder=' + encodeURIComponent(reminderId)));
-        return Promise.all(tasks);
-      })
-    );
-    return;
-  }
-
-  // Azione "open" o tap senza numero: porta in primo piano l'app
-  const target = d.url || APP_URL;
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-      for (const client of list) {
-        if (client.url.startsWith(APP_URL) && 'focus' in client) return client.focus();
+      const appClients = list.filter(c => c.url.startsWith(APP_URL));
+
+      // Cancella il promemoria se l'app è aperta
+      if (reminderId) appClients.forEach(c => c.postMessage({ type: 'deleteReminder', id: reminderId }));
+
+      // Porta in primo piano una finestra Chrome già aperta (necessario su Windows
+      // perché clients.openWindow porta i nuovi tab in background altrimenti)
+      const focusFirst = appClients.length
+        ? appClients[0].focus()
+        : clients.openWindow(APP_URL + (reminderId ? '?deleteReminder=' + encodeURIComponent(reminderId) : ''));
+
+      // Azione "whatsapp" o click sul corpo con numero disponibile → apre WhatsApp
+      if (event.action === 'whatsapp' || (event.action === '' && waUrl)) {
+        return focusFirst.then(() => clients.openWindow(waUrl));
       }
-      return clients.openWindow(target);
+
+      return focusFirst;
     })
   );
 });
