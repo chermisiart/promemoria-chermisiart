@@ -55,9 +55,11 @@ exports.sendReminderNotifications = onSchedule(
       const APP_URL = "https://chermisiart.github.io/promemoria-chermisiart/";
 
       const message = {
-        // Nessun campo notification top-level: Firebase lo userebbe per auto-display
-        // bypassando onBackgroundMessage. Con solo data, onBackgroundMessage è chiamato
-        // e mostra la notifica ricca con waUrl e actions.
+        // notification top-level: necessario per svegliare Chrome Android.
+        // Con onBackgroundMessage registrato nel SW, Firebase lo chiama comunque
+        // e il nostro handler mostra la notifica ricca con data.waUrl.
+        notification: { title: TITLE, body: BODY },
+
         data: {
           title:      TITLE,
           body:       BODY,

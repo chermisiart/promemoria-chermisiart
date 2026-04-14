@@ -53,25 +53,28 @@ self.addEventListener('notificationclick', (event) => {
     return phone ? 'https://wa.me/' + phone + '?text=' + encodeURIComponent(message) : '';
   })();
 
+  const openWa = event.action === 'whatsapp' || event.action === '' || event.action === 'open';
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       const appClients = list.filter(c => c.url.startsWith(APP_URL));
 
-      // Cancella il promemoria se l'app è aperta
       if (reminderId) appClients.forEach(c => c.postMessage({ type: 'deleteReminder', id: reminderId }));
 
-      // Porta in primo piano una finestra Chrome già aperta (necessario su Windows
-      // perché clients.openWindow porta i nuovi tab in background altrimenti)
-      const focusFirst = appClients.length
-        ? appClients[0].focus()
-        : clients.openWindow(APP_URL + (reminderId ? '?deleteReminder=' + encodeURIComponent(reminderId) : ''));
-
-      // Azione "whatsapp" o click sul corpo con numero disponibile → apre WhatsApp
-      if (event.action === 'whatsapp' || (event.action === '' && waUrl)) {
-        return focusFirst.then(() => clients.openWindow(waUrl));
+      if (openWa && waUrl) {
+        if (appClients.length) {
+          // App aperta: invia postMessage → l'app fa window.location.href (nessun popup blocker)
+          appClients[0].postMessage({ type: 'openWhatsApp', waUrl });
+          return appClients[0].focus();
+        }
+        // App chiusa: aprila con ?wa= così la rileva al caricamento
+        const del = reminderId ? '&del=' + encodeURIComponent(reminderId) : '';
+        return clients.openWindow(APP_URL + '?wa=' + encodeURIComponent(waUrl) + del);
       }
 
-      return focusFirst;
+      // Nessun numero o azione open: porta solo in primo piano l'app
+      if (appClients.length) return appClients[0].focus();
+      return clients.openWindow(APP_URL);
     })
   );
 });

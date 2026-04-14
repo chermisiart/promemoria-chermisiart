@@ -635,7 +635,7 @@ let gcalToken = localStorage.getItem(KEY_TOKEN) || null;
   }
 })();
 
-// Ascolta messaggi dal Service Worker (es. azione WhatsApp sulla notifica)
+// Ascolta messaggi dal Service Worker
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', event => {
     if (event.data?.type === 'deleteReminder' && event.data?.id) {
@@ -643,8 +643,23 @@ if ('serviceWorker' in navigator) {
       save(KEY_REMINDERS, reminders);
       renderReminders();
     }
+    // Click sulla notifica: il SW chiede all'app di aprire WhatsApp.
+    // window.location.href non è bloccato dal popup-blocker (a differenza di window.open).
+    if (event.data?.type === 'openWhatsApp' && event.data?.waUrl) {
+      window.location.href = event.data.waUrl;
+    }
   });
 }
+
+// Se l'app è stata aperta dal SW con ?wa= (app era chiusa al click notifica),
+// naviga subito verso WhatsApp e rimuovi il param dall'URL.
+(function handleWaParam() {
+  const p = new URLSearchParams(window.location.search);
+  const wa  = p.get('wa');
+  const del = p.get('del');
+  if (del) { reminders = reminders.filter(r => r.id !== del); save(KEY_REMINDERS, reminders); renderReminders(); }
+  if (wa)  { window.history.replaceState({}, '', window.location.pathname); window.location.href = decodeURIComponent(wa); }
+})();
 let tokenClient = null;
 let userInfo = load('chermisi_userinfo', null);
 
