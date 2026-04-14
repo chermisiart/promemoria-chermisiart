@@ -29,10 +29,16 @@ exports.sendReminderNotifications = onSchedule(
     const now = new Date();
     const windowMs = 60 * 1000; // finestra di 1 minuto
 
+    // sendAt è salvato come orario locale italiano (es. "2026-04-14T19:00") senza timezone.
+    // La Function gira in UTC, quindi new Date("2026-04-14T19:00") lo interpreta come UTC.
+    // Fix: convertiamo "now" in orario italiano locale con lo stesso trucco,
+    // così il confronto avviene tra due valori nello stesso "spazio" (locale italiano).
+    const nowItaly = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
+
     const toSend = reminders.filter(r => {
       if (r.status !== "pending") return false;
       const sendAt = new Date(r.sendAt);
-      const diff = sendAt - now;
+      const diff = sendAt - nowItaly;
       return diff >= 0 && diff < windowMs;
     });
 
@@ -53,13 +59,13 @@ exports.sendReminderNotifications = onSchedule(
         : "";
 
       const APP_URL = "https://chermisiart.github.io/promemoria-chermisiart/";
+      const ICON    = APP_URL + "icon-192.png";
+
+      const actions = waUrl
+        ? [{ action: "whatsapp", title: "\uD83D\uDCAC WhatsApp" }, { action: "dismiss", title: "Ignora" }]
+        : [{ action: "open",     title: "Apri app" },              { action: "dismiss", title: "Ignora" }];
 
       const message = {
-        // notification top-level: necessario per svegliare Chrome Android.
-        // Con onBackgroundMessage registrato nel SW, Firebase lo chiama comunque
-        // e il nostro handler mostra la notifica ricca con data.waUrl.
-        notification: { title: TITLE, body: BODY },
-
         data: {
           title:      TITLE,
           body:       BODY,
@@ -73,7 +79,19 @@ exports.sendReminderNotifications = onSchedule(
         android: { priority: "high" },
 
         webpush: {
-          headers:     { Urgency: "high" },
+          headers: { Urgency: "high" },
+          notification: {
+            title:              TITLE,
+            body:               BODY,
+            icon:               ICON,
+            badge:              ICON,
+            tag:                r.id || "reminder",
+            requireInteraction: true,
+            renotify:           true,
+            vibrate:            [200, 100, 200, 100, 400],
+            data:               { waUrl, reminderId: r.id },
+            actions,
+          },
           fcm_options: { link: APP_URL },
         },
 
