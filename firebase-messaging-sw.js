@@ -19,6 +19,24 @@ self.addEventListener('activate', () => self.clients.claim());
 
 const ICON = APP_URL + 'icon-192.png';
 
+// ── Cache API: persiste l'azione WhatsApp anche se il SW viene killato ──
+const PENDING_CACHE = 'chermisi-pending-v1';
+const PENDING_KEY   = '/pending-wa';
+
+async function savePendingWa(data) {
+  const cache = await caches.open(PENDING_CACHE);
+  await cache.put(PENDING_KEY, new Response(JSON.stringify(data)));
+}
+async function getPendingWa() {
+  const cache = await caches.open(PENDING_CACHE);
+  const res   = await cache.match(PENDING_KEY);
+  return res ? res.json() : null;
+}
+async function clearPendingWa() {
+  const cache = await caches.open(PENDING_CACHE);
+  await cache.delete(PENDING_KEY);
+}
+
 messaging.onBackgroundMessage(async (payload) => {
   // Se l'app è visibile in foreground, onMessage nel page mostra già la notifica.
   // Evitare la doppia notifica (la nostra + il fallback Chrome).
@@ -54,29 +72,46 @@ self.addEventListener('notificationclick', (event) => {
   const reminderId = nd.reminderId || '';
 
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (list) => {
       const appClients = list.filter(c => c.url.startsWith(APP_URL));
 
-      // Cancella il promemoria se l'app è aperta
-      if (reminderId) appClients.forEach(c => c.postMessage({ type: 'deleteReminder', id: reminderId }));
-
-      // Tap sulla notifica → apri WhatsApp
       if (waUrl) {
-        const del = reminderId ? '&del=' + encodeURIComponent(reminderId) : '';
-        const waParam = APP_URL + '?wa=' + encodeURIComponent(waUrl) + del;
         if (appClients.length) {
-          // App in memoria: porta in primo piano PRIMA di inviare il redirect
-          return appClients[0].focus().then((client) => {
-            if (client) client.postMessage({ type: 'openWhatsApp', waUrl });
-            else clients.openWindow(waParam);
-          });
+          // App già aperta: porta in primo piano e invia messaggio diretto
+          const client = await appClients[0].focus();
+          if (client) {
+            client.postMessage({ type: 'openWhatsApp', waUrl, reminderId });
+            return;
+          }
         }
-        return clients.openWindow(waParam);
+        // App chiusa: salva l'azione in Cache API e apri l'app normalmente.
+        // Quando Firebase sarà pronto, l'app manderà 'appReady' e noi risponderemo.
+        await savePendingWa({ waUrl, reminderId });
+        return clients.openWindow(APP_URL);
       }
 
-      // Nessun numero → apri solo l'app
+      // Nessun URL WhatsApp: cancella il promemoria (se aperta) e apri/focalizza l'app
+      if (reminderId) appClients.forEach(c => c.postMessage({ type: 'deleteReminder', id: reminderId }));
       if (appClients.length) return appClients[0].focus();
       return clients.openWindow(APP_URL);
     })
   );
+});
+
+// L'app manda 'appReady' dopo che Firebase è inizializzato.
+// Se c'è un'azione WhatsApp salvata in cache, la inviamo all'app.
+self.addEventListener('message', async (event) => {
+  if (event.data?.type === 'appReady') {
+    const pending = await getPendingWa();
+    if (pending?.waUrl) {
+      await clearPendingWa();
+      if (event.source) {
+        event.source.postMessage({
+          type:       'openWhatsApp',
+          waUrl:      pending.waUrl,
+          reminderId: pending.reminderId || '',
+        });
+      }
+    }
+  }
 });

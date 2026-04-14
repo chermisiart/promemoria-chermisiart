@@ -489,6 +489,10 @@ onMessage(messaging, (payload) => {
 
 window._firebaseReady = true;
 document.dispatchEvent(new Event('firebaseReady'));
+// Notifica al SW che l'app è pronta: se c'è un'azione WhatsApp salvata (cold start), la riceveremo.
+if (navigator.serviceWorker?.controller) {
+  navigator.serviceWorker.controller.postMessage({ type: 'appReady' });
+}
 </script>
 
 <script>
@@ -642,6 +646,11 @@ if ('serviceWorker' in navigator) {
     // Click sulla notifica: il SW chiede all'app di aprire WhatsApp.
     // window.location.href non è bloccato dal popup-blocker (a differenza di window.open).
     if (event.data?.type === 'openWhatsApp' && event.data?.waUrl) {
+      if (event.data.reminderId) {
+        reminders = reminders.filter(r => r.id !== event.data.reminderId);
+        save(KEY_REMINDERS, reminders);
+        renderReminders();
+      }
       window.location.href = event.data.waUrl;
     }
   });
@@ -649,23 +658,11 @@ if ('serviceWorker' in navigator) {
 
 let toastTimer; // dichiarato qui per evitare TDZ quando handleWaParam chiama renderReminders
 
-// Se l'app è stata aperta dal SW con ?wa= (app era chiusa al click notifica),
-// naviga verso WhatsApp dopo che Firebase è pronto (app completamente inizializzata).
+// Gestisce il parametro ?del= (legacy, rimasto da vecchi URL con ?wa=).
 (function handleWaParam() {
-  const p = new URLSearchParams(window.location.search);
-  const wa  = p.get('wa');
+  const p   = new URLSearchParams(window.location.search);
   const del = p.get('del');
   if (del) { reminders = reminders.filter(r => r.id !== del); save(KEY_REMINDERS, reminders); renderReminders(); }
-  if (!wa) return;
-  window.history.replaceState({}, '', window.location.pathname);
-  const waDecoded = decodeURIComponent(wa);
-  const doRedirect = () => { window.location.href = waDecoded; };
-  // Aspetta che Firebase sia pronto: a quel punto l'app è inizializzata e visibile.
-  if (window._firebaseReady) {
-    setTimeout(doRedirect, 300);
-  } else {
-    document.addEventListener('firebaseReady', () => setTimeout(doRedirect, 300), { once: true });
-  }
 })();
 let tokenClient = null;
 let userInfo = load('chermisi_userinfo', null);
