@@ -215,8 +215,13 @@
           <span id="gcal-toggle-icon">▾</span>
         </button>
         <div id="gcal-list-wrap" style="display:none;margin-top:8px">
-          <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
-            <button class="btn-gcal" onclick="loadCalendarEvents()" style="font-size:11px;padding:5px 12px">↻ Aggiorna</button>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap">
+            <div id="gcal-color-filter" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <button onclick="setGcalColorFilter('')" id="gcal-cf-all" title="Tutti i colori"
+                style="font-size:11px;padding:3px 10px;border-radius:20px;border:2px solid var(--lilla);background:var(--lilla);color:#fff;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s">Tutti</button>
+              <span id="gcal-cf-dots" style="display:flex;gap:5px;flex-wrap:wrap"></span>
+            </div>
+            <button class="btn-gcal" onclick="loadCalendarEvents()" style="font-size:11px;padding:5px 12px;flex-shrink:0">↻ Aggiorna</button>
           </div>
           <div id="gcal-events-list"><div class="empty" style="padding:16px">Clicca "Aggiorna" per caricare gli appuntamenti</div></div>
         </div>
@@ -669,6 +674,13 @@ let clients   = load(KEY_CLIENTS, []);
 let reminders = load(KEY_REMINDERS, []);
 let templates = load(KEY_TEMPLATES, DEFAULT_TEMPLATES);
 let gcalToken = localStorage.getItem(KEY_TOKEN) || null;
+let gcalAllEvents = [];
+let gcalColorFilter = '';
+const GCAL_COLOR_MAP = {
+  '1':'#7986CB','2':'#33B679','3':'#8E24AA','4':'#E67C73',
+  '5':'#F6BF26','6':'#F4511E','7':'#039BE5','8':'#616161',
+  '9':'#3F51B5','10':'#0B8043','11':'#D50000'
+};
 // Se il token era stato ottenuto prima dello scope calendar.events, forza il re-login
 if (gcalToken && localStorage.getItem('chermisi_gcal_v') !== '2') {
   gcalToken = null; localStorage.removeItem(KEY_TOKEN);
@@ -917,30 +929,77 @@ async function loadCalendarEvents() {
   try {
     const now = new Date().toISOString();
     const future = new Date(Date.now() + 60*24*60*60*1000).toISOString();
-    const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now}&timeMax=${future}&singleEvents=true&orderBy=startTime&maxResults=20`;
+    const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now}&timeMax=${future}&singleEvents=true&orderBy=startTime&maxResults=50`;
     const r = await fetch(url, { headers: { Authorization: 'Bearer ' + gcalToken } });
     if (r.status === 401) { gcalToken = null; localStorage.removeItem(KEY_TOKEN); updateAuthUI(); showToast('Sessione scaduta, accedi di nuovo'); return; }
     const data = await r.json();
-    const events = (data.items||[]).filter(e => e.start && (e.start.dateTime||e.start.date));
-    if (!events.length) { listEl.innerHTML = '<div class="empty" style="padding:16px">Nessun appuntamento nei prossimi 60 giorni</div>'; return; }
-    listEl.innerHTML = events.map(e => {
-      const startStr = e.start.dateTime||e.start.date;
-      const start = new Date(startStr);
-      const dateStr = start.toLocaleDateString('it-IT', { weekday:'short', day:'2-digit', month:'short' });
-      const timeStr = e.start.dateTime ? start.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' }) : 'Tutto il giorno';
-      const pad = n => String(n).padStart(2,'0');
-      const dateVal = `${start.getFullYear()}-${pad(start.getMonth()+1)}-${pad(start.getDate())}`;
-      const timeVal = e.start.dateTime ? `${pad(start.getHours())}:${pad(start.getMinutes())}` : '';
-      const endObj = e.end?.dateTime ? new Date(e.end.dateTime) : null;
-      const endVal = endObj ? `${pad(endObj.getHours())}:${pad(endObj.getMinutes())}` : '';
-      return `<div class="gcal-event" id="gcalevent-${escHtml(dateVal+timeVal+e.summary)}">
-        <div class="gcal-dot"></div>
-        <div class="gcal-info"><div class="gcal-name">${escHtml(e.summary||'Appuntamento')}</div><div class="gcal-time">${dateStr} · ${timeStr}${endVal ? ' → ' + endVal : ''}</div></div>
-        <button class="gcal-use-btn" onclick="useEvent('${escJs(e.summary||'Appuntamento')}','${escJs(dateVal)}','${escJs(timeVal)}','${escJs(endVal)}')">Usa →</button>
-        <button onclick="this.closest('.gcal-event').remove()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1" title="Rimuovi">✕</button>
-      </div>`;
-    }).join('');
+    gcalAllEvents = (data.items||[]).filter(e => e.start && (e.start.dateTime||e.start.date));
+    buildGcalColorDots();
+    renderGcalEvents();
   } catch { listEl.innerHTML = '<div class="empty" style="padding:16px">Errore nel caricamento</div>'; }
+}
+
+function buildGcalColorDots() {
+  // Mostra solo i pallini dei colori effettivamente presenti negli eventi caricati
+  const dotsEl = document.getElementById('gcal-cf-dots');
+  if (!dotsEl) return;
+  const usedColors = [...new Set(gcalAllEvents.map(e => e.colorId||'').filter(c => c && GCAL_COLOR_MAP[c]))];
+  dotsEl.innerHTML = usedColors.map(c => {
+    const col = GCAL_COLOR_MAP[c];
+    return `<button onclick="setGcalColorFilter('${c}')" data-cfid="${c}" title="Filtra colore"
+      style="width:20px;height:20px;border-radius:50%;background:${col};border:2px solid transparent;cursor:pointer;transition:all 0.15s;padding:0"></button>`;
+  }).join('');
+  updateGcalColorUI();
+}
+
+function setGcalColorFilter(colorId) {
+  gcalColorFilter = colorId;
+  updateGcalColorUI();
+  renderGcalEvents();
+}
+
+function updateGcalColorUI() {
+  const allBtn = document.getElementById('gcal-cf-all');
+  if (allBtn) {
+    allBtn.style.background = gcalColorFilter === '' ? 'var(--lilla)' : 'transparent';
+    allBtn.style.color = gcalColorFilter === '' ? '#fff' : 'var(--muted)';
+  }
+  document.querySelectorAll('#gcal-cf-dots button[data-cfid]').forEach(btn => {
+    const active = btn.dataset.cfid === gcalColorFilter;
+    btn.style.border = active ? '2px solid #fff' : '2px solid transparent';
+    btn.style.boxShadow = active ? '0 0 0 2px var(--lilla)' : 'none';
+    btn.style.transform = active ? 'scale(1.2)' : 'scale(1)';
+  });
+}
+
+function renderGcalEvents() {
+  const listEl = document.getElementById('gcal-events-list');
+  if (!listEl) return;
+  const events = gcalColorFilter
+    ? gcalAllEvents.filter(e => (e.colorId||'') === gcalColorFilter)
+    : gcalAllEvents;
+  if (!events.length) {
+    listEl.innerHTML = `<div class="empty" style="padding:16px">${gcalAllEvents.length ? 'Nessun evento con questo colore' : 'Nessun appuntamento nei prossimi 60 giorni'}</div>`;
+    return;
+  }
+  listEl.innerHTML = events.map(e => {
+    const startStr = e.start.dateTime||e.start.date;
+    const start = new Date(startStr);
+    const dateStr = start.toLocaleDateString('it-IT', { weekday:'short', day:'2-digit', month:'short' });
+    const timeStr = e.start.dateTime ? start.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' }) : 'Tutto il giorno';
+    const pad = n => String(n).padStart(2,'0');
+    const dateVal = `${start.getFullYear()}-${pad(start.getMonth()+1)}-${pad(start.getDate())}`;
+    const timeVal = e.start.dateTime ? `${pad(start.getHours())}:${pad(start.getMinutes())}` : '';
+    const endObj = e.end?.dateTime ? new Date(e.end.dateTime) : null;
+    const endVal = endObj ? `${pad(endObj.getHours())}:${pad(endObj.getMinutes())}` : '';
+    const dotColor = GCAL_COLOR_MAP[e.colorId||''] || '#7986CB';
+    return `<div class="gcal-event" id="gcalevent-${escHtml(dateVal+timeVal+e.summary)}">
+      <div class="gcal-dot" style="background:${dotColor}"></div>
+      <div class="gcal-info"><div class="gcal-name">${escHtml(e.summary||'Appuntamento')}</div><div class="gcal-time">${dateStr} · ${timeStr}${endVal ? ' → ' + endVal : ''}</div></div>
+      <button class="gcal-use-btn" onclick="useEvent('${escJs(e.summary||'Appuntamento')}','${escJs(dateVal)}','${escJs(timeVal)}','${escJs(endVal)}')">Usa →</button>
+      <button onclick="this.closest('.gcal-event').remove()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1" title="Rimuovi">✕</button>
+    </div>`;
+  }).join('');
 }
 
 async function createCalendarEvent(summary, description, dateISO, startTime, endTime) {
