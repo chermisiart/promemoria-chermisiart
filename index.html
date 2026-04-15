@@ -215,13 +215,20 @@
           <span id="gcal-toggle-icon">▾</span>
         </button>
         <div id="gcal-list-wrap" style="display:none;margin-top:8px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:8px;flex-wrap:wrap">
             <div id="gcal-color-filter" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               <button onclick="setGcalColorFilter('')" id="gcal-cf-all" title="Tutti i colori"
                 style="font-size:11px;padding:3px 10px;border-radius:20px;border:2px solid var(--lilla);background:var(--lilla);color:#fff;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s">Tutti</button>
               <span id="gcal-cf-dots" style="display:flex;gap:5px;flex-wrap:wrap"></span>
             </div>
             <button class="btn-gcal" onclick="loadCalendarEvents()" style="font-size:11px;padding:5px 12px;flex-shrink:0">↻ Aggiorna</button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <label id="gcal-dup-label" style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0;margin:0">
+              <input type="checkbox" id="gcal-hide-dup" checked onchange="gcalHideDuplicates=this.checked;renderGcalEvents()" style="width:auto;accent-color:var(--lilla);cursor:pointer">
+              Nascondi già presenti nei promemoria
+            </label>
+            <span id="gcal-dup-count" style="font-size:11px;color:var(--muted)"></span>
           </div>
           <div id="gcal-events-list"><div class="empty" style="padding:16px">Clicca "Aggiorna" per caricare gli appuntamenti</div></div>
         </div>
@@ -676,6 +683,7 @@ let templates = load(KEY_TEMPLATES, DEFAULT_TEMPLATES);
 let gcalToken = localStorage.getItem(KEY_TOKEN) || null;
 let gcalAllEvents = [];
 let gcalColorFilter = '';
+let gcalHideDuplicates = true;
 const GCAL_COLOR_MAP = {
   '1':'#7986CB','2':'#33B679','3':'#8E24AA','4':'#E67C73',
   '5':'#F6BF26','6':'#F4511E','7':'#039BE5','8':'#616161',
@@ -972,14 +980,39 @@ function updateGcalColorUI() {
   });
 }
 
+function isEventDuplicate(e) {
+  if (!e.start) return false;
+  const startStr = e.start.dateTime || e.start.date;
+  const start = new Date(startStr);
+  const pad = n => String(n).padStart(2,'0');
+  const dateVal = `${start.getFullYear()}-${pad(start.getMonth()+1)}-${pad(start.getDate())}`;
+  const timeVal = e.start.dateTime ? `${pad(start.getHours())}:${pad(start.getMinutes())}` : '';
+  const italianDate = formatDateIT(dateVal); // stessa funzione usata quando si salva il reminder
+  const summary = (e.summary || '').toLowerCase().trim();
+  return reminders.some(r => {
+    if (r.appointmentDate !== italianDate) return false;
+    if (timeVal && r.appointmentTime !== timeVal) return false;
+    const clientName = (clients.find(c => c.id === r.clientId)?.name || '').toLowerCase();
+    const trattamento = (r.trattamento || '').toLowerCase();
+    return (clientName && summary.includes(clientName)) || (trattamento && trattamento.length > 2 && summary.includes(trattamento));
+  });
+}
+
 function renderGcalEvents() {
   const listEl = document.getElementById('gcal-events-list');
   if (!listEl) return;
-  const events = gcalColorFilter
+  let events = gcalColorFilter
     ? gcalAllEvents.filter(e => (e.colorId||'') === gcalColorFilter)
     : gcalAllEvents;
+  const hiddenCount = gcalHideDuplicates ? events.filter(isEventDuplicate).length : 0;
+  if (gcalHideDuplicates) events = events.filter(e => !isEventDuplicate(e));
+  const dupCountEl = document.getElementById('gcal-dup-count');
+  if (dupCountEl) dupCountEl.textContent = hiddenCount > 0 ? `${hiddenCount} nascost${hiddenCount===1?'o':'i'}` : '';
   if (!events.length) {
-    listEl.innerHTML = `<div class="empty" style="padding:16px">${gcalAllEvents.length ? 'Nessun evento con questo colore' : 'Nessun appuntamento nei prossimi 60 giorni'}</div>`;
+    const msg = gcalAllEvents.length === 0 ? 'Nessun appuntamento nei prossimi 60 giorni'
+      : hiddenCount > 0 ? 'Tutti gli eventi sono già nei promemoria'
+      : 'Nessun evento con questo colore';
+    listEl.innerHTML = `<div class="empty" style="padding:16px">${msg}</div>`;
     return;
   }
   listEl.innerHTML = events.map(e => {
