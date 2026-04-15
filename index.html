@@ -346,6 +346,9 @@
       <div class="section-title">Promemoria programmati</div>
       <div class="section-count" id="pending-count"></div>
     </div>
+    <div style="margin-bottom:12px;position:relative">
+      <input type="search" id="reminders-search" placeholder="🔍 Cerca cliente..." oninput="renderReminders()" style="padding-left:14px;font-size:13px">
+    </div>
     <div id="reminders-list"></div>
   </div>
 
@@ -1272,6 +1275,7 @@ function addReminder() {
   document.getElementById('r-msg').value='';
   showToast('✅ Promemoria salvato!');
   renderReminders();
+  if (gcalAllEvents.length) renderGcalEvents(); // aggiorna lista calendar se aperta
   scheduleLocalNotification(reminders[reminders.length-1], client?.name);
   // Crea evento su Google Calendar (solo per conferma appuntamento, se connessa e ora fine specificata)
   if (type === 'confirm' && gcalToken && apptDateRaw && vars.ora && apptEndTime) {
@@ -1357,7 +1361,13 @@ function renderReminders() {
   document.getElementById('pending-count').textContent = sorted.filter(r=>r.status==='pending').length+' in attesa';
   const el = document.getElementById('reminders-list');
   if (!sorted.length) { el.innerHTML='<div class="empty">Nessun promemoria ancora. Aggiungine uno sopra ✨</div>'; return; }
-  el.innerHTML = sorted.map(r=>{
+  const q = (document.getElementById('reminders-search')?.value || '').toLowerCase().trim();
+  const filtered = q ? sorted.filter(r => {
+    const clientName = (clients.find(c=>c.id===r.clientId)?.name||'').toLowerCase();
+    return clientName.includes(q) || (r.trattamento||'').toLowerCase().includes(q);
+  }) : sorted;
+  if (!filtered.length) { el.innerHTML=`<div class="empty">Nessun risultato per "${escHtml(q)}"</div>`; return; }
+  el.innerHTML = filtered.map(r=>{
     const client = clients.find(c=>c.id===r.clientId);
     const isPast = new Date(r.sendAt)<new Date();
     const dotCls = r.status==='sent' ? 'dot-sent' : (TYPE_DOT[r.type]||'dot-appointment');
@@ -1440,6 +1450,7 @@ function saveTemplate() {
     document.getElementById('t-custom-date').value=''; document.getElementById('t-custom-time').value='';
     document.getElementById('t-custom-client').value='';
     showToast('✅ Promemoria personalizzato creato!'); renderReminders();
+    if (gcalAllEvents.length) renderGcalEvents();
     switchTab('reminders', document.querySelector('.tab[onclick*="reminders"]'));
     return;
   }
