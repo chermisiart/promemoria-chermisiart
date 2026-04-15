@@ -396,18 +396,6 @@
         <textarea id="t-text" placeholder="Ciao {nome}..." style="min-height:100px"></textarea>
         <div class="hint">Usa {nome}, {data}, {ora}, {trattamento}, {seduta} come variabili</div>
       </div>
-      <!-- Campi aggiuntivi per tipo personalizzato → crea un promemoria diretto -->
-      <div id="tpl-custom-fields" style="display:none">
-        <div class="field">
-          <label>Cliente</label>
-          <select id="t-custom-client"><option value="">Seleziona...</option></select>
-        </div>
-        <div class="row">
-          <div class="field"><label>Data invio</label><input type="date" id="t-custom-date"></div>
-          <div class="field"><label>Ora invio</label><input type="time" id="t-custom-time" style="color-scheme:light"></div>
-        </div>
-      </div>
-
       <div style="display:flex;gap:10px">
         <button class="btn btn-primary" id="tpl-save-btn" onclick="saveTemplate()">Aggiungi</button>
         <button class="btn btn-ghost" id="tpl-cancel-btn" onclick="cancelEditTemplate()" style="display:none">Annulla</button>
@@ -1176,10 +1164,12 @@ function onTypeChange() {
   document.getElementById('field-seduta').style.display = type==='cycle' ? '' : 'none';
   document.getElementById('field-appt-end').style.display = type==='confirm' ? '' : 'none';
   document.getElementById('gcal-save-hint').style.display = (type==='confirm' && gcalToken) ? '' : 'none';
-  // Tipo personalizzato: nessun campo appuntamento, solo messaggio libero
+  // Tipo personalizzato: stessi campi di appointment (data, ora, trattamento), senza fine e seduta
   if (type === 'custom') {
-    document.getElementById('fields-appt').style.display = 'none';
+    document.getElementById('fields-appt').style.display = 'block';
+    document.getElementById('fields-appt').querySelector('.row').style.display = '';
     document.getElementById('field-appt-end').style.display = 'none';
+    document.getElementById('field-seduta').style.display = 'none';
   }
   document.getElementById('r-template').value = '';
   document.getElementById('r-msg').value = '';
@@ -1413,19 +1403,7 @@ function renderClients() {
 // ── Templates ──
 let editingTplId=null;
 
-function onTplTypeChange() {
-  const type = document.getElementById('t-type').value;
-  const isCustom = type === 'custom';
-  document.getElementById('tpl-custom-fields').style.display = isCustom ? '' : 'none';
-  document.getElementById('tpl-save-btn').textContent = isCustom ? 'Crea promemoria' : 'Aggiungi';
-  if (isCustom) {
-    // Popola il select clienti
-    const sel = document.getElementById('t-custom-client');
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">Seleziona...</option>' + [...clients].sort((a,b)=>a.name.localeCompare(b.name,'it')).map(c=>`<option value="${c.id}">${escHtml(c.name)}</option>`).join('');
-    sel.value = cur;
-  }
-}
+function onTplTypeChange() {}
 
 function saveTemplate() {
   const name=document.getElementById('t-name').value.trim();
@@ -1433,27 +1411,6 @@ function saveTemplate() {
   const text=document.getElementById('t-text').value.trim();
   if (!name||!text) { showToast('Compila nome e testo'); return; }
 
-  // Tipo personalizzato: crea un promemoria diretto invece di un template
-  if (type === 'custom') {
-    const clientId = document.getElementById('t-custom-client').value;
-    const sendDate = document.getElementById('t-custom-date').value;
-    const sendTime = document.getElementById('t-custom-time').value;
-    if (!clientId || !sendDate || !sendTime) { showToast('Seleziona cliente, data e ora di invio'); return; }
-    const sendAt = sendDate + 'T' + sendTime;
-    const client = clients.find(c => c.id === clientId);
-    const vars = { nome: client?.name||'', data:'', ora:'', trattamento:'', seduta:'' };
-    const msg = fillTemplate(text, vars);
-    reminders.push({ id:uid(), clientId, type:'custom', templateId:'', sendAt, message:msg,
-      appointmentDate:'', appointmentTime:'', trattamento:name, seduta:'', status:'pending', createdAt:new Date().toISOString() });
-    save(KEY_REMINDERS, reminders);
-    document.getElementById('t-name').value=''; document.getElementById('t-text').value='';
-    document.getElementById('t-custom-date').value=''; document.getElementById('t-custom-time').value='';
-    document.getElementById('t-custom-client').value='';
-    showToast('✅ Promemoria personalizzato creato!'); renderReminders();
-    if (gcalAllEvents.length) renderGcalEvents();
-    switchTab('reminders', document.querySelector('.tab[onclick*="reminders"]'));
-    return;
-  }
 
   if (editingTplId) { templates=templates.map(t=>t.id===editingTplId?{...t,name,type,text}:t); editingTplId=null; }
   else { templates.push({id:uid(),name,type,text}); }
