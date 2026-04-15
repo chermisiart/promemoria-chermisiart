@@ -18,7 +18,7 @@
   :root {
     --accent: #b01a28; --accent2: #8c1220; --crimson: #b01a28;
     --lilla: #7c3aed; --lilla2: #6020c8;
-    --bg: #d4c8ee; --card: #faf8ff; --card2: #ede8f8;
+    --bg: #d4c8ee; --card: #18102e; --card2: #ede8f8;
     --border: #c4b4e0; --text: #18102a; --muted: #6a5880; --green: #1a7a4a;
   }
   body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 300; min-height: 100vh; }
@@ -137,6 +137,13 @@
   .time-trigger:hover { border-color: var(--accent); }
   .time-trigger .tv { flex: 1; color: var(--text); }
   .time-trigger .tv.empty { color: var(--muted); }
+
+  /* Testo leggibile dentro le card scure */
+  .card label { color: #c0aee0; }
+  .card .hint, .card .quick-add-title { color: #9878c0; }
+  .card .section-title { color: var(--lilla); }
+  .card .divider span { color: #9878c0; }
+  .card .divider::before, .card .divider::after { border-color: #3a2858; }
 
   /* Storico trattamenti */
   .client-item { cursor: pointer; transition: border-color 0.2s; }
