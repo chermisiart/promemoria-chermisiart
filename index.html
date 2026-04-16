@@ -166,7 +166,10 @@
   .seduta-trattamento { font-size: 14px; color: var(--text); font-weight: 400; }
   .seduta-note { font-size: 13px; color: #8a7060; font-style: italic; margin-top: 6px; line-height: 1.5; }
   .add-seduta-box { background: var(--card2); border: 1px dashed var(--border); border-radius: 10px; padding: 14px; margin-top: 12px; }
-  .add-seduta-title { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
+  .add-seduta-title { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; }
+  .add-seduta-title::after { content: '▾'; font-size: 12px; transition: transform 0.2s; }
+  .add-seduta-box.collapsed .add-seduta-title::after { transform: rotate(-90deg); }
+  .add-seduta-box.collapsed > *:not(.add-seduta-title) { display: none !important; }
 
   /* Card collassabili */
   .card-title { cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; }
@@ -219,7 +222,12 @@
     .tabs { background: rgba(42,31,61,0.8); border-color: rgba(255,255,255,0.1); }
     .tab:hover:not(.active) { background: #3a2d50; }
     .toast { background: #2a1f3d; }
-    .storico-modal input, .storico-modal textarea, .storico-modal select { background: #231a38; color: #ede8f8; border-color: #3d2d60; }
+    /* Campi form globali in dark mode — sfondo scuro, bordo viola visibile, testo chiaro */
+    input, textarea, select { background: #2d2640 !important; border-color: #5a3d8a !important; color: #ede8f8 !important; color-scheme: dark; }
+    input::placeholder, textarea::placeholder { color: #9070c0 !important; }
+    input:focus, textarea:focus, select:focus { border-color: var(--lilla) !important; box-shadow: 0 0 0 3px rgba(124,58,237,0.25) !important; }
+    /* Fix specifico per campi dentro modale storico */
+    .storico-modal input, .storico-modal textarea, .storico-modal select { background: #2d2640 !important; color: #ede8f8 !important; border-color: #5a3d8a !important; }
   }
 </style>
 </head>
@@ -1664,14 +1672,20 @@ function openStorico(clientId) {
           <button class="btn btn-primary btn-sm" style="margin-top:6px" onclick="savePrecauzioni('${clientId}')">Salva</button>
         </div>
       </div>
-      <div class="add-seduta-box" style="margin-bottom:14px">
-        <div class="add-seduta-title">✦ Aggiungi seduta</div>
+      <div class="add-seduta-box collapsed" id="add-seduta-box-${clientId}" style="margin-bottom:14px">
+        <div class="add-seduta-title" onclick="this.closest('.add-seduta-box').classList.toggle('collapsed')">✦ Aggiungi seduta</div>
         <div class="row">
           <div class="field"><label>Data</label><input type="date" id="ns-data" value="${new Date().toISOString().slice(0,10)}"></div>
-          <div class="field"><label>Trattamento</label><input id="ns-tratt" placeholder="Es. manicure, massaggio..."></div>
+          <div class="field"><label>Importo (€)</label><input type="number" id="ns-importo" placeholder="Es. 35" min="0" step="0.5" inputmode="decimal"></div>
         </div>
-        <div class="field"><label>Osservazioni (opzionale)</label><textarea id="ns-note" placeholder="Note sulla seduta..." style="min-height:60px"></textarea></div>
-        <div class="field"><label>Importo (€)</label><input type="number" id="ns-importo" placeholder="Es. 35" min="0" step="0.5" style="color-scheme:light"></div>
+        <div class="field"><label>Trattamento</label><input id="ns-tratt" placeholder="Es. pedicure, microblading..." oninput="autoCategoria()"></div>
+        <div class="field">
+          <label>Categoria <span style="font-size:10px;opacity:0.7">(per statistiche)</span></label>
+          <select id="ns-categoria">
+            ${TREATMENT_CATS.map(c=>`<option value="${c.id}">${c.label}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label>Note (opzionale)</label><textarea id="ns-note" placeholder="Osservazioni sulla seduta..." style="min-height:50px"></textarea></div>
         <button class="btn btn-primary btn-sm" onclick="addSeduta('${clientId}')">Aggiungi</button>
       </div>
       <div id="sedute-list">
@@ -1685,7 +1699,7 @@ function openStorico(clientId) {
               </div>
             </div>
             <div class="seduta-trattamento" id="tratt-${s.id}">${escHtml(s.trattamento)}</div>
-            ${s.importo ? `<div style="font-size:12px;color:var(--lilla);font-weight:500;margin-top:2px">€ ${s.importo.toFixed(2)}</div>` : ''}
+            ${Number(s.importo) > 0 ? `<div style="font-size:12px;color:var(--lilla);font-weight:500;margin-top:2px">€ ${Number(s.importo).toFixed(2)}</div>` : ''}
             ${s.note ? `<div class="seduta-note" id="note-${s.id}">${escHtml(s.note)}</div>` : `<div class="seduta-note" id="note-${s.id}" style="display:none"></div>`}
           </div>`).join('') : '<div class="empty" style="padding:20px">Nessuna seduta registrata</div>'}
       </div>
@@ -1723,10 +1737,18 @@ function editSeduta(clientId, sedutaId) {
   // Sostituisce il contenuto con un form di modifica inline
   const origHTML = sedutaEl.innerHTML;
   sedutaEl.innerHTML = `
+    <div class="row" style="gap:8px;margin-bottom:8px">
+      <div class="field" style="margin-bottom:0"><label>Data</label><input type="date" id="edit-data-${sedutaId}" value="${s.data}"></div>
+      <div class="field" style="margin-bottom:0"><label>Importo (€)</label><input type="number" id="edit-importo-${sedutaId}" value="${s.importo||''}" placeholder="0" min="0" step="0.5" inputmode="decimal"></div>
+    </div>
     <div class="field" style="margin-bottom:8px"><label>Trattamento</label><input id="edit-tratt-${sedutaId}" value="${escHtml(s.trattamento)}"></div>
-    <div class="field" style="margin-bottom:8px"><label>Data</label><input type="date" id="edit-data-${sedutaId}" value="${s.data}"></div>
+    <div class="field" style="margin-bottom:8px">
+      <label>Categoria</label>
+      <select id="edit-cat-${sedutaId}">
+        ${TREATMENT_CATS.map(c=>`<option value="${c.id}"${(s.categoria||detectCategory(s.trattamento))===c.id?' selected':''}>${c.label}</option>`).join('')}
+      </select>
+    </div>
     <div class="field" style="margin-bottom:8px"><label>Note</label><textarea id="edit-note-${sedutaId}" style="min-height:50px">${escHtml(s.note||'')}</textarea></div>
-    <div class="field" style="margin-bottom:8px"><label>Importo (€)</label><input type="number" id="edit-importo-${sedutaId}" value="${s.importo||0}" min="0" step="0.5" style="color-scheme:light"></div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-primary btn-sm" onclick="saveSeduta('${clientId}','${sedutaId}')">Salva</button>
       <button class="btn btn-ghost btn-sm" onclick="openStorico('${clientId}')">Annulla</button>
@@ -1738,8 +1760,9 @@ function saveSeduta(clientId, sedutaId) {
   const data = document.getElementById('edit-data-'+sedutaId).value;
   const note = document.getElementById('edit-note-'+sedutaId).value.trim();
   const importo = parseFloat(document.getElementById('edit-importo-'+sedutaId)?.value||'0')||0;
+  const categoria = document.getElementById('edit-cat-'+sedutaId)?.value || detectCategory(trattamento);
   if (!trattamento || !data) { showToast('Inserisci data e trattamento'); return; }
-  storico[clientId] = (storico[clientId]||[]).map(s => s.id===sedutaId ? {...s, trattamento, data, note, importo} : s);
+  storico[clientId] = (storico[clientId]||[]).map(s => s.id===sedutaId ? {...s, trattamento, data, note, importo, categoria} : s);
   save(KEY_STORICO, storico);
   showToast('✅ Seduta aggiornata!');
   openStorico(clientId);
@@ -1752,9 +1775,10 @@ function addSeduta(clientId) {
   const trattamento = document.getElementById('ns-tratt').value.trim();
   const note = document.getElementById('ns-note').value.trim();
   const importo = parseFloat(document.getElementById('ns-importo')?.value||'0')||0;
+  const categoria = document.getElementById('ns-categoria')?.value || detectCategory(trattamento);
   if (!data || !trattamento) { showToast('Inserisci data e trattamento'); return; }
   if (!storico[clientId]) storico[clientId] = [];
-  storico[clientId].push({ id: uid(), data, trattamento, note, importo });
+  storico[clientId].push({ id: uid(), data, trattamento, note, importo, categoria });
   save(KEY_STORICO, storico);
   const client = clients.find(c => c.id === clientId);
   showToast('✅ Seduta aggiunta!');
@@ -1780,7 +1804,8 @@ function deleteSeduta(clientId, sedutaId) {
   app.addEventListener('touchend', e => {
     const dx = e.changedTouches[0].clientX - startX;
     const dy = e.changedTouches[0].clientY - startY;
-    if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx)) return; // swipe troppo corto o verticale
+    // Soglia alta + deve essere chiaramente orizzontale (dx > 2.5× dy)
+    if (Math.abs(dx) < 80 || Math.abs(dy) > Math.abs(dx) * 0.4) return;
     const curId = document.querySelector('.panel.active')?.id?.replace('panel-', '');
     const cur = tabOrder.indexOf(curId);
     if (cur === -1) return;
@@ -1807,6 +1832,31 @@ function initCardStates() {
 }
 
 // ── Statistiche ──
+const TREATMENT_CATS = [
+  { id:'pedicure',     label:'Pedicure',             color:'#7c3aed', keywords:['pedicure','pedi'] },
+  { id:'manicure',     label:'Manicure / Unghie',    color:'#b01a28', keywords:['manicure','mani','unghie','gel','semipermanente','semiper','smalto'] },
+  { id:'ceretta',      label:'Ceretta / Depilazione', color:'#c87000', keywords:['ceretta','cera ','ceratura','depilaz','cerette'] },
+  { id:'massaggio',    label:'Massaggio',             color:'#1a7a4a', keywords:['massaggio','massaggi'] },
+  { id:'viso',         label:'Trattamento viso',      color:'#0070c0', keywords:['viso','face','pulizia viso','hydra','trattamento viso'] },
+  { id:'sopracciglia', label:'Ciglia / Sopracciglia', color:'#8e24aa', keywords:['sopracciglia','ciglia','lash','brow','dermopigment'] },
+  { id:'microblading', label:'Microblading',          color:'#c0392b', keywords:['microblading','micropigment'] },
+  { id:'altro',        label:'Altro',                 color:'#6a5880', keywords:[] },
+];
+function detectCategory(trattamento) {
+  const t = (trattamento||'').toLowerCase();
+  for (const cat of TREATMENT_CATS) {
+    if (cat.keywords.some(kw => t.includes(kw))) return cat.id;
+  }
+  return 'altro';
+}
+function catLabel(id) { return TREATMENT_CATS.find(c=>c.id===id)?.label || 'Altro'; }
+function catColor(id) { return TREATMENT_CATS.find(c=>c.id===id)?.color || '#6a5880'; }
+function autoCategoria() {
+  const tratt = document.getElementById('ns-tratt')?.value || '';
+  const sel = document.getElementById('ns-categoria');
+  if (sel && sel.value === '' || sel.value === 'altro') sel.value = detectCategory(tratt);
+}
+
 function initStatsYearSelect() {
   const sel = document.getElementById('stats-year');
   if (!sel) return;
@@ -1848,10 +1898,10 @@ function renderStats() {
       if (!byClient[clientId]) byClient[clientId] = { total:0, sessions:0, name: client?.name||'—' };
       byClient[clientId].total += imp;
       byClient[clientId].sessions++;
-      const trattKey = (s.trattamento||'Altro').toLowerCase().trim();
-      if (!byTreatment[trattKey]) byTreatment[trattKey] = { total:0, sessions:0, label: s.trattamento||'Altro' };
-      byTreatment[trattKey].total += imp;
-      byTreatment[trattKey].sessions++;
+      const catId = s.categoria || detectCategory(s.trattamento);
+      if (!byTreatment[catId]) byTreatment[catId] = { total:0, sessions:0, label: catLabel(catId), color: catColor(catId) };
+      byTreatment[catId].total += imp;
+      byTreatment[catId].sessions++;
     });
   });
 
@@ -1910,13 +1960,16 @@ function renderStats() {
     if (!sorted.length) { trattEl.innerHTML = '<div class="empty" style="padding:20px">Nessun dato per questo anno</div>'; }
     else {
       const maxT = sorted[0].total || 1;
-      trattEl.innerHTML = sorted.map(t => `<div style="margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
-          <span style="color:var(--text);text-transform:capitalize">${escHtml(t.label)}</span>
-          <span style="color:var(--lilla);font-weight:500">${t.total>0?'€ '+t.total.toFixed(2):'—'} <span style="color:var(--muted);font-weight:300;font-size:11px">(${t.sessions} sed.)</span></span>
+      trattEl.innerHTML = sorted.map(t => `<div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;align-items:center">
+          <span style="display:flex;align-items:center;gap:6px">
+            <span style="width:10px;height:10px;border-radius:50%;background:${t.color};display:inline-block;flex-shrink:0"></span>
+            <span style="color:var(--text)">${escHtml(t.label)}</span>
+          </span>
+          <span style="font-weight:500;color:${t.color}">${t.total>0?'€ '+t.total.toFixed(2):'—'} <span style="color:var(--muted);font-weight:300;font-size:11px">(${t.sessions} sed.)</span></span>
         </div>
         <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
-          <div style="height:100%;background:var(--crimson);width:${Math.round((t.total/maxT)*100)}%;border-radius:3px;opacity:0.8"></div>
+          <div style="height:100%;background:${t.color};width:${Math.round((t.total/maxT)*100)}%;border-radius:3px;opacity:0.8"></div>
         </div>
       </div>`).join('');
     }
