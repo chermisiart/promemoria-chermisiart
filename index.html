@@ -167,6 +167,60 @@
   .seduta-note { font-size: 13px; color: #8a7060; font-style: italic; margin-top: 6px; line-height: 1.5; }
   .add-seduta-box { background: var(--card2); border: 1px dashed var(--border); border-radius: 10px; padding: 14px; margin-top: 12px; }
   .add-seduta-title { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
+
+  /* Card collassabili */
+  .card-title { cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; }
+  .card-title .card-toggle { font-size: 13px; color: var(--muted); transition: transform 0.2s; display: inline-block; margin-left: 8px; }
+  .card.collapsed .card-title .card-toggle { transform: rotate(-90deg); }
+  .card.collapsed > *:not(.card-title) { display: none !important; }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1625;
+      --card: #2a1f3d;
+      --card2: #231a38;
+      --border: #3d2d60;
+      --text: #ede8f8;
+      --muted: #9880b8;
+      --green: #3aaa6a;
+    }
+    .storico-modal { background: #2a1f3d; color: #ede8f8; }
+    .clock-modal { background: #2a1f3d; }
+    .perm-box { background: #1a2010; border-color: #3a5020; }
+    .perm-box .perm-text { color: #8ec86a; }
+    .perm-box .btn-ghost { border-color: #3a5020; color: #8ec86a; }
+    .gcal-event { background: #1e1840; border-color: #3d2d60; }
+    .gcal-event:hover { border-color: #6040c0; }
+    .google-btn { background: #2a1f3d; color: #ede8f8; border-color: #3d2d60; }
+    .google-btn:hover { background: #3a2d50; }
+    .btn-wa { background: #0f2818; color: #4ec87a; border-color: #1a4828; }
+    .btn-wa:hover { background: #162e1e; }
+    .btn-gcal { background: #1a2038; color: #90b8f0; border-color: #2a3858; }
+    .btn-gcal:hover { background: #1e2845; }
+    .r-msg { color: #9880b8; }
+    .tpl-text { color: #9880b8; }
+    .seduta-note { color: #9880b8; }
+    .badge-sent { background: #2a2040; color: #9880b8; }
+    .badge-pending { background: #2a2010; color: #c8a040; }
+    .badge-confirm { background: #2a1f40; color: #b090f0; }
+    .badge-appointment { background: #0f2818; color: #4ec87a; }
+    .badge-cycle { background: #2a1e08; color: #c89040; }
+    .badge-followup { background: #2a1018; color: #e08090; }
+    .badge-custom { background: #2a1a38; color: #c090f0; }
+    .gcal-login-compact { background: rgba(124,58,237,0.15); }
+    .gcal-login-compact .gcal-text { color: #c0a8f8; }
+    .add-seduta-box { background: #231a38; border-color: #3d2d60; }
+    .seduta-item { background: #231a38; border-color: #3d2d60; }
+    .tpl-item { background: #231a38; border-color: #3d2d60; }
+    .reminder-item { background: #231a38; border-color: #3d2d60; }
+    .client-item { background: #231a38; border-color: #3d2d60; }
+    .clock-face { background: #231a38; }
+    .user-chip { background: #2a1f3d; }
+    .tabs { background: rgba(42,31,61,0.8); border-color: rgba(255,255,255,0.1); }
+    .tab:hover:not(.active) { background: #3a2d50; }
+    .toast { background: #2a1f3d; }
+    .storico-modal input, .storico-modal textarea, .storico-modal select { background: #231a38; color: #ede8f8; border-color: #3d2d60; }
+  }
 </style>
 </head>
 <body>
@@ -183,6 +237,7 @@
     <button class="tab active" onclick="switchTab('reminders',this)">📅 Promemoria</button>
     <button class="tab" onclick="switchTab('clients',this)">👤 Clienti</button>
     <button class="tab" onclick="switchTab('templates',this)">💬 Messaggi</button>
+    <button class="tab" onclick="switchTab('stats',this)">📊 Statistiche</button>
   </div>
 
   <!-- ── PROMEMORIA ── -->
@@ -206,8 +261,8 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-title">✦ Nuovo promemoria</div>
+    <div class="card" id="card-new-reminder">
+      <div class="card-title" onclick="toggleCard('card-new-reminder')">✦ Nuovo promemoria <span class="card-toggle">▾</span></div>
 
       <div id="gcal-import-section" style="display:none">
         <button class="btn-gcal" style="width:100%;justify-content:space-between;margin-bottom:0" onclick="toggleCalendarList()">
@@ -354,8 +409,8 @@
 
   <!-- ── CLIENTI ── -->
   <div id="panel-clients" class="panel">
-    <div class="card">
-      <div class="card-title">✦ Aggiungi cliente</div>
+    <div class="card" id="card-new-client">
+      <div class="card-title" onclick="toggleCard('card-new-client')">✦ Aggiungi cliente <span class="card-toggle">▾</span></div>
       <div id="contact-picker-hint" style="margin-bottom:16px;display:none">
         <button class="btn-contact" onclick="pickContact('client')">📒 Scegli dalla rubrica</button>
         <div class="hint" style="margin-top:6px">I campi si compilano in automatico</div>
@@ -377,8 +432,8 @@
 
   <!-- ── MESSAGGI ── -->
   <div id="panel-templates" class="panel">
-    <div class="card">
-      <div class="card-title" id="tpl-form-title">✦ Nuovo messaggio</div>
+    <div class="card" id="card-new-template">
+      <div class="card-title" id="tpl-form-title" onclick="toggleCard('card-new-template')">✦ Nuovo messaggio <span class="card-toggle">▾</span></div>
       <div class="row">
         <div class="field"><label>Nome messaggio</label><input id="t-name" placeholder="Es. Conferma ceretta"></div>
         <div class="field"><label>Tipo</label>
@@ -403,6 +458,31 @@
     </div>
     <div class="section-title" style="margin-bottom:14px">Messaggi salvati</div>
     <div id="templates-list"></div>
+  </div>
+</div>
+
+<!-- ── STATISTICHE ── -->
+<div id="panel-stats" class="panel">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+    <div class="section-title">📊 Statistiche</div>
+    <select id="stats-year" onchange="renderStats()" style="width:auto;padding:6px 30px 6px 12px;font-size:13px;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif"></select>
+  </div>
+
+  <div id="stats-summary" style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap"></div>
+
+  <div class="card" style="margin-bottom:16px;background:var(--card2)">
+    <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--lilla);margin-bottom:16px">Incassi mensili</div>
+    <div id="stats-chart"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;background:var(--card2)">
+    <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--lilla);margin-bottom:16px">Top clienti</div>
+    <div id="stats-top-clients"></div>
+  </div>
+
+  <div class="card" style="background:var(--card2)">
+    <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--lilla);margin-bottom:16px">Per trattamento</div>
+    <div id="stats-treatments"></div>
   </div>
 </div>
 
@@ -744,6 +824,7 @@ function switchTab(tab, btn) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('panel-' + tab).classList.add('active');
   btn.classList.add('active');
+  if (tab === 'stats') { initStatsYearSelect(); renderStats(); }
 }
 
 // Attende che il Service Worker sia registrato (max 5s).
@@ -1416,7 +1497,7 @@ function saveTemplate() {
   else { templates.push({id:uid(),name,type,text}); }
   save(KEY_TEMPLATES,templates);
   document.getElementById('t-name').value=''; document.getElementById('t-text').value='';
-  document.getElementById('tpl-form-title').textContent='✦ Nuovo messaggio';
+  document.getElementById('tpl-form-title').innerHTML='✦ Nuovo messaggio <span class="card-toggle">▾</span>';
   document.getElementById('tpl-save-btn').textContent='Aggiungi';
   document.getElementById('tpl-cancel-btn').style.display='none';
   showToast('✅ Messaggio salvato!'); renderTemplates(); renderTemplateSelect();
@@ -1425,7 +1506,7 @@ function editTemplate(id) {
   const t=templates.find(x=>x.id===id); if (!t) return;
   editingTplId=id;
   document.getElementById('t-name').value=t.name; document.getElementById('t-type').value=t.type; document.getElementById('t-text').value=t.text;
-  document.getElementById('tpl-form-title').textContent='✦ Modifica messaggio';
+  document.getElementById('tpl-form-title').innerHTML='✦ Modifica messaggio <span class="card-toggle">▾</span>';
   document.getElementById('tpl-save-btn').textContent='Salva modifiche';
   document.getElementById('tpl-cancel-btn').style.display='';
   document.getElementById('tpl-form-title').scrollIntoView({behavior:'smooth'});
@@ -1433,7 +1514,7 @@ function editTemplate(id) {
 function cancelEditTemplate() {
   editingTplId=null;
   document.getElementById('t-name').value=''; document.getElementById('t-text').value='';
-  document.getElementById('tpl-form-title').textContent='✦ Nuovo messaggio';
+  document.getElementById('tpl-form-title').innerHTML='✦ Nuovo messaggio <span class="card-toggle">▾</span>';
   document.getElementById('tpl-save-btn').textContent='Aggiungi';
   document.getElementById('tpl-cancel-btn').style.display='none';
 }
@@ -1551,6 +1632,27 @@ function openStorico(clientId) {
         <div class="storico-title">📋 ${escHtml(client.name)}</div>
         <button class="storico-close" onclick="closeStorico()">✕</button>
       </div>
+      ${(() => {
+        const thisYear = new Date().getFullYear();
+        const allSedute = storico[clientId] || [];
+        const totalAll = allSedute.reduce((s,x) => s + (parseFloat(x.importo)||0), 0);
+        const totalYear = allSedute.filter(x => new Date(x.data+'T12:00:00').getFullYear() === thisYear).reduce((s,x) => s + (parseFloat(x.importo)||0), 0);
+        const totalSessions = allSedute.length;
+        return `<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+          <div style="flex:1;min-width:80px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.25);border-radius:10px;padding:10px 14px;text-align:center">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px">Totale lifetime</div>
+            <div style="font-size:18px;font-family:'Cormorant Garamond',serif;color:var(--lilla)">${totalAll > 0 ? '€ ' + totalAll.toFixed(2) : '—'}</div>
+          </div>
+          <div style="flex:1;min-width:80px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.25);border-radius:10px;padding:10px 14px;text-align:center">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px">Anno corrente</div>
+            <div style="font-size:18px;font-family:'Cormorant Garamond',serif;color:var(--lilla)">${totalYear > 0 ? '€ ' + totalYear.toFixed(2) : '—'}</div>
+          </div>
+          <div style="flex:1;min-width:80px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.25);border-radius:10px;padding:10px 14px;text-align:center">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px">Sedute totali</div>
+            <div style="font-size:18px;font-family:'Cormorant Garamond',serif;color:var(--lilla)">${totalSessions}</div>
+          </div>
+        </div>`;
+      })()}
       <div style="margin-bottom:14px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
           <div style="font-size:11px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase">Note / Precauzioni</div>
@@ -1569,6 +1671,7 @@ function openStorico(clientId) {
           <div class="field"><label>Trattamento</label><input id="ns-tratt" placeholder="Es. manicure, massaggio..."></div>
         </div>
         <div class="field"><label>Osservazioni (opzionale)</label><textarea id="ns-note" placeholder="Note sulla seduta..." style="min-height:60px"></textarea></div>
+        <div class="field"><label>Importo (€)</label><input type="number" id="ns-importo" placeholder="Es. 35" min="0" step="0.5" style="color-scheme:light"></div>
         <button class="btn btn-primary btn-sm" onclick="addSeduta('${clientId}')">Aggiungi</button>
       </div>
       <div id="sedute-list">
@@ -1582,6 +1685,7 @@ function openStorico(clientId) {
               </div>
             </div>
             <div class="seduta-trattamento" id="tratt-${s.id}">${escHtml(s.trattamento)}</div>
+            ${s.importo ? `<div style="font-size:12px;color:var(--lilla);font-weight:500;margin-top:2px">€ ${s.importo.toFixed(2)}</div>` : ''}
             ${s.note ? `<div class="seduta-note" id="note-${s.id}">${escHtml(s.note)}</div>` : `<div class="seduta-note" id="note-${s.id}" style="display:none"></div>`}
           </div>`).join('') : '<div class="empty" style="padding:20px">Nessuna seduta registrata</div>'}
       </div>
@@ -1622,6 +1726,7 @@ function editSeduta(clientId, sedutaId) {
     <div class="field" style="margin-bottom:8px"><label>Trattamento</label><input id="edit-tratt-${sedutaId}" value="${escHtml(s.trattamento)}"></div>
     <div class="field" style="margin-bottom:8px"><label>Data</label><input type="date" id="edit-data-${sedutaId}" value="${s.data}"></div>
     <div class="field" style="margin-bottom:8px"><label>Note</label><textarea id="edit-note-${sedutaId}" style="min-height:50px">${escHtml(s.note||'')}</textarea></div>
+    <div class="field" style="margin-bottom:8px"><label>Importo (€)</label><input type="number" id="edit-importo-${sedutaId}" value="${s.importo||0}" min="0" step="0.5" style="color-scheme:light"></div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-primary btn-sm" onclick="saveSeduta('${clientId}','${sedutaId}')">Salva</button>
       <button class="btn btn-ghost btn-sm" onclick="openStorico('${clientId}')">Annulla</button>
@@ -1632,8 +1737,9 @@ function saveSeduta(clientId, sedutaId) {
   const trattamento = document.getElementById('edit-tratt-'+sedutaId).value.trim();
   const data = document.getElementById('edit-data-'+sedutaId).value;
   const note = document.getElementById('edit-note-'+sedutaId).value.trim();
+  const importo = parseFloat(document.getElementById('edit-importo-'+sedutaId)?.value||'0')||0;
   if (!trattamento || !data) { showToast('Inserisci data e trattamento'); return; }
-  storico[clientId] = (storico[clientId]||[]).map(s => s.id===sedutaId ? {...s, trattamento, data, note} : s);
+  storico[clientId] = (storico[clientId]||[]).map(s => s.id===sedutaId ? {...s, trattamento, data, note, importo} : s);
   save(KEY_STORICO, storico);
   showToast('✅ Seduta aggiornata!');
   openStorico(clientId);
@@ -1645,9 +1751,10 @@ function addSeduta(clientId) {
   const data = document.getElementById('ns-data').value;
   const trattamento = document.getElementById('ns-tratt').value.trim();
   const note = document.getElementById('ns-note').value.trim();
+  const importo = parseFloat(document.getElementById('ns-importo')?.value||'0')||0;
   if (!data || !trattamento) { showToast('Inserisci data e trattamento'); return; }
   if (!storico[clientId]) storico[clientId] = [];
-  storico[clientId].push({ id: uid(), data, trattamento, note });
+  storico[clientId].push({ id: uid(), data, trattamento, note, importo });
   save(KEY_STORICO, storico);
   const client = clients.find(c => c.id === clientId);
   showToast('✅ Seduta aggiunta!');
@@ -1663,7 +1770,7 @@ function deleteSeduta(clientId, sedutaId) {
 
 // ── Swipe orizzontale tra tab ──
 (function initSwipe() {
-  const tabOrder = ['reminders', 'clients', 'templates'];
+  const tabOrder = ['reminders', 'clients', 'templates', 'stats'];
   let startX = 0, startY = 0;
   const app = document.querySelector('.app');
   app.addEventListener('touchstart', e => {
@@ -1684,12 +1791,145 @@ function deleteSeduta(clientId, sedutaId) {
   }, { passive: true });
 })();
 
+// ── Card collassabili ──
+function toggleCard(cardId) {
+  const card = document.getElementById(cardId);
+  if (!card) return;
+  card.classList.toggle('collapsed');
+  localStorage.setItem('cardcollapsed_' + cardId, card.classList.contains('collapsed') ? '1' : '0');
+}
+function initCardStates() {
+  ['card-new-reminder','card-new-client','card-new-template'].forEach(id => {
+    if (localStorage.getItem('cardcollapsed_' + id) === '1') {
+      document.getElementById(id)?.classList.add('collapsed');
+    }
+  });
+}
+
+// ── Statistiche ──
+function initStatsYearSelect() {
+  const sel = document.getElementById('stats-year');
+  if (!sel) return;
+  const years = new Set();
+  const thisYear = new Date().getFullYear();
+  years.add(thisYear);
+  Object.entries(storico).forEach(([key, sedute]) => {
+    if (key.endsWith('_precauzioni') || !Array.isArray(sedute)) return;
+    sedute.forEach(s => { if (s.data) years.add(new Date(s.data+'T12:00:00').getFullYear()); });
+  });
+  const sorted = [...years].sort((a,b) => b-a);
+  sel.innerHTML = sorted.map(y => `<option value="${y}"${y===thisYear?' selected':''}>${y}</option>`).join('');
+}
+
+function renderStats() {
+  const sel = document.getElementById('stats-year');
+  const year = parseInt(sel?.value || new Date().getFullYear());
+  const thisYear = new Date().getFullYear();
+  const MONTHS = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+
+  // Calcola dati
+  let total = 0, sessions = 0;
+  const byMonth = Array(12).fill(0);
+  const byClient = {};
+  const byTreatment = {};
+
+  Object.entries(storico).forEach(([key, sedute]) => {
+    if (key.endsWith('_precauzioni') || !Array.isArray(sedute)) return;
+    const clientId = key;
+    const client = clients.find(c => c.id === clientId);
+    sedute.forEach(s => {
+      if (!s.data) return;
+      const d = new Date(s.data+'T12:00:00');
+      if (d.getFullYear() !== year) return;
+      const imp = parseFloat(s.importo)||0;
+      total += imp;
+      sessions++;
+      byMonth[d.getMonth()] += imp;
+      if (!byClient[clientId]) byClient[clientId] = { total:0, sessions:0, name: client?.name||'—' };
+      byClient[clientId].total += imp;
+      byClient[clientId].sessions++;
+      const trattKey = (s.trattamento||'Altro').toLowerCase().trim();
+      if (!byTreatment[trattKey]) byTreatment[trattKey] = { total:0, sessions:0, label: s.trattamento||'Altro' };
+      byTreatment[trattKey].total += imp;
+      byTreatment[trattKey].sessions++;
+    });
+  });
+
+  const avg = sessions > 0 ? total/sessions : 0;
+
+  // Riepilogo
+  const summaryEl = document.getElementById('stats-summary');
+  const statCard = (label, val) => `<div style="flex:1;min-width:90px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.25);border-radius:10px;padding:12px 14px;text-align:center">
+    <div style="font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px">${label}</div>
+    <div style="font-size:20px;font-family:'Cormorant Garamond',serif;color:var(--lilla);font-weight:400">${val}</div>
+  </div>`;
+  if (summaryEl) summaryEl.innerHTML =
+    statCard('Incassato', total > 0 ? '€ '+total.toFixed(2) : '—') +
+    statCard('Sedute', sessions) +
+    statCard('Media/seduta', avg > 0 ? '€ '+avg.toFixed(2) : '—');
+
+  // Grafico mensile
+  const chartEl = document.getElementById('stats-chart');
+  if (chartEl) {
+    const maxVal = Math.max(...byMonth, 1);
+    chartEl.innerHTML = `<div style="display:flex;align-items:flex-end;gap:4px;height:120px;padding-bottom:24px;position:relative">
+      ${byMonth.map((v,i) => {
+        const h = Math.round((v/maxVal)*100);
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative">
+          <div style="font-size:9px;color:var(--muted);position:absolute;bottom:16px;left:50%;transform:translateX(-50%);white-space:nowrap">${v>0?'€'+Math.round(v):''}</div>
+          <div style="width:100%;background:var(--lilla);border-radius:3px 3px 0 0;height:${h}%;min-height:${v>0?3:0}px;opacity:${v>0?0.85:0.15};transition:height 0.3s"></div>
+          <div style="font-size:9px;color:var(--muted);position:absolute;bottom:0;left:50%;transform:translateX(-50%);white-space:nowrap">${MONTHS[i]}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Top clienti
+  const topEl = document.getElementById('stats-top-clients');
+  if (topEl) {
+    const sorted = Object.values(byClient).sort((a,b) => b.total-a.total).slice(0,10);
+    if (!sorted.length) { topEl.innerHTML = '<div class="empty" style="padding:20px">Nessun dato per questo anno</div>'; }
+    else {
+      const maxC = sorted[0].total || 1;
+      topEl.innerHTML = sorted.map(c => `<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+          <span style="color:var(--text)">${escHtml(c.name)}</span>
+          <span style="color:var(--lilla);font-weight:500">${c.total>0?'€ '+c.total.toFixed(2):'—'} <span style="color:var(--muted);font-weight:300;font-size:11px">(${c.sessions} sed.)</span></span>
+        </div>
+        <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+          <div style="height:100%;background:var(--lilla);width:${Math.round((c.total/maxC)*100)}%;border-radius:3px;opacity:0.8"></div>
+        </div>
+      </div>`).join('');
+    }
+  }
+
+  // Trattamenti
+  const trattEl = document.getElementById('stats-treatments');
+  if (trattEl) {
+    const sorted = Object.values(byTreatment).sort((a,b) => b.total-a.total);
+    if (!sorted.length) { trattEl.innerHTML = '<div class="empty" style="padding:20px">Nessun dato per questo anno</div>'; }
+    else {
+      const maxT = sorted[0].total || 1;
+      trattEl.innerHTML = sorted.map(t => `<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+          <span style="color:var(--text);text-transform:capitalize">${escHtml(t.label)}</span>
+          <span style="color:var(--lilla);font-weight:500">${t.total>0?'€ '+t.total.toFixed(2):'—'} <span style="color:var(--muted);font-weight:300;font-size:11px">(${t.sessions} sed.)</span></span>
+        </div>
+        <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+          <div style="height:100%;background:var(--crimson);width:${Math.round((t.total/maxT)*100)}%;border-radius:3px;opacity:0.8"></div>
+        </div>
+      </div>`).join('');
+    }
+  }
+}
+
 // ── Init ──
 onTypeChange();
 checkNotifUI();
 initContactPicker();
 renderClientSelect(); renderTemplateSelect(); renderReminders(); renderClients(); renderTemplates();
 rescheduleAll();
+initCardStates();
 window.addEventListener('load', initGoogleAuth);
 </script>
 </body>
