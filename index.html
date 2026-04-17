@@ -1805,9 +1805,9 @@ function addSeduta(clientId) {
   const categoria = document.getElementById('ns-categoria')?.value || detectCategory(trattamento);
   if (!data || !trattamento) { showToast('Inserisci data e trattamento'); return; }
   if (!storico[clientId]) storico[clientId] = [];
-  storico[clientId].push({ id: uid(), data, trattamento, note, importo, categoria });
-  save(KEY_STORICO, storico);
   const client = clients.find(c => c.id === clientId);
+  storico[clientId].push({ id: uid(), data, trattamento, note, importo, categoria, clientName: client?.name||'' });
+  save(KEY_STORICO, storico);
   showToast('✅ Seduta aggiunta!');
   openStorico(clientId);
 }
@@ -1911,10 +1911,16 @@ const TREATMENT_CATS = [
 ];
 function detectCategory(trattamento) {
   const t = (trattamento||'').toLowerCase();
+  // Raccoglie tutti i match e sceglie quello con keyword più lunga (più specifica)
+  let best = null;
   for (const cat of TREATMENT_CATS) {
-    if (cat.keywords.some(kw => t.includes(kw))) return cat.id;
+    for (const kw of cat.keywords) {
+      if (kw && t.includes(kw)) {
+        if (!best || kw.length > best.kw.length) best = { id: cat.id, kw };
+      }
+    }
   }
-  return 'altro';
+  return best ? best.id : 'altro';
 }
 function catLabel(id) { return TREATMENT_CATS.find(c=>c.id===id)?.label || 'Altro'; }
 function catColor(id) { return TREATMENT_CATS.find(c=>c.id===id)?.color || '#6a5880'; }
@@ -1954,6 +1960,8 @@ function renderStats() {
     if (key.endsWith('_precauzioni') || !Array.isArray(sedute)) return;
     const clientId = key;
     const client = clients.find(c => c.id === clientId);
+    // Recupera il nome dalle sedute se il profilo cliente è stato eliminato
+    const fallbackName = client?.name || sedute.find(s => s.clientName)?.clientName || '(profilo eliminato)';
     sedute.forEach(s => {
       if (!s.data) return;
       const d = new Date(s.data+'T12:00:00');
@@ -1962,7 +1970,7 @@ function renderStats() {
       total += imp;
       sessions++;
       byMonth[d.getMonth()] += imp;
-      if (!byClient[clientId]) byClient[clientId] = { total:0, sessions:0, name: client?.name||'—' };
+      if (!byClient[clientId]) byClient[clientId] = { total:0, sessions:0, name: fallbackName };
       byClient[clientId].total += imp;
       byClient[clientId].sessions++;
       const catId = s.categoria || detectCategory(s.trattamento);
