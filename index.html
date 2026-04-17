@@ -1846,14 +1846,16 @@ function initCardStates() {
 
 // ── Statistiche ──
 const TREATMENT_CATS = [
-  { id:'pedicure',     label:'Pedicure',             color:'#7c3aed', keywords:['pedicure','pedi'] },
-  { id:'manicure',     label:'Manicure / Unghie',    color:'#b01a28', keywords:['manicure','mani','unghie','gel','semipermanente','semiper','smalto'] },
-  { id:'ceretta',      label:'Ceretta / Depilazione', color:'#c87000', keywords:['ceretta','cera ','ceratura','depilaz','cerette'] },
-  { id:'massaggio',    label:'Massaggio',             color:'#1a7a4a', keywords:['massaggio','massaggi'] },
-  { id:'viso',         label:'Trattamento viso',      color:'#0070c0', keywords:['viso','face','pulizia viso','hydra','trattamento viso'] },
-  { id:'sopracciglia', label:'Ciglia / Sopracciglia', color:'#8e24aa', keywords:['sopracciglia','ciglia','lash','brow','dermopigment'] },
-  { id:'microblading', label:'Microblading',          color:'#c0392b', keywords:['microblading','micropigment'] },
-  { id:'altro',        label:'Altro',                 color:'#6a5880', keywords:[] },
+  { id:'viso',    label:'Trattamento viso',   color:'#0070c0', keywords:['viso','face','pulizia viso','hydra','peeling','maschera viso','trattamento viso'] },
+  { id:'corpo',   label:'Trattamenti corpo',  color:'#1a7a4a', keywords:['corpo','body','schiena','pancia','caviglia','wrap','scrub corpo','bendaggio'] },
+  { id:'mani',    label:'Trattamenti mani',   color:'#b01a28', keywords:['mani','manicure','unghie','gel','semipermanente','semiper','smalto','ricostruzione','nail'] },
+  { id:'piedi',   label:'Trattamenti piedi',  color:'#7c3aed', keywords:['piedi','pedicure','pedi','callositĂ '] },
+  { id:'ceretta', label:'Ceretta',            color:'#c87000', keywords:['ceretta','cera','ceratura','depilaz','brasiliana','ascelle','inguine','baffetti','cerette'] },
+  { id:'massaggi',label:'Massaggi',           color:'#2196a0', keywords:['massaggio','massaggi','massage','rilassante','drenante','linfodrenaggio','shiatsu','sportivo'] },
+  { id:'pmu',     label:'PMU',                color:'#8e24aa', keywords:['pmu','microblading','micropigment','dermopigment','sopracciglia','ciglia','lash','brow','laminazione','extension','trucco permanente','ombré'] },
+  { id:'piercing',label:'Piercing',           color:'#e0a000', keywords:['piercing'] },
+  { id:'tatuaggi',label:'Tatuaggi',           color:'#333a60', keywords:['tatuaggio','tattoo','tatuaggi','touch up tattoo'] },
+  { id:'altro',   label:'Altro',              color:'#6a5880', keywords:[] },
 ];
 function detectCategory(trattamento) {
   const t = (trattamento||'').toLowerCase();
