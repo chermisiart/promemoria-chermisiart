@@ -27,8 +27,9 @@
   .header-title { font-family: 'Cormorant Garamond', serif; font-size: clamp(24px, 5vw, 36px); font-weight: 300; letter-spacing: 0.02em; }
   .header-title span { color: var(--crimson); font-style: italic; }
   .header-sub { font-size: 12px; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; margin-top: 4px; }
-  .tabs { display: flex; gap: 2px; background: rgba(255,255,255,0.35); border: 1px solid rgba(255,255,255,0.6); border-radius: 10px; padding: 4px; margin-bottom: 28px; backdrop-filter: blur(8px); }
-  .tab { flex: 1; padding: 10px 8px; border: none; background: transparent; color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; border-radius: 7px; transition: all 0.2s; white-space: nowrap; }
+  .tabs { display: flex; gap: 2px; background: rgba(255,255,255,0.35); border: 1px solid rgba(255,255,255,0.6); border-radius: 10px; padding: 4px; margin-bottom: 28px; backdrop-filter: blur(8px); overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: 0 0 auto; padding: 10px 12px; border: none; background: transparent; color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; border-radius: 7px; transition: all 0.2s; white-space: nowrap; }
   .tab.active { background: var(--lilla); color: #fff; font-weight: 500; }
   .tab:hover:not(.active) { color: var(--text); background: var(--card2); }
   .panel { display: none; } .panel.active { display: block; }
@@ -1836,6 +1837,24 @@ function toggleCard(cardId) {
   card.classList.toggle('collapsed');
   localStorage.setItem('cardcollapsed_' + cardId, card.classList.contains('collapsed') ? '1' : '0');
 }
+// Migrazione una-tantum: se il campo Note contiene solo un numero, spostalo in Importo
+function migrateImportoFromNote() {
+  if (localStorage.getItem('chermisi_importo_migrated')) return;
+  let changed = false;
+  Object.keys(storico).forEach(key => {
+    if (key.endsWith('_precauzioni') || !Array.isArray(storico[key])) return;
+    storico[key] = storico[key].map(s => {
+      if (!(Number(s.importo) > 0) && s.note && /^\d+([.,]\d{1,2})?$/.test(s.note.trim())) {
+        changed = true;
+        return { ...s, importo: parseFloat(s.note.replace(',','.')), note: '' };
+      }
+      return s;
+    });
+  });
+  if (changed) { save(KEY_STORICO, storico); console.log('Importi migrati da Note a Importo'); }
+  localStorage.setItem('chermisi_importo_migrated', '1');
+}
+
 function initCardStates() {
   ['card-new-reminder','card-new-client','card-new-template'].forEach(id => {
     if (localStorage.getItem('cardcollapsed_' + id) === '1') {
@@ -1997,6 +2016,7 @@ checkNotifUI();
 initContactPicker();
 renderClientSelect(); renderTemplateSelect(); renderReminders(); renderClients(); renderTemplates();
 rescheduleAll();
+migrateImportoFromNote();
 initCardStates();
 window.addEventListener('load', initGoogleAuth);
 </script>
