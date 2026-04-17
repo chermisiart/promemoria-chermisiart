@@ -125,6 +125,17 @@
   /* Edit Reminder Modal */
   .edit-reminder-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; display: none; align-items: flex-end; justify-content: center; animation: fadeIn 0.15s ease; }
   .edit-reminder-overlay.open { display: flex; }
+  /* Dialog promemoria aggiuntivi */
+  .extra-rem-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 300; display: none; align-items: center; justify-content: center; padding: 20px; animation: fadeIn 0.2s ease; }
+  .extra-rem-overlay.open { display: flex; }
+  .extra-rem-modal { background: var(--card2); border: 1px solid var(--border); border-radius: 18px; padding: 24px; width: 100%; max-width: 400px; box-shadow: 0 8px 40px rgba(0,0,0,0.25); }
+  .extra-rem-title { font-family: 'Cormorant Garamond', serif; font-size: 20px; color: var(--lilla); margin-bottom: 6px; }
+  .extra-rem-sub { font-size: 12px; color: var(--muted); margin-bottom: 18px; line-height: 1.5; }
+  .extra-rem-option { display: flex; align-items: flex-start; gap: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; cursor: pointer; transition: border-color 0.2s; }
+  .extra-rem-option:hover { border-color: var(--lilla); }
+  .extra-rem-option input[type=checkbox] { margin-top: 2px; flex-shrink: 0; accent-color: var(--lilla); width: 16px; height: 16px; cursor: pointer; }
+  .extra-rem-option-label { font-size: 13px; color: var(--text); line-height: 1.5; }
+  .extra-rem-option-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
   /* Clock Picker */
   .clock-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.15s ease; }
@@ -553,6 +564,32 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- Dialog: crea promemoria aggiuntivi dopo Conferma -->
+<div id="extra-rem-overlay" class="extra-rem-overlay" onclick="closeExtraRemDialog()">
+  <div class="extra-rem-modal" onclick="event.stopPropagation()">
+    <div class="extra-rem-title">✦ Creare altri promemoria?</div>
+    <div class="extra-rem-sub" id="extra-rem-sub"></div>
+    <label class="extra-rem-option">
+      <input type="checkbox" id="extra-appt-check" checked>
+      <div>
+        <div class="extra-rem-option-label">📅 Promemoria appuntamento</div>
+        <div class="extra-rem-option-sub" id="extra-appt-sub"></div>
+      </div>
+    </label>
+    <label class="extra-rem-option">
+      <input type="checkbox" id="extra-followup-check" checked>
+      <div>
+        <div class="extra-rem-option-label">💬 Follow-up post seduta</div>
+        <div class="extra-rem-option-sub" id="extra-followup-sub"></div>
+      </div>
+    </label>
+    <div style="display:flex;gap:10px;margin-top:18px">
+      <button class="btn btn-primary" style="flex:1" onclick="confirmExtraReminders()">Crea selezionati</button>
+      <button class="btn btn-ghost" onclick="closeExtraRemDialog()">Salta</button>
+    </div>
+  </div>
+</div>
 
 <!-- Patch: rimuove applicationPubKey dal body delle registrazioni FCM.
      La chiave VAPID in Firebase Console non corrisponde a quella nel codice, causando HTTP 401.
@@ -1388,6 +1425,71 @@ function addReminder() {
     const calTitle = (client?.name || 'Appuntamento') + (vars.trattamento ? ' — ' + vars.trattamento : '');
     createCalendarEvent(calTitle, msg, apptDateRaw, vars.ora, apptEndTime);
   }
+  // Proponi promemoria aggiuntivi dopo la Conferma
+  if (type === 'confirm' && apptDateRaw && vars.ora) {
+    showExtraRemDialog({ clientId, apptDateRaw, apptTime: vars.ora, trattamento: vars.trattamento });
+  }
+}
+
+// ── Dialog promemoria aggiuntivi ──
+let _extraRemData = null;
+function showExtraRemDialog({ clientId, apptDateRaw, apptTime, trattamento }) {
+  _extraRemData = { clientId, apptDateRaw, apptTime, trattamento };
+  const client = clients.find(c => c.id === clientId);
+  const name = client?.name || '';
+  // Data appuntamento formattata
+  const d = new Date(apptDateRaw + 'T12:00:00');
+  const fmt = d.toLocaleDateString('it-IT', { weekday:'short', day:'numeric', month:'long' });
+  // Calcola data follow-up (+3 giorni)
+  const fupDate = new Date(d); fupDate.setDate(fupDate.getDate() + 3);
+  const fupFmt = fupDate.toLocaleDateString('it-IT', { weekday:'short', day:'numeric', month:'long' });
+  document.getElementById('extra-rem-sub').textContent =
+    `${name}${trattamento ? ' · ' + trattamento : ''} — ${fmt} ore ${apptTime}`;
+  document.getElementById('extra-appt-sub').textContent =
+    `Inviato il giorno dell'appuntamento alle 8:00 · ${fmt}`;
+  document.getElementById('extra-followup-sub').textContent =
+    `Inviato 3 giorni dopo alle 10:00 · ${fupFmt}`;
+  document.getElementById('extra-rem-overlay').classList.add('open');
+}
+function closeExtraRemDialog() {
+  document.getElementById('extra-rem-overlay').classList.remove('open');
+  _extraRemData = null;
+}
+function confirmExtraReminders() {
+  if (!_extraRemData) return;
+  const { clientId, apptDateRaw, apptTime, trattamento } = _extraRemData;
+  const client = clients.find(c => c.id === clientId);
+  const doAppt = document.getElementById('extra-appt-check').checked;
+  const doFollowup = document.getElementById('extra-followup-check').checked;
+  let created = 0;
+  if (doAppt) {
+    const tpl = templates.find(t => t.type === 'appointment');
+    const sendAt = apptDateRaw + 'T08:00';
+    const vars = { nome: client?.name||'', data: apptDateRaw, ora: apptTime, trattamento: trattamento||'' };
+    const msg = tpl ? fillTemplate(tpl.text, vars) : '';
+    reminders.push({ id:uid(), clientId, type:'appointment', templateId:tpl?.id||'', sendAt,
+      message:msg, appointmentDate:apptDateRaw, appointmentTime:apptTime, trattamento, status:'pending',
+      createdAt:new Date().toISOString() });
+    created++;
+  }
+  if (doFollowup) {
+    const tpl = templates.find(t => t.type === 'followup');
+    const fupDate = new Date(apptDateRaw + 'T12:00:00'); fupDate.setDate(fupDate.getDate() + 3);
+    const fupDateStr = fupDate.toISOString().slice(0,10);
+    const sendAt = fupDateStr + 'T10:00';
+    const vars = { nome: client?.name||'', data: apptDateRaw, ora: apptTime, trattamento: trattamento||'' };
+    const msg = tpl ? fillTemplate(tpl.text, vars) : '';
+    reminders.push({ id:uid(), clientId, type:'followup', templateId:tpl?.id||'', sendAt,
+      message:msg, appointmentDate:apptDateRaw, appointmentTime:apptTime, trattamento, status:'pending',
+      createdAt:new Date().toISOString() });
+    created++;
+  }
+  if (created > 0) {
+    save(KEY_REMINDERS, reminders);
+    renderReminders();
+    showToast(`✅ ${created === 2 ? 'Promemoria appuntamento e follow-up creati!' : 'Promemoria creato!'}`);
+  }
+  closeExtraRemDialog();
 }
 
 function scheduleLocalNotification(reminder, clientName) {
@@ -1676,15 +1778,15 @@ function openStorico(clientId) {
         return `<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
           <div style="flex:1;min-width:80px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.25);border-radius:10px;padding:10px 14px;text-align:center">
             <div style="font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px">Totale lifetime</div>
-            <div style="font-size:18px;font-family:'Cormorant Garamond',serif;color:var(--lilla)">${totalAll > 0 ? '€ ' + totalAll.toFixed(2) : '—'}</div>
+            <div style="font-size:18px;font-family:'Cormorant Garamond',serif;color:var(--text)">${totalAll > 0 ? '€ ' + totalAll.toFixed(2) : '—'}</div>
           </div>
           <div style="flex:1;min-width:80px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.25);border-radius:10px;padding:10px 14px;text-align:center">
             <div style="font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px">Anno corrente</div>
-            <div style="font-size:18px;font-family:'Cormorant Garamond',serif;color:var(--lilla)">${totalYear > 0 ? '€ ' + totalYear.toFixed(2) : '—'}</div>
+            <div style="font-size:18px;font-family:'Cormorant Garamond',serif;color:var(--text)">${totalYear > 0 ? '€ ' + totalYear.toFixed(2) : '—'}</div>
           </div>
           <div style="flex:1;min-width:80px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.25);border-radius:10px;padding:10px 14px;text-align:center">
             <div style="font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px">Sedute totali</div>
-            <div style="font-size:18px;font-family:'Cormorant Garamond',serif;color:var(--lilla)">${totalSessions}</div>
+            <div style="font-size:18px;font-family:'Cormorant Garamond',serif;color:var(--text)">${totalSessions}</div>
           </div>
         </div>`;
       })()}
@@ -1994,7 +2096,7 @@ function renderStats() {
   const summaryEl = document.getElementById('stats-summary');
   const statCard = (label, val) => `<div style="flex:1;min-width:90px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.25);border-radius:10px;padding:12px 14px;text-align:center">
     <div style="font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px">${label}</div>
-    <div style="font-size:20px;font-family:'Cormorant Garamond',serif;color:var(--lilla);font-weight:400">${val}</div>
+    <div style="font-size:20px;font-family:'Cormorant Garamond',serif;color:var(--text);font-weight:400">${val}</div>
   </div>`;
   if (summaryEl) summaryEl.innerHTML =
     statCard('Incassato', total > 0 ? '€ '+total.toFixed(2) : '—') +
