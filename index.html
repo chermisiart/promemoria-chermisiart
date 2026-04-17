@@ -1941,18 +1941,23 @@ function initStatsYearSelect() {
     sedute.forEach(s => { if (s.data) years.add(new Date(s.data+'T12:00:00').getFullYear()); });
   });
   const sorted = [...years].sort((a,b) => b-a);
-  sel.innerHTML = sorted.map(y => `<option value="${y}"${y===thisYear?' selected':''}>${y}</option>`).join('');
+  const prev = sel.value;
+  sel.innerHTML = `<option value="tutti">Tutti gli anni</option>` +
+    sorted.map(y => `<option value="${y}"${y===thisYear?' selected':''}>${y}</option>`).join('');
+  if (prev && prev !== 'tutti' && sorted.includes(parseInt(prev))) sel.value = prev;
 }
 
 function renderStats() {
   const sel = document.getElementById('stats-year');
-  const year = parseInt(sel?.value || new Date().getFullYear());
+  const selVal = sel?.value || String(new Date().getFullYear());
+  const filterYear = selVal === 'tutti' ? null : parseInt(selVal);
   const thisYear = new Date().getFullYear();
   const MONTHS = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
 
   // Calcola dati
   let total = 0, sessions = 0;
   const byMonth = Array(12).fill(0);
+  const byYear = {};
   const byClient = {};
   const byTreatment = {};
 
@@ -1965,11 +1970,14 @@ function renderStats() {
     sedute.forEach(s => {
       if (!s.data) return;
       const d = new Date(s.data+'T12:00:00');
-      if (d.getFullYear() !== year) return;
+      if (filterYear !== null && d.getFullYear() !== filterYear) return;
       const imp = parseFloat(s.importo)||0;
       total += imp;
       sessions++;
       byMonth[d.getMonth()] += imp;
+      const yr = d.getFullYear();
+      if (!byYear[yr]) byYear[yr] = 0;
+      byYear[yr] += imp;
       if (!byClient[clientId]) byClient[clientId] = { total:0, sessions:0, name: fallbackName };
       byClient[clientId].total += imp;
       byClient[clientId].sessions++;
@@ -1993,27 +2001,45 @@ function renderStats() {
     statCard('Sedute', sessions) +
     statCard('Media/seduta', avg > 0 ? '€ '+avg.toFixed(2) : '—');
 
-  // Grafico mensile
+  // Grafico: mensile se anno specifico, per anno se "tutti"
   const chartEl = document.getElementById('stats-chart');
   if (chartEl) {
-    const maxVal = Math.max(...byMonth, 1);
-    chartEl.innerHTML = `<div style="display:flex;align-items:flex-end;gap:4px;height:120px;padding-bottom:24px;position:relative">
-      ${byMonth.map((v,i) => {
-        const h = Math.round((v/maxVal)*100);
-        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative">
-          <div style="font-size:9px;color:var(--muted);position:absolute;bottom:16px;left:50%;transform:translateX(-50%);white-space:nowrap">${v>0?'€'+Math.round(v):''}</div>
-          <div style="width:100%;background:var(--lilla);border-radius:3px 3px 0 0;height:${h}%;min-height:${v>0?3:0}px;opacity:${v>0?0.85:0.15};transition:height 0.3s"></div>
-          <div style="font-size:9px;color:var(--muted);position:absolute;bottom:0;left:50%;transform:translateX(-50%);white-space:nowrap">${MONTHS[i]}</div>
-        </div>`;
-      }).join('')}
-    </div>`;
+    if (filterYear === null) {
+      // Vista "tutti gli anni": barre per anno
+      const yrs = Object.keys(byYear).map(Number).sort((a,b)=>a-b);
+      const maxVal = Math.max(...Object.values(byYear), 1);
+      chartEl.innerHTML = `<div style="display:flex;align-items:flex-end;gap:6px;height:120px;padding-bottom:24px;position:relative">
+        ${yrs.map(y => {
+          const v = byYear[y]||0;
+          const h = Math.round((v/maxVal)*100);
+          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative">
+            <div style="font-size:9px;color:var(--muted);position:absolute;bottom:16px;left:50%;transform:translateX(-50%);white-space:nowrap">${v>0?'€'+Math.round(v):''}</div>
+            <div style="width:100%;background:var(--lilla);border-radius:3px 3px 0 0;height:${h}%;min-height:${v>0?3:0}px;opacity:${v>0?0.85:0.15};transition:height 0.3s"></div>
+            <div style="font-size:9px;color:var(--muted);position:absolute;bottom:0;left:50%;transform:translateX(-50%);white-space:nowrap">${y}</div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    } else {
+      // Vista anno specifico: barre mensili
+      const maxVal = Math.max(...byMonth, 1);
+      chartEl.innerHTML = `<div style="display:flex;align-items:flex-end;gap:4px;height:120px;padding-bottom:24px;position:relative">
+        ${byMonth.map((v,i) => {
+          const h = Math.round((v/maxVal)*100);
+          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative">
+            <div style="font-size:9px;color:var(--muted);position:absolute;bottom:16px;left:50%;transform:translateX(-50%);white-space:nowrap">${v>0?'€'+Math.round(v):''}</div>
+            <div style="width:100%;background:var(--lilla);border-radius:3px 3px 0 0;height:${h}%;min-height:${v>0?3:0}px;opacity:${v>0?0.85:0.15};transition:height 0.3s"></div>
+            <div style="font-size:9px;color:var(--muted);position:absolute;bottom:0;left:50%;transform:translateX(-50%);white-space:nowrap">${MONTHS[i]}</div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
   }
 
   // Top clienti
   const topEl = document.getElementById('stats-top-clients');
   if (topEl) {
     const sorted = Object.values(byClient).sort((a,b) => b.total-a.total);
-    if (!sorted.length) { topEl.innerHTML = '<div class="empty" style="padding:20px">Nessun dato per questo anno</div>'; }
+    if (!sorted.length) { topEl.innerHTML = '<div class="empty" style="padding:20px">Nessun dato disponibile</div>'; }
     else {
       const maxC = sorted[0].total || 1;
       topEl.innerHTML = sorted.map(c => `<div style="margin-bottom:10px">
@@ -2032,7 +2058,7 @@ function renderStats() {
   const trattEl = document.getElementById('stats-treatments');
   if (trattEl) {
     const sorted = Object.values(byTreatment).sort((a,b) => b.total-a.total);
-    if (!sorted.length) { trattEl.innerHTML = '<div class="empty" style="padding:20px">Nessun dato per questo anno</div>'; }
+    if (!sorted.length) { trattEl.innerHTML = '<div class="empty" style="padding:20px">Nessun dato disponibile</div>'; }
     else {
       const maxT = sorted[0].total || 1;
       trattEl.innerHTML = sorted.map(t => `<div style="margin-bottom:12px">
