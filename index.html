@@ -223,13 +223,30 @@
     .tabs { background: rgba(42,31,61,0.8); border-color: rgba(255,255,255,0.1); }
     .tab:hover:not(.active) { background: #3a2d50; }
     .toast { background: #2a1f3d; }
-    /* Campi form in dark mode — sfondo scuro, testo bianco, bordo lilla visibile */
-    input, textarea, select { background: #2d2450 !important; border-color: #7040c0 !important; color: #ffffff !important; color-scheme: dark; }
-    input::placeholder, textarea::placeholder { color: #8060b0 !important; opacity: 1; }
-    input:focus, textarea:focus, select:focus { border-color: #a070f0 !important; box-shadow: 0 0 0 3px rgba(124,58,237,0.30) !important; background: #352860 !important; }
-    .storico-modal input, .storico-modal textarea, .storico-modal select { background: #2d2450 !important; color: #ffffff !important; border-color: #7040c0 !important; }
-    /* Freccia select visibile in dark */
-    select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23a070f0' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") !important; }
+    /* Campi form in dark mode — sfondo lilla, testo bianco */
+    input, textarea, select {
+      background-color: #5a30a0 !important;
+      background-image: none !important;
+      background-repeat: no-repeat !important;
+      border-color: #8858d8 !important;
+      color: #ffffff !important;
+      color-scheme: light;
+    }
+    input::placeholder, textarea::placeholder { color: #c0a0e8 !important; opacity: 1; }
+    input:focus, textarea:focus, select:focus {
+      border-color: #b080ff !important;
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.35) !important;
+      background-color: #6838c0 !important;
+    }
+    .storico-modal input, .storico-modal textarea, .storico-modal select {
+      background-color: #5a30a0 !important; color: #ffffff !important; border-color: #8858d8 !important;
+    }
+    /* Freccia select: chiaro su sfondo lilla, no-repeat */
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23e0c8ff' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+      background-repeat: no-repeat !important;
+      background-position: right 14px center !important;
+    }
   }
   /* Tab bar responsive — tab più piccole su schermi stretti */
   @media (max-width: 420px) {
@@ -1987,7 +2004,7 @@ function renderStats() {
   // Top clienti
   const topEl = document.getElementById('stats-top-clients');
   if (topEl) {
-    const sorted = Object.values(byClient).sort((a,b) => b.total-a.total).slice(0,10);
+    const sorted = Object.values(byClient).sort((a,b) => b.total-a.total);
     if (!sorted.length) { topEl.innerHTML = '<div class="empty" style="padding:20px">Nessun dato per questo anno</div>'; }
     else {
       const maxC = sorted[0].total || 1;
