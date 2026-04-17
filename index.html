@@ -21,8 +21,8 @@
     --bg: #d4c8ee; --card: #18102e; --card2: #ede8f8;
     --border: #c4b4e0; --text: #18102a; --muted: #6a5880; --green: #1a7a4a;
   }
-  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 300; min-height: 100vh; }
-  .app { max-width: 860px; margin: 0 auto; padding: 0 16px 80px; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 300; min-height: 100vh; overflow-x: hidden; }
+  .app { max-width: 860px; margin: 0 auto; padding: 0 16px 80px; overflow-x: hidden; }
   .header { padding: 36px 0 24px; border-bottom: 1px solid var(--border); margin-bottom: 28px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .header-title { font-family: 'Cormorant Garamond', serif; font-size: clamp(24px, 5vw, 36px); font-weight: 300; letter-spacing: 0.02em; }
   .header-title span { color: var(--crimson); font-style: italic; }
@@ -222,12 +222,11 @@
     .tabs { background: rgba(42,31,61,0.8); border-color: rgba(255,255,255,0.1); }
     .tab:hover:not(.active) { background: #3a2d50; }
     .toast { background: #2a1f3d; }
-    /* Campi form globali in dark mode — sfondo scuro, bordo viola visibile, testo chiaro */
-    input, textarea, select { background: #2d2640 !important; border-color: #5a3d8a !important; color: #ede8f8 !important; color-scheme: dark; }
-    input::placeholder, textarea::placeholder { color: #9070c0 !important; }
-    input:focus, textarea:focus, select:focus { border-color: var(--lilla) !important; box-shadow: 0 0 0 3px rgba(124,58,237,0.25) !important; }
-    /* Fix specifico per campi dentro modale storico */
-    .storico-modal input, .storico-modal textarea, .storico-modal select { background: #2d2640 !important; color: #ede8f8 !important; border-color: #5a3d8a !important; }
+    /* Campi form in dark mode — lilla chiaro, testo scuro, buon contrasto */
+    input, textarea, select { background: #e8e0f8 !important; border-color: #9070d0 !important; color: #18102a !important; color-scheme: light; }
+    input::placeholder, textarea::placeholder { color: #7a5890 !important; opacity: 1; }
+    input:focus, textarea:focus, select:focus { border-color: var(--lilla) !important; box-shadow: 0 0 0 3px rgba(124,58,237,0.30) !important; background: #f0eafc !important; }
+    .storico-modal input, .storico-modal textarea, .storico-modal select { background: #e8e0f8 !important; color: #18102a !important; border-color: #9070d0 !important; }
   }
 </style>
 </head>
@@ -399,7 +398,10 @@
       </div>
 
       <div id="gcal-save-hint" style="display:none; background:#ede8fc; border:1px solid #cfc0e8; border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:13px; color:#5020aa;">
-        📅 Al salvataggio verrà creato un evento su Google Calendar
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:#5020aa;font-size:13px;text-transform:none;letter-spacing:0;margin:0;font-weight:400">
+          <input type="checkbox" id="gcal-save-check" checked style="width:auto;accent-color:var(--lilla);cursor:pointer">
+          📅 Aggiungi evento a Google Calendar
+        </label>
       </div>
 
       <button class="btn btn-primary" onclick="addReminder()">Salva promemoria</button>
@@ -1356,8 +1358,9 @@ function addReminder() {
   renderReminders();
   if (gcalAllEvents.length) renderGcalEvents(); // aggiorna lista calendar se aperta
   scheduleLocalNotification(reminders[reminders.length-1], client?.name);
-  // Crea evento su Google Calendar (solo per conferma appuntamento, se connessa e ora fine specificata)
-  if (type === 'confirm' && gcalToken && apptDateRaw && vars.ora && apptEndTime) {
+  // Crea evento su Google Calendar solo se checkbox spuntata
+  const gcalChecked = document.getElementById('gcal-save-check')?.checked !== false;
+  if (type === 'confirm' && gcalToken && apptDateRaw && vars.ora && apptEndTime && gcalChecked) {
     const calTitle = (client?.name || 'Appuntamento') + (vars.trattamento ? ' — ' + vars.trattamento : '');
     createCalendarEvent(calTitle, msg, apptDateRaw, vars.ora, apptEndTime);
   }
@@ -1795,17 +1798,27 @@ function deleteSeduta(clientId, sedutaId) {
 // ── Swipe orizzontale tra tab ──
 (function initSwipe() {
   const tabOrder = ['reminders', 'clients', 'templates', 'stats'];
-  let startX = 0, startY = 0;
-  const app = document.querySelector('.app');
-  app.addEventListener('touchstart', e => {
+  let startX = 0, startY = 0, locked = null; // locked: 'h'=horizontal, 'v'=vertical, null=unknown
+  document.addEventListener('touchstart', e => {
+    // Ignora touch dentro modal/overlay
+    if (e.target.closest('.storico-overlay, .edit-reminder-overlay, .clock-overlay')) return;
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
+    locked = null;
   }, { passive: true });
-  app.addEventListener('touchend', e => {
+  document.addEventListener('touchmove', e => {
+    if (locked !== null) return;
+    const dx = Math.abs(e.touches[0].clientX - startX);
+    const dy = Math.abs(e.touches[0].clientY - startY);
+    if (dx < 8 && dy < 8) return; // troppo poco per decidere
+    locked = dx > dy * 1.5 ? 'h' : 'v';
+    // Se orizzontale chiaro: blocca lo scroll della pagina
+    if (locked === 'h') e.preventDefault();
+  }, { passive: false });
+  document.addEventListener('touchend', e => {
+    if (locked !== 'h') return;
     const dx = e.changedTouches[0].clientX - startX;
-    const dy = e.changedTouches[0].clientY - startY;
-    // Soglia alta + deve essere chiaramente orizzontale (dx > 2.5× dy)
-    if (Math.abs(dx) < 80 || Math.abs(dy) > Math.abs(dx) * 0.4) return;
+    if (Math.abs(dx) < 60) return;
     const curId = document.querySelector('.panel.active')?.id?.replace('panel-', '');
     const cur = tabOrder.indexOf(curId);
     if (cur === -1) return;
