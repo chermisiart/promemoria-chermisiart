@@ -223,11 +223,17 @@
     .tabs { background: rgba(42,31,61,0.8); border-color: rgba(255,255,255,0.1); }
     .tab:hover:not(.active) { background: #3a2d50; }
     .toast { background: #2a1f3d; }
-    /* Campi form in dark mode — lilla chiaro, testo scuro, buon contrasto */
-    input, textarea, select { background: #e8e0f8 !important; border-color: #9070d0 !important; color: #18102a !important; color-scheme: light; }
-    input::placeholder, textarea::placeholder { color: #7a5890 !important; opacity: 1; }
-    input:focus, textarea:focus, select:focus { border-color: var(--lilla) !important; box-shadow: 0 0 0 3px rgba(124,58,237,0.30) !important; background: #f0eafc !important; }
-    .storico-modal input, .storico-modal textarea, .storico-modal select { background: #e8e0f8 !important; color: #18102a !important; border-color: #9070d0 !important; }
+    /* Campi form in dark mode — sfondo scuro, testo bianco, bordo lilla visibile */
+    input, textarea, select { background: #2d2450 !important; border-color: #7040c0 !important; color: #ffffff !important; color-scheme: dark; }
+    input::placeholder, textarea::placeholder { color: #8060b0 !important; opacity: 1; }
+    input:focus, textarea:focus, select:focus { border-color: #a070f0 !important; box-shadow: 0 0 0 3px rgba(124,58,237,0.30) !important; background: #352860 !important; }
+    .storico-modal input, .storico-modal textarea, .storico-modal select { background: #2d2450 !important; color: #ffffff !important; border-color: #7040c0 !important; }
+    /* Freccia select visibile in dark */
+    select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23a070f0' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") !important; }
+  }
+  /* Tab bar responsive — tab più piccole su schermi stretti */
+  @media (max-width: 420px) {
+    .tab { font-size: 10px; padding: 8px 7px; letter-spacing: 0.04em; }
   }
 </style>
 </head>
@@ -1837,22 +1843,32 @@ function toggleCard(cardId) {
   card.classList.toggle('collapsed');
   localStorage.setItem('cardcollapsed_' + cardId, card.classList.contains('collapsed') ? '1' : '0');
 }
-// Migrazione una-tantum: se il campo Note contiene solo un numero, spostalo in Importo
+// Migrazione una-tantum: estrae importo dal campo Note se non è già impostato (v2)
 function migrateImportoFromNote() {
-  if (localStorage.getItem('chermisi_importo_migrated')) return;
+  if (localStorage.getItem('chermisi_importo_migrated_v2')) return;
   let changed = false;
   Object.keys(storico).forEach(key => {
     if (key.endsWith('_precauzioni') || !Array.isArray(storico[key])) return;
     storico[key] = storico[key].map(s => {
-      if (!(Number(s.importo) > 0) && s.note && /^\d+([.,]\d{1,2})?$/.test(s.note.trim())) {
+      if (Number(s.importo) > 0) return s; // già ha importo, skip
+      if (!s.note) return s;
+      const trimmed = s.note.trim();
+      // Caso 1: la nota è solo un numero (es. "30" o "130,50")
+      if (/^\d+([.,]\d{1,2})?$/.test(trimmed)) {
         changed = true;
-        return { ...s, importo: parseFloat(s.note.replace(',','.')), note: '' };
+        return { ...s, importo: parseFloat(trimmed.replace(',','.')), note: '' };
+      }
+      // Caso 2: la nota inizia con un numero seguito da separatore (es. "200 - 4 pacchetto")
+      const match = trimmed.match(/^(\d+(?:[.,]\d{1,2})?)[\s\-\u2013\u2014]+(.+)$/);
+      if (match) {
+        changed = true;
+        return { ...s, importo: parseFloat(match[1].replace(',','.')), note: match[2].trim() };
       }
       return s;
     });
   });
-  if (changed) { save(KEY_STORICO, storico); console.log('Importi migrati da Note a Importo'); }
-  localStorage.setItem('chermisi_importo_migrated', '1');
+  if (changed) { save(KEY_STORICO, storico); console.log('Importi migrati da Note a Importo (v2)'); }
+  localStorage.setItem('chermisi_importo_migrated_v2', '1');
 }
 
 function initCardStates() {
