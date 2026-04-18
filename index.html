@@ -799,8 +799,11 @@ function load(key, def) {
   try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : def; } 
   catch { return def; } 
 }
-function save(key, val) { 
-  try { localStorage.setItem(key, JSON.stringify(val)); } catch {} 
+function save(key, val) {
+  try {
+    localStorage.setItem(key, JSON.stringify(val));
+    localStorage.setItem(key + '_ts', new Date().toISOString());
+  } catch {}
   // Sync su Firestore in background
   fsSync(key, val);
 }
@@ -826,21 +829,31 @@ async function fsLoadAll() {
   if (!window._db) return;
   try {
     const keys = [KEY_CLIENTS, KEY_REMINDERS, KEY_TEMPLATES, KEY_STORICO];
+    let updated = false;
     for (const key of keys) {
       const snap = await window._fsGetDoc(window._fsDoc(window._db, 'chermisiart', key));
-      if (snap.exists()) {
-        const val = JSON.parse(snap.data().data);
-        localStorage.setItem(key, JSON.stringify(val));
-        // Aggiorna variabili in memoria
-        if (key === KEY_CLIENTS) { clients = val; }
-        if (key === KEY_REMINDERS) { reminders = val; }
-        if (key === KEY_TEMPLATES) { templates = val.length ? val : DEFAULT_TEMPLATES; }
-        if (key === KEY_STORICO) { storico = val; }
+      if (!snap.exists()) continue;
+      const fsTs = snap.data().updatedAt || '0';
+      const localTs = localStorage.getItem(key + '_ts') || '0';
+      // Carica da Firestore SOLO se è più recente del dato locale
+      if (fsTs <= localTs) {
+        console.log('Cloud più vecchio del locale, tengo locale:', key);
+        continue;
       }
+      const val = JSON.parse(snap.data().data);
+      localStorage.setItem(key, JSON.stringify(val));
+      localStorage.setItem(key + '_ts', fsTs);
+      if (key === KEY_CLIENTS) { clients = val; }
+      if (key === KEY_REMINDERS) { reminders = val; }
+      if (key === KEY_TEMPLATES) { templates = val.length ? val : DEFAULT_TEMPLATES; }
+      if (key === KEY_STORICO) { storico = val; }
+      updated = true;
     }
-    showToast('✅ Dati sincronizzati dal cloud!');
-    renderClients(); renderReminders(); renderTemplates(); renderClientSelect(); renderTemplateSelect();
-    rescheduleAll();
+    if (updated) {
+      showToast('✅ Dati sincronizzati dal cloud!');
+      renderClients(); renderReminders(); renderTemplates(); renderClientSelect(); renderTemplateSelect();
+      rescheduleAll();
+    }
   } catch(e) { console.warn('Firestore load error:', e); }
 }
 
