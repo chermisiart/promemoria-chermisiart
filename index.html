@@ -1691,7 +1691,7 @@ function renderClients() {
     const link=waLink(c.phone);
     const waBtn=link?`<a href="${escHtml(link)}" target="_blank" class="btn-wa">💬</a>`:'';
     const noteMeta = c.notes ? `<div class="c-phone">${escHtml(c.notes)}</div>` : '';
-    return `<div class="client-item" onclick="openStorico('${c.id}')"><div class="c-avatar">${escHtml(c.name.charAt(0).toUpperCase())}</div><div style="flex:1;min-width:0"><div class="c-name">${escHtml(c.name)}</div>${noteMeta}</div><div class="c-actions">${waBtn}<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openEditClient('${c.id}')" title="Modifica nome">✏️</button><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openStorico('${c.id}')">📋 Storico</button><button class="btn btn-danger" onclick="event.stopPropagation();deleteClient('${c.id}')">✕</button></div></div>`;
+    return `<div class="client-item" onclick="openStorico('${c.id}')"><div class="c-avatar">${escHtml(c.name.charAt(0).toUpperCase())}</div><div style="flex:1;min-width:0"><div class="c-name">${escHtml(c.name)}</div>${noteMeta}</div><div class="c-actions">${waBtn}<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openEditClient('${c.id}')" title="Modifica">✏️</button><button class="btn btn-danger" onclick="event.stopPropagation();deleteClient('${c.id}')">✕</button></div></div>`;
   }).join('');
 }
 
