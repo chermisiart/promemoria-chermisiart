@@ -125,6 +125,10 @@
   /* Edit Reminder Modal */
   .edit-reminder-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; display: none; align-items: flex-end; justify-content: center; animation: fadeIn 0.15s ease; }
   .edit-reminder-overlay.open { display: flex; }
+  /* Modifica cliente */
+  .edit-client-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 300; display: none; align-items: center; justify-content: center; padding: 20px; animation: fadeIn 0.2s ease; }
+  .edit-client-overlay.open { display: flex; }
+  .edit-client-modal { background: var(--card2); border: 1px solid var(--border); border-radius: 18px; padding: 24px; width: 100%; max-width: 400px; box-shadow: 0 8px 40px rgba(0,0,0,0.25); }
   /* Dialog promemoria aggiuntivi */
   .extra-rem-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 300; display: none; align-items: center; justify-content: center; padding: 20px; animation: fadeIn 0.2s ease; }
   .extra-rem-overlay.open { display: flex; }
@@ -278,8 +282,8 @@
   <div class="tabs">
     <button class="tab active" onclick="switchTab('reminders',this)">📅 Promemoria</button>
     <button class="tab" onclick="switchTab('clients',this)">👤 Clienti</button>
-    <button class="tab" onclick="switchTab('templates',this)">💬 Messaggi</button>
     <button class="tab" onclick="switchTab('stats',this)">📊 Statistiche</button>
+    <button class="tab" onclick="switchTab('templates',this)">💬 Messaggi</button>
   </div>
 
   <!-- ── PROMEMORIA ── -->
@@ -565,6 +569,33 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- Modifica cliente -->
+<div id="edit-client-overlay" class="edit-client-overlay" onclick="closeEditClient()">
+  <div class="edit-client-modal" onclick="event.stopPropagation()">
+    <div style="font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--lilla);margin-bottom:18px">✏️ Modifica cliente</div>
+    <input type="hidden" id="edit-client-id">
+    <div class="field">
+      <label>Nome completo</label>
+      <input type="text" id="edit-client-name" placeholder="Nome e cognome">
+    </div>
+    <div class="field">
+      <label>Telefono</label>
+      <input type="tel" id="edit-client-phone" placeholder="+39 333 1234567">
+    </div>
+    <div class="field">
+      <label>Note</label>
+      <input type="text" id="edit-client-notes" placeholder="Note opzionali">
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:16px;font-style:italic">
+      💡 Nei messaggi automatici viene usato solo il primo nome (es. "Ciao Anna")
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" style="flex:1" onclick="saveEditClient()">Salva</button>
+      <button class="btn btn-ghost" onclick="closeEditClient()">Annulla</button>
+    </div>
+  </div>
+</div>
+
 <!-- Dialog: crea promemoria aggiuntivi dopo Conferma -->
 <div id="extra-rem-overlay" class="extra-rem-overlay" onclick="closeExtraRemDialog()">
   <div class="extra-rem-modal" onclick="event.stopPropagation()">
@@ -578,10 +609,10 @@
       </div>
     </label>
     <label class="extra-rem-option">
-      <input type="checkbox" id="extra-followup-check" checked>
+      <input type="checkbox" id="extra-cycle-check">
       <div>
-        <div class="extra-rem-option-label">💬 Follow-up post seduta</div>
-        <div class="extra-rem-option-sub" id="extra-followup-sub"></div>
+        <div class="extra-rem-option-label">🔄 Seduta ricorrente (ciclo)</div>
+        <div class="extra-rem-option-sub" id="extra-cycle-sub"></div>
       </div>
     </label>
     <div style="display:flex;gap:10px;margin-top:18px">
@@ -1333,7 +1364,7 @@ function getVars() {
   const client = clients.find(c=>c.id===clientId);
   const dateStr = document.getElementById('r-appt-date').value;
   return {
-    nome: client?.name||'',
+    nome: (client?.name||'').split(' ')[0],
     data: formatDateIT(dateStr),
     ora: document.getElementById('r-appt-time').value,
     trattamento: document.getElementById('r-trattamento')?.value||'',
@@ -1443,12 +1474,20 @@ function showExtraRemDialog({ clientId, apptDateRaw, apptTime, trattamento }) {
   // Calcola data follow-up (+3 giorni)
   const fupDate = new Date(d); fupDate.setDate(fupDate.getDate() + 3);
   const fupFmt = fupDate.toLocaleDateString('it-IT', { weekday:'short', day:'numeric', month:'long' });
+  // Calcola invio 26h prima
+  const apptDt = new Date(apptDateRaw + 'T' + apptTime + ':00');
+  const sendDt = new Date(apptDt.getTime() - 26 * 3600 * 1000);
+  const sendFmt = sendDt.toLocaleDateString('it-IT', { weekday:'short', day:'numeric', month:'long' });
+  const sendTimeFmt = sendDt.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
+  // Ciclo: 4 settimane dopo
+  const cycleDate = new Date(d); cycleDate.setDate(cycleDate.getDate() + 28);
+  const cycleFmt = cycleDate.toLocaleDateString('it-IT', { weekday:'short', day:'numeric', month:'long' });
   document.getElementById('extra-rem-sub').textContent =
     `${name}${trattamento ? ' · ' + trattamento : ''} — ${fmt} ore ${apptTime}`;
   document.getElementById('extra-appt-sub').textContent =
-    `Inviato il giorno dell'appuntamento alle 8:00 · ${fmt}`;
-  document.getElementById('extra-followup-sub').textContent =
-    `Inviato 3 giorni dopo alle 10:00 · ${fupFmt}`;
+    `26 ore prima · ${sendFmt} alle ${sendTimeFmt}`;
+  document.getElementById('extra-cycle-sub').textContent =
+    `4 settimane dopo alle 10:00 · ${cycleFmt}`;
   document.getElementById('extra-rem-overlay').classList.add('open');
 }
 function closeExtraRemDialog() {
@@ -1460,26 +1499,29 @@ function confirmExtraReminders() {
   const { clientId, apptDateRaw, apptTime, trattamento } = _extraRemData;
   const client = clients.find(c => c.id === clientId);
   const doAppt = document.getElementById('extra-appt-check').checked;
-  const doFollowup = document.getElementById('extra-followup-check').checked;
+  const doCycle = document.getElementById('extra-cycle-check').checked;
+  const firstName = (client?.name||'').split(' ')[0];
   let created = 0;
   if (doAppt) {
     const tpl = templates.find(t => t.type === 'appointment');
-    const sendAt = apptDateRaw + 'T08:00';
-    const vars = { nome: client?.name||'', data: apptDateRaw, ora: apptTime, trattamento: trattamento||'' };
+    // 26 ore prima dell'appuntamento
+    const apptDt = new Date(apptDateRaw + 'T' + apptTime + ':00');
+    const sendDt = new Date(apptDt.getTime() - 26 * 3600 * 1000);
+    const sendAt = sendDt.toISOString().slice(0, 16);
+    const vars = { nome: firstName, data: apptDateRaw, ora: apptTime, trattamento: trattamento||'' };
     const msg = tpl ? fillTemplate(tpl.text, vars) : '';
     reminders.push({ id:uid(), clientId, type:'appointment', templateId:tpl?.id||'', sendAt,
       message:msg, appointmentDate:apptDateRaw, appointmentTime:apptTime, trattamento, status:'pending',
       createdAt:new Date().toISOString() });
     created++;
   }
-  if (doFollowup) {
-    const tpl = templates.find(t => t.type === 'followup');
-    const fupDate = new Date(apptDateRaw + 'T12:00:00'); fupDate.setDate(fupDate.getDate() + 3);
-    const fupDateStr = fupDate.toISOString().slice(0,10);
-    const sendAt = fupDateStr + 'T10:00';
-    const vars = { nome: client?.name||'', data: apptDateRaw, ora: apptTime, trattamento: trattamento||'' };
+  if (doCycle) {
+    const tpl = templates.find(t => t.type === 'cycle');
+    const cycleDate = new Date(apptDateRaw + 'T12:00:00'); cycleDate.setDate(cycleDate.getDate() + 28);
+    const sendAt = cycleDate.toISOString().slice(0, 10) + 'T10:00';
+    const vars = { nome: firstName, data: apptDateRaw, ora: apptTime, trattamento: trattamento||'' };
     const msg = tpl ? fillTemplate(tpl.text, vars) : '';
-    reminders.push({ id:uid(), clientId, type:'followup', templateId:tpl?.id||'', sendAt,
+    reminders.push({ id:uid(), clientId, type:'cycle', templateId:tpl?.id||'', sendAt,
       message:msg, appointmentDate:apptDateRaw, appointmentTime:apptTime, trattamento, status:'pending',
       createdAt:new Date().toISOString() });
     created++;
@@ -1602,6 +1644,28 @@ function addClient() {
   showToast('✅ Cliente aggiunta!'); renderClients(); renderClientSelect();
 }
 function deleteClient(id) { clients=clients.filter(c=>c.id!==id); save(KEY_CLIENTS,clients); renderClients(); renderClientSelect(); }
+function openEditClient(id) {
+  const c = clients.find(x=>x.id===id); if (!c) return;
+  document.getElementById('edit-client-id').value = id;
+  document.getElementById('edit-client-name').value = c.name||'';
+  document.getElementById('edit-client-phone').value = c.phone||'';
+  document.getElementById('edit-client-notes').value = c.notes||'';
+  document.getElementById('edit-client-overlay').classList.add('open');
+}
+function closeEditClient() { document.getElementById('edit-client-overlay').classList.remove('open'); }
+function saveEditClient() {
+  const id = document.getElementById('edit-client-id').value;
+  const name = document.getElementById('edit-client-name').value.trim();
+  const phone = document.getElementById('edit-client-phone').value.trim();
+  const notes = document.getElementById('edit-client-notes').value.trim();
+  if (!name) { showToast('Inserisci almeno il nome'); return; }
+  const idx = clients.findIndex(c=>c.id===id); if (idx===-1) return;
+  clients[idx] = { ...clients[idx], name, phone, notes };
+  save(KEY_CLIENTS, clients);
+  renderClients(); renderClientSelect();
+  showToast('✅ Cliente aggiornata!');
+  closeEditClient();
+}
 function renderClients() {
   document.getElementById('clients-count').textContent=clients.length+' clienti';
   const el=document.getElementById('clients-list');
@@ -1614,7 +1678,7 @@ function renderClients() {
     const link=waLink(c.phone);
     const waBtn=link?`<a href="${escHtml(link)}" target="_blank" class="btn-wa">💬</a>`:'';
     const noteMeta = c.notes ? `<div class="c-phone">${escHtml(c.notes)}</div>` : '';
-    return `<div class="client-item" onclick="openStorico('${c.id}')"><div class="c-avatar">${escHtml(c.name.charAt(0).toUpperCase())}</div><div style="flex:1;min-width:0"><div class="c-name">${escHtml(c.name)}</div>${noteMeta}</div><div class="c-actions">${waBtn}<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openStorico('${c.id}')">📋 Storico</button><button class="btn btn-danger" onclick="event.stopPropagation();deleteClient('${c.id}')">✕</button></div></div>`;
+    return `<div class="client-item" onclick="openStorico('${c.id}')"><div class="c-avatar">${escHtml(c.name.charAt(0).toUpperCase())}</div><div style="flex:1;min-width:0"><div class="c-name">${escHtml(c.name)}</div>${noteMeta}</div><div class="c-actions">${waBtn}<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openEditClient('${c.id}')" title="Modifica nome">✏️</button><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openStorico('${c.id}')">📋 Storico</button><button class="btn btn-danger" onclick="event.stopPropagation();deleteClient('${c.id}')">✕</button></div></div>`;
   }).join('');
 }
 
@@ -1923,7 +1987,7 @@ function deleteSeduta(clientId, sedutaId) {
 
 // ── Swipe orizzontale tra tab ──
 (function initSwipe() {
-  const tabOrder = ['reminders', 'clients', 'templates', 'stats'];
+  const tabOrder = ['reminders', 'clients', 'stats', 'templates'];
   let startX = 0, startY = 0, locked = null; // locked: 'h'=horizontal, 'v'=vertical, null=unknown
   document.addEventListener('touchstart', e => {
     // Ignora touch dentro modal/overlay
