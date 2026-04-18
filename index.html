@@ -1832,12 +1832,18 @@ function confirmClock() {
 // KEY_STORICO già definito sopra
 let storico = load(KEY_STORICO, {}); // { clientId: [{id, data, trattamento, note}] }
 
+let _storicoOpen = false;
 function openStorico(clientId) {
   const client = clients.find(c => c.id === clientId);
   if (!client) return;
   const sedute = (storico[clientId] || []).sort((a,b) => new Date(b.data) - new Date(a.data));
   const precauzioni = (storico[clientId+'_precauzioni'] || '');
   document.querySelectorAll('.storico-overlay').forEach(e => e.remove());
+  // Aggiunge voce nella cronologia solo la prima volta (non sui reload interni)
+  if (!_storicoOpen) {
+    history.pushState({ modal: 'storico' }, '');
+    _storicoOpen = true;
+  }
   const overlay = document.createElement('div');
   overlay.className = 'storico-overlay';
   overlay.innerHTML = `
@@ -1974,7 +1980,28 @@ function saveSeduta(clientId, sedutaId) {
   openStorico(clientId);
 }
 
-function closeStorico() { document.querySelectorAll('.storico-overlay').forEach(e => e.remove()); }
+function _doCloseStorico() {
+  document.querySelectorAll('.storico-overlay').forEach(e => e.remove());
+  _storicoOpen = false;
+  // Torna alla tab Clienti se non è già attiva
+  const clientTab = document.querySelector('.tab[onclick*="\'clients\'"]');
+  if (clientTab && !document.getElementById('panel-clients')?.classList.contains('active')) {
+    switchTab('clients', clientTab);
+  }
+}
+function closeStorico() {
+  if (_storicoOpen) {
+    history.back(); // triggera popstate → _doCloseStorico
+  } else {
+    _doCloseStorico();
+  }
+}
+// Tasto indietro del telefono: chiude il modal invece di uscire dall'app
+window.addEventListener('popstate', () => {
+  if (document.querySelector('.storico-overlay')) { _doCloseStorico(); return; }
+  if (document.getElementById('edit-client-overlay')?.classList.contains('open')) { closeEditClient(); return; }
+  if (document.getElementById('extra-rem-overlay')?.classList.contains('open')) { closeExtraRemDialog(); return; }
+});
 
 function addSeduta(clientId) {
   const data = document.getElementById('ns-data').value;
