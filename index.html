@@ -756,6 +756,19 @@ getRedirectResult(auth).then(result => {
 // Auth state listener
 onAuthStateChanged(auth, async (user) => {
   if (user) {
+    // ── Controllo proprietaria ──
+    // Al primo accesso salva l'UID come owner. Chiunque altro viene bloccato.
+    const ownerUid = localStorage.getItem('chermisi_owner_uid');
+    if (!ownerUid) {
+      // Prima volta: questo è l'account della proprietaria
+      localStorage.setItem('chermisi_owner_uid', user.uid);
+    } else if (ownerUid !== user.uid) {
+      // Account non autorizzato → disconnetti subito
+      await signOut(auth);
+      document.dispatchEvent(new CustomEvent('userBlocked', { detail: { name: user.displayName || user.email } }));
+      return;
+    }
+
     window._currentUid = user.uid;
     // Salva UID per la Cloud Function
     try {
@@ -1226,6 +1239,19 @@ document.addEventListener('userSignedOut', () => {
   document.getElementById('auth-area').innerHTML = '';
   document.getElementById('signin-overlay').style.display = 'flex';
   window._currentUid = null;
+});
+
+document.addEventListener('userBlocked', (e) => {
+  // Mostra messaggio sull'overlay login
+  const card = document.querySelector('.signin-card');
+  if (card) {
+    const msg = card.querySelector('.blocked-msg') || document.createElement('div');
+    msg.className = 'blocked-msg';
+    msg.style.cssText = 'margin-top:18px;padding:12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;font-size:13px;color:#b91c1c;';
+    msg.textContent = '🔒 Questa app è ad uso privato. Accesso non consentito.';
+    if (!card.querySelector('.blocked-msg')) card.appendChild(msg);
+  }
+  document.getElementById('signin-overlay').style.display = 'flex';
 });
 
 async function migrateOldFirestoreData(uid) {
