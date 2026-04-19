@@ -274,12 +274,13 @@
   }
   .signin-card {
     background: white; border: 1px solid var(--border);
-    border-radius: 24px; padding: 48px 32px; text-align: center;
+    border-radius: 24px; padding: 36px 32px 40px; text-align: center;
     max-width: 340px; width: 100%; box-shadow: 0 8px 40px rgba(112,26,237,0.12);
   }
-  .signin-title { font-family: 'Cormorant Garamond', serif; font-size: 34px; font-weight: 300; margin-bottom: 6px; }
+  .signin-logo { width: 110px; height: 110px; object-fit: contain; margin-bottom: 12px; border-radius: 22px; }
+  .signin-title { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 300; margin-bottom: 4px; }
   .signin-title span { color: var(--crimson); font-style: italic; }
-  .signin-sub { font-size: 12px; color: var(--muted); margin-bottom: 36px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .signin-sub { font-size: 12px; color: var(--muted); margin-bottom: 32px; letter-spacing: 0.1em; text-transform: uppercase; }
   .signin-btn {
     width: 100%; background: white; border: 1.5px solid var(--border);
     border-radius: 12px; padding: 14px 20px; font-family: 'DM Sans', sans-serif;
@@ -303,6 +304,7 @@
 <!-- ── Sign-in overlay (visibile se non loggata) ── -->
 <div id="signin-overlay">
   <div class="signin-card">
+    <img src="icon-512.png" alt="ChèrmisiArt" class="signin-logo">
     <div class="signin-title">Chèrmisi<span>Art</span></div>
     <div class="signin-sub">Accedi per gestire i tuoi promemoria</div>
     <button class="signin-btn" onclick="doGoogleSignIn()">
