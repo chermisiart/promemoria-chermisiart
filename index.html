@@ -698,7 +698,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getMessaging, getToken, onMessage } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js';
 import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD9lmycIBZZm7Ef3GumXYBcYEYMLeo4y0c",
@@ -730,9 +730,16 @@ window._fsGetDocs = getDocs;
 window._fsDeleteDoc = deleteDoc;
 window._swRegistration = null;
 window._auth = auth;
-window._googleSignIn = () => signInWithPopup(auth, googleProvider);
+window._googleSignIn = () => signInWithRedirect(auth, googleProvider);
 window._signOut = () => signOut(auth);
 window._currentUid = null;
+
+// Gestisci il ritorno dal redirect Google
+getRedirectResult(auth).catch(e => {
+  if (e.code && e.code !== 'auth/null-user') {
+    console.warn('Redirect result error:', e.code);
+  }
+});
 
 // Auth state listener
 onAuthStateChanged(auth, async (user) => {
@@ -1137,15 +1144,11 @@ function checkNotifUI() {
 }
 
 // ── Firebase Auth ──
-async function doGoogleSignIn() {
-  try {
-    await window._googleSignIn();
-    // onAuthStateChanged gestisce il resto
-  } catch(e) {
-    if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
-      showToast('❌ Errore accesso: ' + (e.message || e.code));
-    }
-  }
+function doGoogleSignIn() {
+  // signInWithRedirect reindirizza alla pagina Google e torna qui dopo il login
+  window._googleSignIn().catch(e => {
+    showToast('❌ Errore accesso: ' + (e.message || e.code));
+  });
 }
 
 async function doSignOut() {
