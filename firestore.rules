@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Dati personali ──
+    // Solo il proprietario autenticato può leggere/scrivere i propri dati
+    match /users/{userId}/data/{docId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /users/{userId}/config/{docId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ── Config per la Cloud Function ──
+    // Solo l'utente autenticato può scrivere (la Cloud Function legge via admin SDK)
+    match /chermisiart/config {
+      allow write: if request.auth != null;
+      allow read: if false;
+    }
+
+    // ── Blocca tutto il resto ──
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

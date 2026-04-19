@@ -267,9 +267,57 @@
   @media (max-width: 420px) {
     .tab { font-size: 10px; padding: 8px 7px; letter-spacing: 0.04em; }
   }
+  /* ── Auth / Sign-in ── */
+  #signin-overlay {
+    position: fixed; inset: 0; background: var(--bg);
+    z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .signin-card {
+    background: white; border: 1px solid var(--border);
+    border-radius: 24px; padding: 48px 32px; text-align: center;
+    max-width: 340px; width: 100%; box-shadow: 0 8px 40px rgba(112,26,237,0.12);
+  }
+  .signin-title { font-family: 'Cormorant Garamond', serif; font-size: 34px; font-weight: 300; margin-bottom: 6px; }
+  .signin-title span { color: var(--crimson); font-style: italic; }
+  .signin-sub { font-size: 12px; color: var(--muted); margin-bottom: 36px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .signin-btn {
+    width: 100%; background: white; border: 1.5px solid var(--border);
+    border-radius: 12px; padding: 14px 20px; font-family: 'DM Sans', sans-serif;
+    font-size: 15px; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; gap: 10px; color: var(--text);
+    transition: box-shadow 0.2s, border-color 0.2s;
+  }
+  .signin-btn:hover { border-color: var(--lilla); box-shadow: 0 2px 12px rgba(124,58,237,0.18); }
+  .auth-user-btn {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.25);
+    border-radius: 20px; padding: 6px 12px 6px 8px; font-size: 12px; cursor: pointer;
+    color: var(--lilla2); transition: background 0.2s; white-space: nowrap;
+  }
+  .auth-user-btn:hover { background: rgba(124,58,237,0.18); }
+  .auth-user-btn img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
 </style>
 </head>
 <body>
+
+<!-- ── Sign-in overlay (visibile se non loggata) ── -->
+<div id="signin-overlay">
+  <div class="signin-card">
+    <div class="signin-title">Chèrmisi<span>Art</span></div>
+    <div class="signin-sub">Accedi per gestire i tuoi promemoria</div>
+    <button class="signin-btn" onclick="doGoogleSignIn()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+      </svg>
+      Accedi con Google
+    </button>
+    <div style="margin-top:20px;font-size:11px;color:#aaa">I tuoi dati rimangono privati e accessibili solo a te</div>
+  </div>
+</div>
+
 <div class="app">
   <div class="header">
     <div>
@@ -650,6 +698,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getMessaging, getToken, onMessage } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js';
 import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD9lmycIBZZm7Ef3GumXYBcYEYMLeo4y0c",
@@ -666,6 +715,8 @@ const VAPID_KEY = 'BLbzVS8xKGAEIYafzma0JKo-sr36y4K4Tot2S-VFflgcGnQ52FpQ4uTv5DVnU
 const app = initializeApp(firebaseConfig);
 const messaging = getMessaging(app);
 const db = getFirestore(app);
+const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
 
 window._firebaseMessaging = messaging;
 window._vapidKey = VAPID_KEY;
@@ -678,6 +729,28 @@ window._fsCollection = collection;
 window._fsGetDocs = getDocs;
 window._fsDeleteDoc = deleteDoc;
 window._swRegistration = null;
+window._auth = auth;
+window._googleSignIn = () => signInWithPopup(auth, googleProvider);
+window._signOut = () => signOut(auth);
+window._currentUid = null;
+
+// Auth state listener
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    window._currentUid = user.uid;
+    // Salva UID per la Cloud Function
+    try {
+      await setDoc(doc(db, 'chermisiart', 'config'),
+        { ownerUid: user.uid, updatedAt: new Date().toISOString() },
+        { merge: true }
+      );
+    } catch(e) { console.warn('Config save error:', e); }
+    document.dispatchEvent(new CustomEvent('userSignedIn', { detail: { user } }));
+  } else {
+    window._currentUid = null;
+    document.dispatchEvent(new Event('userSignedOut'));
+  }
+});
 
 // Registra il SW con path esplicito per ambiente:
 // - GitHub Pages (github.io): /promemoria-chermisiart/firebase-messaging-sw.js
@@ -809,16 +882,16 @@ function save(key, val) {
 }
 
 async function fsSync(key, val) {
-  // Aspetta fino a 3 secondi che Firebase sia pronto
+  // Aspetta fino a 3 secondi che Firebase e auth siano pronti
   let attempts = 0;
-  while (!window._db && attempts < 30) {
+  while ((!window._db || !window._currentUid) && attempts < 30) {
     await new Promise(r => setTimeout(r, 100));
     attempts++;
   }
-  if (!window._db) return;
+  if (!window._db || !window._currentUid) return;
   try {
     await window._fsSetDoc(
-      window._fsDoc(window._db, 'chermisiart', key),
+      window._fsDoc(window._db, 'users', window._currentUid, 'data', key),
       { data: JSON.stringify(val), updatedAt: new Date().toISOString() }
     );
     console.log('Firestore sync OK:', key);
@@ -826,12 +899,14 @@ async function fsSync(key, val) {
 }
 
 async function fsLoadAll() {
-  if (!window._db) return;
+  if (!window._db || !window._currentUid) return;
   try {
     const keys = [KEY_CLIENTS, KEY_REMINDERS, KEY_TEMPLATES, KEY_STORICO];
     let updated = false;
     for (const key of keys) {
-      const snap = await window._fsGetDoc(window._fsDoc(window._db, 'chermisiart', key));
+      const snap = await window._fsGetDoc(
+        window._fsDoc(window._db, 'users', window._currentUid, 'data', key)
+      );
       if (!snap.exists()) continue;
       const fsTs = snap.data().updatedAt || '0';
       const localTs = localStorage.getItem(key + '_ts') || '0';
@@ -860,7 +935,7 @@ async function fsLoadAll() {
 // Carica da Firestore quando Firebase è pronto
 document.addEventListener('firebaseReady', () => {
   checkNotifUI();
-  setTimeout(fsLoadAll, 1000);
+  // fsLoadAll viene chiamato dopo il login (evento userSignedIn)
 });
 
 let clients   = load(KEY_CLIENTS, []);
@@ -998,13 +1073,13 @@ async function requestPushNotif() {
 
 async function saveFcmToken(token) {
   let attempts = 0;
-  while (!window._db && attempts < 60) {
+  while ((!window._db || !window._currentUid) && attempts < 60) {
     await new Promise(r => setTimeout(r, 200));
     attempts++;
   }
-  if (!window._db) { showToast('❌ DB non pronto'); return; }
+  if (!window._db || !window._currentUid) { showToast('❌ DB non pronto'); return; }
   try {
-    const tokenDoc = window._fsDoc(window._db, 'chermisiart', 'fcm_token_main');
+    const tokenDoc = window._fsDoc(window._db, 'users', window._currentUid, 'config', 'fcm_token');
     await window._fsSetDoc(tokenDoc, { token, updatedAt: new Date().toISOString() });
     console.log('Token FCM salvato:', token.slice(-10));
     showToast('✅ Token notifiche registrato!');
@@ -1061,7 +1136,78 @@ function checkNotifUI() {
   }
 }
 
-// firebaseReady listener già definito sopra con fsLoadAll
+// ── Firebase Auth ──
+async function doGoogleSignIn() {
+  try {
+    await window._googleSignIn();
+    // onAuthStateChanged gestisce il resto
+  } catch(e) {
+    if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
+      showToast('❌ Errore accesso: ' + (e.message || e.code));
+    }
+  }
+}
+
+async function doSignOut() {
+  if (!confirm('Vuoi uscire dal tuo account Google?')) return;
+  await window._signOut();
+}
+
+document.addEventListener('userSignedIn', async (e) => {
+  const user = e.detail.user;
+  // Aggiorna pulsante nell'header
+  const area = document.getElementById('auth-area');
+  const photo = user.photoURL;
+  const firstName = (user.displayName || '').split(' ')[0] || 'Esci';
+  area.innerHTML = `<button class="auth-user-btn" onclick="doSignOut()" title="Disconnetti ${user.displayName || user.email}">
+    ${photo ? `<img src="${photo}" alt="">` : '👤'}
+    <span style="max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${firstName}</span>
+  </button>`;
+  // Nascondi overlay login
+  document.getElementById('signin-overlay').style.display = 'none';
+  // Migra eventuali dati vecchi al nuovo percorso sicuro
+  await migrateOldFirestoreData(user.uid);
+  // Carica dati dal cloud
+  setTimeout(fsLoadAll, 600);
+});
+
+document.addEventListener('userSignedOut', () => {
+  document.getElementById('auth-area').innerHTML = '';
+  document.getElementById('signin-overlay').style.display = 'flex';
+  window._currentUid = null;
+});
+
+async function migrateOldFirestoreData(uid) {
+  const migKey = 'chermisi_fs_migrated_v1';
+  if (localStorage.getItem(migKey)) return;
+  if (!window._db) return;
+  const keys = [KEY_CLIENTS, KEY_REMINDERS, KEY_TEMPLATES, KEY_STORICO];
+  let migrated = 0;
+  for (const key of keys) {
+    try {
+      const oldSnap = await window._fsGetDoc(window._fsDoc(window._db, 'chermisiart', key));
+      if (!oldSnap.exists()) continue;
+      // Copia nel nuovo percorso sicuro (solo se non esiste già)
+      const newSnap = await window._fsGetDoc(window._fsDoc(window._db, 'users', uid, 'data', key));
+      if (!newSnap.exists()) {
+        await window._fsSetDoc(window._fsDoc(window._db, 'users', uid, 'data', key), oldSnap.data());
+        migrated++;
+      }
+    } catch(e) { console.warn('Migrazione errore per', key, e); }
+  }
+  // Migra token FCM
+  try {
+    const tokenSnap = await window._fsGetDoc(window._fsDoc(window._db, 'chermisiart', 'fcm_token_main'));
+    if (tokenSnap.exists()) {
+      const newTokenSnap = await window._fsGetDoc(window._fsDoc(window._db, 'users', uid, 'config', 'fcm_token'));
+      if (!newTokenSnap.exists()) {
+        await window._fsSetDoc(window._fsDoc(window._db, 'users', uid, 'config', 'fcm_token'), tokenSnap.data());
+      }
+    }
+  } catch(e) { console.warn('Migrazione FCM errore:', e); }
+  localStorage.setItem(migKey, '1');
+  if (migrated > 0) showToast('✅ Dati migrati al tuo account privato!');
+}
 
 // ── Google Calendar Auth ──
 function initGoogleAuth() {

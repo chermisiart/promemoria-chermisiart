@@ -11,19 +11,25 @@ exports.sendReminderNotifications = onSchedule(
     const db = getFirestore();
     const messaging = getMessaging();
 
-    // Leggi token FCM salvato
-    const tokenSnap = await db.collection("chermisiart").doc("fcm_token_main").get();
+    // Leggi UID del proprietario dalla configurazione
+    const configSnap = await db.collection("chermisiart").doc("config").get();
+    if (!configSnap.exists) { console.log('Nessun config trovato'); return; }
+    const ownerUid = configSnap.data().ownerUid;
+    if (!ownerUid) { console.log('Owner UID non configurato'); return; }
+
+    // Leggi token FCM dal percorso sicuro
+    const tokenSnap = await db.doc(`users/${ownerUid}/config/fcm_token`).get();
     if (!tokenSnap.exists) { console.log('Nessun token FCM trovato'); return; }
     const token = tokenSnap.data().token;
     if (!token) { console.log('Token vuoto'); return; }
 
     // Leggi i promemoria
-    const remSnap = await db.collection("chermisiart").doc("chermisi_reminders").get();
+    const remSnap = await db.doc(`users/${ownerUid}/data/chermisi_reminders`).get();
     if (!remSnap.exists) return;
     const reminders = JSON.parse(remSnap.data().data || "[]");
 
     // Leggi i clienti
-    const cliSnap = await db.collection("chermisiart").doc("chermisi_clients").get();
+    const cliSnap = await db.doc(`users/${ownerUid}/data/chermisi_clients`).get();
     const clients = cliSnap.exists ? JSON.parse(cliSnap.data().data || "[]") : [];
 
     const now = new Date();
