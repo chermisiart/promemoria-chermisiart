@@ -923,7 +923,14 @@ let toastTimer; // dichiarato qui per evitare TDZ quando handleWaParam chiama re
 let tokenClient = null;
 let userInfo = load('chermisi_userinfo', null);
 
-if (!templates.find(t => t.type === 'confirm')) { templates = DEFAULT_TEMPLATES; save(KEY_TEMPLATES, templates); }
+// Resetta i template predefiniti (t1-t4) alla versione dal codice sorgente,
+// preservando i messaggi personalizzati aggiunti dall'utente
+if (localStorage.getItem('chermisi_tpl_reset') !== '3') {
+  const custom = templates.filter(t => !['t1','t2','t3','t4'].includes(t.id));
+  templates = [...DEFAULT_TEMPLATES, ...custom];
+  save(KEY_TEMPLATES, templates);
+  localStorage.setItem('chermisi_tpl_reset', '3');
+}
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
@@ -1330,7 +1337,9 @@ function waLink(phone, msg) {
   if (!phone) return null;
   const clean = phone.replace(/\D/g,''); if (!clean) return null;
   const num = clean.startsWith('39') ? clean : '39'+(clean.startsWith('0')?clean.slice(1):clean);
-  return 'https://wa.me/'+num+(msg?'?text='+encodeURIComponent(msg):'');
+  // api.whatsapp.com/send gestisce meglio emoji e caratteri Unicode
+  // rispetto al redirect di wa.me che può corrompere i caratteri multibyte
+  return 'https://api.whatsapp.com/send?phone=' + num + (msg ? '&text=' + encodeURIComponent(msg) : '');
 }
 function formatDate(iso) { if (!iso) return ''; return new Date(iso).toLocaleString('it-IT',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
 function formatDateIT(dateStr) {
