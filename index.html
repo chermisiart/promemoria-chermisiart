@@ -885,18 +885,32 @@ const DEFAULT_TEMPLATES = [
 ];
 
 // ── Storage: localStorage + Firestore sync ──
-const USER_DOC = 'chermisiart_user';
+// Ogni utente ha chiavi localStorage separate → i dati non si mescolano mai
 
-function load(key, def) { 
-  try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : def; } 
-  catch { return def; } 
+function _lsUid() {
+  // UID attivo oppure l'ultimo usato (per supporto offline)
+  return window._currentUid || localStorage.getItem('chermisi_last_uid') || '';
 }
+
+function _lsKey(key) {
+  const uid = _lsUid();
+  return uid ? key + '__u' + uid.slice(-10) : key; // es. chermisi_clients__uABCD123456
+}
+
+function load(key, def) {
+  try {
+    const s = localStorage.getItem(_lsKey(key));
+    // Fallback alla chiave vecchia (senza UID) per compatibilità al primo accesso
+    const fallback = s === null ? localStorage.getItem(key) : s;
+    return fallback ? JSON.parse(fallback) : def;
+  } catch { return def; }
+}
+
 function save(key, val) {
   try {
-    localStorage.setItem(key, JSON.stringify(val));
-    localStorage.setItem(key + '_ts', new Date().toISOString());
+    localStorage.setItem(_lsKey(key), JSON.stringify(val));
+    localStorage.setItem(_lsKey(key) + '_ts', new Date().toISOString());
   } catch {}
-  // Sync su Firestore in background
   fsSync(key, val);
 }
 
@@ -928,15 +942,15 @@ async function fsLoadAll() {
       );
       if (!snap.exists()) continue;
       const fsTs = snap.data().updatedAt || '0';
-      const localTs = localStorage.getItem(key + '_ts') || '0';
+      const localTs = localStorage.getItem(_lsKey(key) + '_ts') || '0';
       // Carica da Firestore SOLO se è più recente del dato locale
       if (fsTs <= localTs) {
         console.log('Cloud più vecchio del locale, tengo locale:', key);
         continue;
       }
       const val = JSON.parse(snap.data().data);
-      localStorage.setItem(key, JSON.stringify(val));
-      localStorage.setItem(key + '_ts', fsTs);
+      localStorage.setItem(_lsKey(key), JSON.stringify(val));
+      localStorage.setItem(_lsKey(key) + '_ts', fsTs);
       if (key === KEY_CLIENTS) { clients = val; }
       if (key === KEY_REMINDERS) { reminders = val; }
       if (key === KEY_TEMPLATES) { templates = val.length ? val : DEFAULT_TEMPLATES; }
@@ -1175,6 +1189,23 @@ async function doSignOut() {
 
 document.addEventListener('userSignedIn', async (e) => {
   const user = e.detail.user;
+
+  // Se è un utente diverso dall'ultima sessione:
+  // NON cancelliamo nulla — ognuno ha le sue chiavi localStorage separate.
+  // Resettiamo solo la memoria in modo che Firestore carichi i dati corretti.
+  const lastUid = localStorage.getItem('chermisi_last_uid');
+  if (lastUid !== user.uid) {
+    // Aggiorna prima window._currentUid così _lsKey() punta alle chiavi del nuovo utente
+    window._currentUid = user.uid;
+    // Ricarica dalla cache personale di questo utente (potrebbe essere vuota = nuovo utente)
+    clients   = load(KEY_CLIENTS, []);
+    reminders = load(KEY_REMINDERS, []);
+    templates = load(KEY_TEMPLATES, DEFAULT_TEMPLATES);
+    storico   = load(KEY_STORICO, []);
+    renderClients(); renderReminders(); renderTemplates(); renderClientSelect(); renderTemplateSelect();
+  }
+  localStorage.setItem('chermisi_last_uid', user.uid);
+
   // Aggiorna pulsante nell'header
   const area = document.getElementById('auth-area');
   const photo = user.photoURL;
