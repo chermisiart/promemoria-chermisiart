@@ -63,7 +63,7 @@
   .quick-add-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
   .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-  .section-title { font-family: 'Cormorant Garamond', serif; font-size: 18px; color: var(--lilla); }
+  .section-title { font-family: 'Cormorant Garamond', serif; font-size: 18px; color: #E9D2F4; }
   .section-count { font-size: 12px; color: var(--muted); }
   .empty { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px; font-style: italic; }
   .gcal-event { background: #eff5ff; border: 1px solid #b0cef0; border-radius: 10px; padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; transition: border-color 0.2s; }
@@ -163,17 +163,21 @@
   /* Testo leggibile dentro le card teal */
   .card label { color: #F0F8FA; font-weight: 500; }
   .card .hint, .card .quick-add-title { color: rgba(255,255,255,0.72); }
+  .card .card-title { color: #F0F8FA !important; }
   .card .section-title { color: #F2D8EA; }
   .card .divider span { color: rgba(255,255,255,0.55); }
   .card .divider::before, .card .divider::after { border-color: rgba(255,255,255,0.18); }
-  /* Testo secondario su sfondo chiaro (thistle) */
-  .r-meta { color: #5C3A6A !important; }
-  .r-msg { color: #5C3A6A !important; }
-  .tpl-text { color: #5C3A6A !important; }
-  .seduta-note { color: #5C3A6A !important; }
-  .seduta-data { color: #5C3A6A !important; }
+  /* Items lista su sfondo teal */
+  .reminder-item, .client-item, .tpl-item, .seduta-item { background: #3891A6 !important; border-color: rgba(255,255,255,0.22) !important; }
+  .r-meta { color: rgba(255,255,255,0.78) !important; }
+  .r-msg { color: rgba(255,255,255,0.75) !important; }
+  .tpl-text { color: rgba(255,255,255,0.78) !important; }
+  .seduta-note { color: rgba(255,255,255,0.75) !important; }
+  .seduta-data { color: rgba(255,255,255,0.78) !important; }
   .extra-rem-option-sub { color: rgba(255,255,255,0.8) !important; }
-  .add-seduta-title { color: #5C3A6A !important; }
+  .add-seduta-title { color: rgba(255,255,255,0.78) !important; }
+  .copy-btn { color: rgba(255,255,255,0.82) !important; border-color: rgba(255,255,255,0.3) !important; }
+  .btn-copy-phone { color: rgba(255,255,255,0.82) !important; border-color: rgba(255,255,255,0.3) !important; }
 
   /* Storico trattamenti */
   .client-item { cursor: pointer; transition: border-color 0.2s; }
@@ -512,18 +516,18 @@
 
   <div id="stats-summary" style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap"></div>
 
-  <div class="card" style="margin-bottom:16px;background:var(--card2)">
-    <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--lilla);margin-bottom:16px">Incassi mensili</div>
+  <div class="card" style="margin-bottom:16px">
+    <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:#F0F8FA;margin-bottom:16px">Incassi mensili</div>
     <div id="stats-chart"></div>
   </div>
 
-  <div class="card" style="margin-bottom:16px;background:var(--card2)">
-    <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--lilla);margin-bottom:16px">Top clienti</div>
+  <div class="card" style="margin-bottom:16px">
+    <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:#F0F8FA;margin-bottom:16px">Top clienti</div>
     <div id="stats-top-clients"></div>
   </div>
 
-  <div class="card" style="background:var(--card2)">
-    <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--lilla);margin-bottom:16px">Per trattamento</div>
+  <div class="card">
+    <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:#F0F8FA;margin-bottom:16px">Per trattamento</div>
     <div id="stats-treatments"></div>
   </div>
 </div>
@@ -2368,9 +2372,9 @@ function renderStats() {
 
   // Riepilogo
   const summaryEl = document.getElementById('stats-summary');
-  const statCard = (label, val) => `<div style="flex:1;min-width:90px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.25);border-radius:10px;padding:12px 14px;text-align:center">
-    <div style="font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px">${label}</div>
-    <div style="font-size:20px;font-family:'Cormorant Garamond',serif;color:var(--text);font-weight:400">${val}</div>
+  const statCard = (label, val) => `<div style="flex:1;min-width:90px;background:#3891A6;border:1px solid rgba(255,255,255,0.22);border-radius:10px;padding:12px 14px;text-align:center">
+    <div style="font-size:10px;color:rgba(255,255,255,0.78);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px">${label}</div>
+    <div style="font-size:20px;font-family:'Cormorant Garamond',serif;color:#F0F8FA;font-weight:400">${val}</div>
   </div>`;
   if (summaryEl) summaryEl.innerHTML =
     statCard('Incassato', total > 0 ? '€ '+total.toFixed(2) : '—') +
