@@ -431,11 +431,11 @@
         <div class="row">
           <div class="field">
             <label>Data appuntamento</label>
-            <input type="date" id="r-appt-date" onchange="autoFillMsg()">
+            <input type="date" id="r-appt-date" onchange="autoFillMsg(); if(document.getElementById('r-type').value==='appointment') autoFill26hBefore();">
           </div>
           <div class="field">
             <label>Orario appuntamento</label>
-            <input type="time" id="r-appt-time" onchange="autoFillMsg()" style="color-scheme:dark">
+            <input type="time" id="r-appt-time" onchange="autoFillMsg(); if(document.getElementById('r-type').value==='appointment') autoFill26hBefore();" style="color-scheme:dark">
           </div>
         </div>
         <div class="field">
@@ -1597,6 +1597,21 @@ function onTypeChange() {
   document.getElementById('r-template').value = '';
   document.getElementById('r-msg').value = '';
   renderTemplateSelect();
+  // Per "Promemoria appuntamento": pre-calcola invio a 26 ore prima
+  if (type === 'appointment') autoFill26hBefore();
+}
+
+function autoFill26hBefore() {
+  const dateVal = document.getElementById('r-appt-date').value;
+  const timeVal = document.getElementById('r-appt-time').value;
+  if (!dateVal || !timeVal) return;
+  const apptDt = new Date(dateVal + 'T' + timeVal + ':00');
+  const sendDt = new Date(apptDt.getTime() - 26 * 3600 * 1000);
+  const pad = n => String(n).padStart(2, '0');
+  document.getElementById('r-sendat-date').value =
+    sendDt.getFullYear() + '-' + pad(sendDt.getMonth()+1) + '-' + pad(sendDt.getDate());
+  document.getElementById('r-sendat-time').value =
+    pad(sendDt.getHours()) + ':' + pad(sendDt.getMinutes());
 }
 
 function getVars() {
