@@ -60,12 +60,15 @@ exports.sendReminderNotifications = onSchedule(
       // URL WhatsApp diretta con testo pre-compilato (se disponibile numero e messaggio).
       const rawPhone = (client?.phone || "").replace(/\D/g, "");
       const waText   = r.message || ("Ciao " + nome + "!");
-      const waUrl    = rawPhone
-        ? "https://wa.me/" + rawPhone + "?text=" + encodeURIComponent(waText)
+      // api.whatsapp.com preserva meglio emoji e caratteri Unicode rispetto a wa.me
+      const waNum  = rawPhone.startsWith('39') ? rawPhone : '39' + (rawPhone.startsWith('0') ? rawPhone.slice(1) : rawPhone);
+      const waUrl  = rawPhone
+        ? "https://api.whatsapp.com/send?phone=" + waNum + "&text=" + encodeURIComponent(waText)
         : "";
 
       const APP_URL = "https://chermisiart.github.io/promemoria-chermisiart/";
       const ICON    = APP_URL + "icon-192.png";
+      const BADGE   = APP_URL + "badge-icon.png";
 
       const actions = waUrl
         ? [{ action: "whatsapp", title: "\uD83D\uDCAC WhatsApp" }, { action: "dismiss", title: "Ignora" }]
@@ -90,7 +93,7 @@ exports.sendReminderNotifications = onSchedule(
             title:              TITLE,
             body:               BODY,
             icon:               ICON,
-            badge:              ICON,
+            badge:              BADGE,
             tag:                r.id || "reminder",
             requireInteraction: true,
             renotify:           true,
