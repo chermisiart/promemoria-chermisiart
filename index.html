@@ -1719,15 +1719,10 @@ function showExtraRemDialog({ clientId, apptDateRaw, apptTime, trattamento }) {
   const sendDt = new Date(apptDt.getTime() - 26 * 3600 * 1000);
   const sendFmt = sendDt.toLocaleDateString('it-IT', { weekday:'short', day:'numeric', month:'long' });
   const sendTimeFmt = sendDt.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
-  // Ciclo: 4 settimane dopo
-  const cycleDate = new Date(d); cycleDate.setDate(cycleDate.getDate() + 28);
-  const cycleFmt = cycleDate.toLocaleDateString('it-IT', { weekday:'short', day:'numeric', month:'long' });
   document.getElementById('extra-rem-sub').textContent =
     `${name}${trattamento ? ' · ' + trattamento : ''} — ${fmt} ore ${apptTime}`;
   document.getElementById('extra-appt-sub').textContent =
     `26 ore prima · ${sendFmt} alle ${sendTimeFmt}`;
-  document.getElementById('extra-cycle-sub').textContent =
-    `4 settimane dopo alle 10:00 · ${cycleFmt}`;
   document.getElementById('extra-rem-overlay').classList.add('open');
 }
 function closeExtraRemDialog() {
