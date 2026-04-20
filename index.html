@@ -488,7 +488,7 @@
 
       <div id="gcal-save-hint" style="display:none; background:#ede8fc; border:1px solid #cfc0e8; border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:13px; color:#5020aa;">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:#5020aa;font-size:13px;text-transform:none;letter-spacing:0;margin:0;font-weight:400">
-          <input type="checkbox" id="gcal-save-check" checked style="width:auto;accent-color:var(--lilla);cursor:pointer">
+          <input type="checkbox" id="gcal-save-check" style="width:auto;accent-color:var(--lilla);cursor:pointer">
           📅 Aggiungi evento a Google Calendar
         </label>
       </div>
@@ -652,17 +652,10 @@
     <div class="extra-rem-title">✦ Creare altri promemoria?</div>
     <div class="extra-rem-sub" id="extra-rem-sub"></div>
     <label class="extra-rem-option">
-      <input type="checkbox" id="extra-appt-check" checked>
+      <input type="checkbox" id="extra-appt-check">
       <div>
         <div class="extra-rem-option-label">📅 Promemoria appuntamento</div>
         <div class="extra-rem-option-sub" id="extra-appt-sub"></div>
-      </div>
-    </label>
-    <label class="extra-rem-option">
-      <input type="checkbox" id="extra-cycle-check">
-      <div>
-        <div class="extra-rem-option-label">🔄 Seduta ricorrente (ciclo)</div>
-        <div class="extra-rem-option-sub" id="extra-cycle-sub"></div>
       </div>
     </label>
     <div style="display:flex;gap:10px;margin-top:18px">
@@ -1698,7 +1691,7 @@ function addReminder() {
   if (gcalAllEvents.length) renderGcalEvents(); // aggiorna lista calendar se aperta
   scheduleLocalNotification(reminders[reminders.length-1], client?.name);
   // Crea evento su Google Calendar solo se checkbox spuntata
-  const gcalChecked = document.getElementById('gcal-save-check')?.checked !== false;
+  const gcalChecked = document.getElementById('gcal-save-check')?.checked === true;
   if (type === 'confirm' && gcalToken && apptDateRaw && vars.ora && apptEndTime && gcalChecked) {
     const calTitle = (client?.name || 'Appuntamento') + (vars.trattamento ? ' — ' + vars.trattamento : '');
     createCalendarEvent(calTitle, msg, apptDateRaw, vars.ora, apptEndTime);
@@ -1746,15 +1739,16 @@ function confirmExtraReminders() {
   const { clientId, apptDateRaw, apptTime, trattamento } = _extraRemData;
   const client = clients.find(c => c.id === clientId);
   const doAppt = document.getElementById('extra-appt-check').checked;
-  const doCycle = document.getElementById('extra-cycle-check').checked;
   const firstName = (client?.name||'').split(' ')[0];
   let created = 0;
   if (doAppt) {
     const tpl = templates.find(t => t.type === 'appointment');
-    // 26 ore prima dell'appuntamento
+    // 26 ore prima — calcolo in ora LOCALE (non UTC) per evitare sfasamenti
     const apptDt = new Date(apptDateRaw + 'T' + apptTime + ':00');
     const sendDt = new Date(apptDt.getTime() - 26 * 3600 * 1000);
-    const sendAt = sendDt.toISOString().slice(0, 16);
+    const pad = n => String(n).padStart(2, '0');
+    const sendAt = sendDt.getFullYear() + '-' + pad(sendDt.getMonth()+1) + '-' + pad(sendDt.getDate())
+                   + 'T' + pad(sendDt.getHours()) + ':' + pad(sendDt.getMinutes());
     const vars = { nome: firstName, data: apptDateRaw, ora: apptTime, trattamento: trattamento||'' };
     const msg = tpl ? fillTemplate(tpl.text, vars) : '';
     reminders.push({ id:uid(), clientId, type:'appointment', templateId:tpl?.id||'', sendAt,
@@ -1762,21 +1756,10 @@ function confirmExtraReminders() {
       createdAt:new Date().toISOString() });
     created++;
   }
-  if (doCycle) {
-    const tpl = templates.find(t => t.type === 'cycle');
-    const cycleDate = new Date(apptDateRaw + 'T12:00:00'); cycleDate.setDate(cycleDate.getDate() + 28);
-    const sendAt = cycleDate.toISOString().slice(0, 10) + 'T10:00';
-    const vars = { nome: firstName, data: apptDateRaw, ora: apptTime, trattamento: trattamento||'' };
-    const msg = tpl ? fillTemplate(tpl.text, vars) : '';
-    reminders.push({ id:uid(), clientId, type:'cycle', templateId:tpl?.id||'', sendAt,
-      message:msg, appointmentDate:apptDateRaw, appointmentTime:apptTime, trattamento, status:'pending',
-      createdAt:new Date().toISOString() });
-    created++;
-  }
   if (created > 0) {
     save(KEY_REMINDERS, reminders);
     renderReminders();
-    showToast(`✅ ${created === 2 ? 'Promemoria appuntamento e follow-up creati!' : 'Promemoria creato!'}`);
+    showToast('✅ Promemoria appuntamento creato!');
   }
   closeExtraRemDialog();
 }
