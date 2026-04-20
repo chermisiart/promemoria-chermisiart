@@ -2393,22 +2393,24 @@ function renderStats() {
           const v = byYear[y]||0;
           const h = Math.round((v/maxVal)*100);
           return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative">
-            <div style="font-size:9px;color:var(--muted);position:absolute;bottom:16px;left:50%;transform:translateX(-50%);white-space:nowrap">${v>0?'€'+Math.round(v):''}</div>
-            <div style="width:100%;background:var(--lilla);border-radius:3px 3px 0 0;height:${h}%;min-height:${v>0?3:0}px;opacity:${v>0?0.85:0.15};transition:height 0.3s"></div>
-            <div style="font-size:9px;color:var(--muted);position:absolute;bottom:0;left:50%;transform:translateX(-50%);white-space:nowrap">${y}</div>
+            <div style="font-size:9px;color:rgba(255,255,255,0.75);position:absolute;bottom:16px;left:50%;transform:translateX(-50%);white-space:nowrap">${v>0?'€'+Math.round(v):''}</div>
+            <div style="width:100%;background:#153243;border-radius:3px 3px 0 0;height:${h}%;min-height:${v>0?3:0}px;opacity:${v>0?0.85:0.2};transition:height 0.3s"></div>
+            <div style="font-size:9px;color:rgba(255,255,255,0.65);position:absolute;bottom:0;left:50%;transform:translateX(-50%);white-space:nowrap">${y}</div>
           </div>`;
         }).join('')}
       </div>`;
     } else {
-      // Vista anno specifico: barre mensili
+      // Vista anno specifico: griglia 3×4 (3 mesi per riga, 4 righe)
       const maxVal = Math.max(...byMonth, 1);
-      chartEl.innerHTML = `<div style="display:flex;align-items:flex-end;gap:4px;height:120px;padding-bottom:24px;position:relative">
+      chartEl.innerHTML = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px 8px">
         ${byMonth.map((v,i) => {
-          const h = Math.round((v/maxVal)*100);
-          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative">
-            <div style="font-size:9px;color:var(--muted);position:absolute;bottom:16px;left:50%;transform:translateX(-50%);white-space:nowrap">${v>0?'€'+Math.round(v):''}</div>
-            <div style="width:100%;background:var(--lilla);border-radius:3px 3px 0 0;height:${h}%;min-height:${v>0?3:0}px;opacity:${v>0?0.85:0.15};transition:height 0.3s"></div>
-            <div style="font-size:9px;color:var(--muted);position:absolute;bottom:0;left:50%;transform:translateX(-50%);white-space:nowrap">${MONTHS[i]}</div>
+          const h = Math.max(Math.round((v/maxVal)*100), v>0?4:0);
+          return `<div style="text-align:center">
+            <div style="font-size:11px;color:rgba(255,255,255,0.9);margin-bottom:5px;font-weight:500;min-height:16px">${v>0?'€'+Math.round(v):''}</div>
+            <div style="height:48px;display:flex;align-items:flex-end;justify-content:center;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden;padding:2px 8px 0">
+              <div style="width:60%;background:#153243;border-radius:3px 3px 0 0;height:${h}%;opacity:${v>0?0.85:0.15}"></div>
+            </div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.7);margin-top:5px;letter-spacing:0.04em">${MONTHS[i]}</div>
           </div>`;
         }).join('')}
       </div>`;
@@ -2424,11 +2426,11 @@ function renderStats() {
       const maxC = sorted[0].total || 1;
       topEl.innerHTML = sorted.map(c => `<div style="margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
-          <span style="color:var(--text)">${escHtml(c.name)}</span>
-          <span style="color:var(--lilla);font-weight:500">${c.total>0?'€ '+c.total.toFixed(2):'—'} <span style="color:var(--muted);font-weight:300;font-size:11px">(${c.sessions} sed.)</span></span>
+          <span style="color:#F0F8FA">${escHtml(c.name)}</span>
+          <span style="color:#F0F8FA;font-weight:500">${c.total>0?'€ '+c.total.toFixed(2):'—'} <span style="color:rgba(255,255,255,0.62);font-weight:300;font-size:11px">(${c.sessions} sed.)</span></span>
         </div>
-        <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
-          <div style="height:100%;background:var(--lilla);width:${Math.round((c.total/maxC)*100)}%;border-radius:3px;opacity:0.8"></div>
+        <div style="height:6px;background:rgba(255,255,255,0.15);border-radius:3px;overflow:hidden">
+          <div style="height:100%;background:#153243;width:${Math.round((c.total/maxC)*100)}%;border-radius:3px;opacity:0.75"></div>
         </div>
       </div>`).join('');
     }
@@ -2445,12 +2447,12 @@ function renderStats() {
         <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;align-items:center">
           <span style="display:flex;align-items:center;gap:6px">
             <span style="width:10px;height:10px;border-radius:50%;background:${t.color};display:inline-block;flex-shrink:0"></span>
-            <span style="color:var(--text)">${escHtml(t.label)}</span>
+            <span style="color:#F0F8FA">${escHtml(t.label)}</span>
           </span>
-          <span style="font-weight:500;color:${t.color}">${t.total>0?'€ '+t.total.toFixed(2):'—'} <span style="color:var(--muted);font-weight:300;font-size:11px">(${t.sessions} sed.)</span></span>
+          <span style="font-weight:500;color:#F0F8FA">${t.total>0?'€ '+t.total.toFixed(2):'—'} <span style="color:rgba(255,255,255,0.62);font-weight:300;font-size:11px">(${t.sessions} sed.)</span></span>
         </div>
-        <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
-          <div style="height:100%;background:${t.color};width:${Math.round((t.total/maxT)*100)}%;border-radius:3px;opacity:0.8"></div>
+        <div style="height:6px;background:rgba(255,255,255,0.15);border-radius:3px;overflow:hidden">
+          <div style="height:100%;background:${t.color};width:${Math.round((t.total/maxT)*100)}%;border-radius:3px;opacity:0.85"></div>
         </div>
       </div>`).join('');
     }
