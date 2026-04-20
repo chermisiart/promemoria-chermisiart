@@ -2388,23 +2388,21 @@ function renderStats() {
       // Vista "tutti gli anni": barre per anno
       const yrs = Object.keys(byYear).map(Number).sort((a,b)=>a-b);
       const maxVal = Math.max(...Object.values(byYear), 1);
-      chartEl.innerHTML = `<div style="display:flex;align-items:flex-end;gap:6px;height:120px;padding-bottom:24px;position:relative">
+      chartEl.innerHTML = `<div style="display:grid;grid-template-columns:repeat(${Math.min(yrs.length,4)},1fr);gap:8px 6px">
         ${yrs.map(y => {
           const v = byYear[y]||0;
-          const h = Math.round((v/maxVal)*100);
-          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative">
-            <div style="font-size:9px;color:rgba(255,255,255,0.75);position:absolute;bottom:16px;left:50%;transform:translateX(-50%);white-space:nowrap">${v>0?'€'+Math.round(v):''}</div>
-            <div style="width:100%;background:#153243;border-radius:3px 3px 0 0;height:${h}%;min-height:${v>0?3:0}px;opacity:${v>0?0.85:0.2};transition:height 0.3s"></div>
-            <div style="font-size:9px;color:rgba(255,255,255,0.65);position:absolute;bottom:0;left:50%;transform:translateX(-50%);white-space:nowrap">${y}</div>
+          return `<div style="background:#153243;border-radius:8px;padding:10px 8px;text-align:center;border:1px solid rgba(255,255,255,0.08)">
+            <div style="font-size:10px;color:#9BC8D4;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:5px">${y}</div>
+            <div style="font-size:16px;font-family:'Cormorant Garamond',serif;color:#F0F8FA">${v>0?'€'+Math.round(v):'<span style="color:rgba(255,255,255,0.3)">—</span>'}</div>
           </div>`;
         }).join('')}
       </div>`;
     } else {
       // Vista anno specifico: griglia 3×4 — solo mese e cifra
       chartEl.innerHTML = byMonth.map((v,i) => `
-        <div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:10px 8px;text-align:center">
-          <div style="font-size:10px;color:rgba(255,255,255,0.65);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px">${MONTHS[i]}</div>
-          <div style="font-size:15px;font-family:'Cormorant Garamond',serif;color:#F0F8FA;font-weight:400">${v>0?'€'+Math.round(v):'—'}</div>
+        <div style="background:#153243;border-radius:8px;padding:10px 8px;text-align:center;border:1px solid rgba(255,255,255,0.08)">
+          <div style="font-size:10px;color:#9BC8D4;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:5px">${MONTHS[i]}</div>
+          <div style="font-size:16px;font-family:'Cormorant Garamond',serif;color:#F0F8FA;font-weight:400">${v>0?'€'+Math.round(v):'<span style="color:rgba(255,255,255,0.3)">—</span>'}</div>
         </div>`).join('');
     }
   }
@@ -2416,13 +2414,13 @@ function renderStats() {
     if (!sorted.length) { topEl.innerHTML = '<div class="empty" style="padding:20px">Nessun dato disponibile</div>'; }
     else {
       const maxC = sorted[0].total || 1;
-      topEl.innerHTML = sorted.map(c => `<div style="margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
-          <span style="color:#F0F8FA">${escHtml(c.name)}</span>
-          <span style="color:#F0F8FA;font-weight:500">${c.total>0?'€ '+c.total.toFixed(2):'—'} <span style="color:rgba(255,255,255,0.62);font-weight:300;font-size:11px">(${c.sessions} sed.)</span></span>
+      topEl.innerHTML = sorted.map(c => `<div style="background:#153243;border-radius:8px;padding:10px 12px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.08)">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+          <span style="color:#F0F8FA;font-size:14px">${escHtml(c.name)}</span>
+          <span style="color:#E9D2F4;font-weight:500;font-size:14px">${c.total>0?'€ '+c.total.toFixed(2):'—'} <span style="color:#9BC8D4;font-weight:300;font-size:11px">(${c.sessions} sed.)</span></span>
         </div>
-        <div style="height:6px;background:rgba(255,255,255,0.15);border-radius:3px;overflow:hidden">
-          <div style="height:100%;background:#153243;width:${Math.round((c.total/maxC)*100)}%;border-radius:3px;opacity:0.75"></div>
+        <div style="height:5px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden">
+          <div style="height:100%;background:#E9D2F4;width:${Math.round((c.total/maxC)*100)}%;border-radius:3px;opacity:0.85"></div>
         </div>
       </div>`).join('');
     }
@@ -2435,16 +2433,16 @@ function renderStats() {
     if (!sorted.length) { trattEl.innerHTML = '<div class="empty" style="padding:20px">Nessun dato disponibile</div>'; }
     else {
       const maxT = sorted[0].total || 1;
-      trattEl.innerHTML = sorted.map(t => `<div style="margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;align-items:center">
-          <span style="display:flex;align-items:center;gap:6px">
+      trattEl.innerHTML = sorted.map(t => `<div style="background:#153243;border-radius:8px;padding:10px 12px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.08)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="display:flex;align-items:center;gap:8px">
             <span style="width:10px;height:10px;border-radius:50%;background:${t.color};display:inline-block;flex-shrink:0"></span>
-            <span style="color:#F0F8FA">${escHtml(t.label)}</span>
+            <span style="color:#F0F8FA;font-size:14px">${escHtml(t.label)}</span>
           </span>
-          <span style="font-weight:500;color:#F0F8FA">${t.total>0?'€ '+t.total.toFixed(2):'—'} <span style="color:rgba(255,255,255,0.62);font-weight:300;font-size:11px">(${t.sessions} sed.)</span></span>
+          <span style="font-weight:500;color:#E9D2F4;font-size:14px">${t.total>0?'€ '+t.total.toFixed(2):'—'} <span style="color:#9BC8D4;font-weight:300;font-size:11px">(${t.sessions} sed.)</span></span>
         </div>
-        <div style="height:6px;background:rgba(255,255,255,0.15);border-radius:3px;overflow:hidden">
-          <div style="height:100%;background:${t.color};width:${Math.round((t.total/maxT)*100)}%;border-radius:3px;opacity:0.85"></div>
+        <div style="height:5px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden">
+          <div style="height:100%;background:${t.color};width:${Math.round((t.total/maxT)*100)}%;border-radius:3px;opacity:0.9"></div>
         </div>
       </div>`).join('');
     }
