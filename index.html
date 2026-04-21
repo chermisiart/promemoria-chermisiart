@@ -13,6 +13,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.15/locales/it.global.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -98,6 +101,40 @@
   .divider { display:flex; align-items:center; gap:12px; margin:16px 0; }
   .divider::before, .divider::after { content:''; flex:1; border-top:1px solid rgba(78,205,196,0.15); }
   .divider span { font-size:10px; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase; }
+
+  /* ── Calendario interno ── */
+  #cal-wrap { background:rgba(20,75,75,0.35); border:1.5px solid rgba(78,205,196,0.22); border-radius:16px; padding:14px; }
+  #cal-wrap .fc { font-family:'DM Sans',sans-serif; font-size:13px; }
+  #cal-wrap .fc-toolbar-title { font-family:'Cormorant Garamond',serif; font-size:18px; font-weight:400; color:var(--text); }
+  #cal-wrap .fc-button { background:rgba(78,205,196,0.1) !important; border:1px solid rgba(78,205,196,0.3) !important; color:var(--accent2) !important; border-radius:8px !important; font-family:'DM Sans',sans-serif !important; font-size:12px !important; padding:5px 10px !important; box-shadow:none !important; text-transform:none !important; }
+  #cal-wrap .fc-button:hover { background:rgba(78,205,196,0.2) !important; }
+  #cal-wrap .fc-button-active, #cal-wrap .fc-button-active:hover { background:#1a6f6f !important; border-color:rgba(78,205,196,0.6) !important; }
+  #cal-wrap .fc-col-header-cell-cushion, #cal-wrap .fc-daygrid-day-number { color:var(--accent2); text-decoration:none; font-size:12px; }
+  #cal-wrap .fc-day-today { background:rgba(78,205,196,0.08) !important; }
+  #cal-wrap .fc-day-today .fc-daygrid-day-number { color:var(--accent); font-weight:600; }
+  #cal-wrap .fc-daygrid-day-frame { cursor:pointer; }
+  #cal-wrap .fc-daygrid-event { border-radius:5px; font-size:11px; padding:1px 4px; border:none !important; cursor:pointer; }
+  #cal-wrap .fc-event-title { font-weight:400; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #cal-wrap .fc-theme-standard td, #cal-wrap .fc-theme-standard th { border-color:rgba(78,205,196,0.15); }
+  #cal-wrap .fc-scrollgrid { border-color:rgba(78,205,196,0.15) !important; }
+  #cal-wrap .fc-scrollgrid-sync-table { border-color:rgba(78,205,196,0.15); }
+  #cal-wrap .fc-more-link { color:var(--accent); font-size:11px; }
+  /* Modal evento */
+  .cal-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:200; display:flex; align-items:flex-end; justify-content:center; animation:fadeIn 0.15s ease; }
+  .cal-modal { background:#0d2020; border:1.5px solid rgba(78,205,196,0.3); border-radius:20px 20px 0 0; width:100%; max-width:500px; padding:24px 20px 32px; max-height:85vh; overflow-y:auto; }
+  .cal-modal-title { font-family:'Cormorant Garamond',serif; font-size:20px; color:var(--text); margin-bottom:18px; display:flex; align-items:center; justify-content:space-between; }
+  .cal-modal-close { background:none; border:none; color:var(--muted); font-size:22px; cursor:pointer; line-height:1; padding:0; }
+  .color-swatches { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
+  .color-swatch { width:28px; height:28px; border-radius:50%; cursor:pointer; border:3px solid transparent; transition:transform 0.15s, border-color 0.15s; flex-shrink:0; }
+  .color-swatch:hover { transform:scale(1.15); }
+  .color-swatch.selected { border-color:#fff; transform:scale(1.15); }
+  .cal-type-label { font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); margin-bottom:10px; }
+  .cal-event-item { background:rgba(20,75,75,0.5); border:1px solid rgba(78,205,196,0.2); border-radius:12px; padding:12px 14px; margin-bottom:8px; display:flex; align-items:center; gap:10px; cursor:pointer; }
+  .cal-event-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .cal-event-info { flex:1; min-width:0; }
+  .cal-event-name { font-size:13px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cal-event-time { font-size:11px; color:var(--muted); margin-top:2px; }
+  .cal-event-badge { font-size:10px; background:rgba(78,205,196,0.15); color:var(--accent); border-radius:6px; padding:2px 7px; white-space:nowrap; flex-shrink:0; }
   .notif-status { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--green); margin-top:8px; }
   .notif-status.off { color:var(--muted); }
 
@@ -313,6 +350,18 @@
   body.light-mode .add-seduta-box { background:rgba(26,138,138,0.04); border:1.5px dashed #1a8a8a; }
   body.light-mode .extra-rem-option { background:rgba(26,138,138,0.06); border-color:rgba(26,138,138,0.18); }
 
+  /* calendario light */
+  body.light-mode #cal-wrap { background:#ffffff; border-color:rgba(26,138,138,0.22); }
+  body.light-mode #cal-wrap .fc-toolbar-title { color:var(--text); }
+  body.light-mode #cal-wrap .fc-col-header-cell-cushion,
+  body.light-mode #cal-wrap .fc-daygrid-day-number { color:#0d5555; }
+  body.light-mode #cal-wrap .fc-day-today { background:rgba(26,138,138,0.08) !important; }
+  body.light-mode #cal-wrap .fc-theme-standard td,
+  body.light-mode #cal-wrap .fc-theme-standard th { border-color:rgba(26,138,138,0.18); }
+  body.light-mode #cal-wrap .fc-scrollgrid { border-color:rgba(26,138,138,0.18) !important; }
+  body.light-mode .cal-modal { background:#f0faf9; border-color:rgba(26,138,138,0.28); }
+  body.light-mode .cal-event-item { background:#ffffff; border-color:rgba(26,138,138,0.2); }
+
   /* buttons */
   body.light-mode .btn-ghost { background:rgba(26,138,138,0.07); color:rgba(10,30,30,0.8); border-color:rgba(26,138,138,0.28); }
   body.light-mode .btn-ghost:hover { background:rgba(26,138,138,0.13); color:var(--text); }
@@ -436,14 +485,20 @@
   </div>
 
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('reminders',this)"><span class="tab-icon">📅</span><span class="tab-label">Prom.</span></button>
+    <button class="tab active" onclick="switchTab('calendar',this)"><span class="tab-icon">🗓</span><span class="tab-label">Calendario</span></button>
+    <button class="tab" onclick="switchTab('reminders',this)"><span class="tab-icon">📅</span><span class="tab-label">Prom.</span></button>
     <button class="tab" onclick="switchTab('clients',this)"><span class="tab-icon">👤</span><span class="tab-label">Clienti</span></button>
     <button class="tab" onclick="switchTab('stats',this)"><span class="tab-icon">📊</span><span class="tab-label">Stat.</span></button>
     <button class="tab" onclick="switchTab('templates',this)"><span class="tab-icon">💬</span><span class="tab-label">Msg</span></button>
   </div>
 
+  <!-- ── CALENDARIO ── -->
+  <div id="panel-calendar" class="panel active">
+    <div id="cal-wrap"></div>
+  </div>
+
   <!-- ── PROMEMORIA ── -->
-  <div id="panel-reminders" class="panel active">
+  <div id="panel-reminders" class="panel">
 
     <div id="notif-box" class="perm-box" style="display:none">
       <div class="perm-icon">🔔</div>
@@ -985,6 +1040,7 @@ const KEY_TEMPLATES = 'chermisi_templates';
 const KEY_TOKEN     = 'chermisi_gtoken';
 const KEY_FCM       = 'chermisi_fcm_token';
 const KEY_STORICO   = 'chermisi_storico';
+const KEY_CAL_EVENTS = 'chermisi_cal_events';
 
 const DEFAULT_TEMPLATES = [
   { id: 't1', name: 'Conferma appuntamento', type: 'confirm',
@@ -1047,7 +1103,7 @@ async function fsSync(key, val) {
 async function fsLoadAll() {
   if (!window._db || !window._currentUid) return;
   try {
-    const keys = [KEY_CLIENTS, KEY_REMINDERS, KEY_TEMPLATES, KEY_STORICO];
+    const keys = [KEY_CLIENTS, KEY_REMINDERS, KEY_TEMPLATES, KEY_STORICO, KEY_CAL_EVENTS];
     let updated = false;
     for (const key of keys) {
       const snap = await window._fsGetDoc(
@@ -1068,6 +1124,7 @@ async function fsLoadAll() {
       if (key === KEY_REMINDERS) { reminders = val; }
       if (key === KEY_TEMPLATES) { templates = val.length ? val : DEFAULT_TEMPLATES; }
       if (key === KEY_STORICO) { storico = val; }
+      if (key === KEY_CAL_EVENTS) { calEvents = val; }
       updated = true;
     }
     if (updated) {
@@ -1087,6 +1144,7 @@ document.addEventListener('firebaseReady', () => {
 let clients   = load(KEY_CLIENTS, []);
 let reminders = load(KEY_REMINDERS, []);
 let templates = load(KEY_TEMPLATES, DEFAULT_TEMPLATES);
+let calEvents = load(KEY_CAL_EVENTS, []);
 let gcalToken = localStorage.getItem(KEY_TOKEN) || null;
 let gcalAllEvents = [];
 let gcalColorFilter = '';
@@ -1168,6 +1226,7 @@ function switchTab(tab, btn) {
   document.getElementById('panel-' + tab).classList.add('active');
   btn.classList.add('active');
   if (tab === 'stats') { initStatsYearSelect(); renderStats(); }
+  if (tab === 'calendar') { initCalendar(); }
 }
 
 // Attende che il Service Worker sia registrato (max 5s).
@@ -2369,9 +2428,226 @@ function deleteSeduta(clientId, sedutaId) {
   openStorico(clientId);
 }
 
+// ── CALENDARIO INTERNO ──
+let _fcInstance = null;
+
+const CAL_COLORS = [
+  { hex: '#9e9e9e', label: 'Grigio — Appuntamento cliente' },
+  { hex: '#e53935', label: 'Rosso' },
+  { hex: '#f4511e', label: 'Arancione' },
+  { hex: '#f6bf26', label: 'Giallo' },
+  { hex: '#33b679', label: 'Verde' },
+  { hex: '#039be5', label: 'Azzurro' },
+  { hex: '#7986cb', label: 'Lavanda' },
+  { hex: '#8d24aa', label: 'Viola' },
+  { hex: '#e91e63', label: 'Rosa' },
+];
+const CAL_CLIENT_COLOR = '#9e9e9e';
+
+function buildCalFCEvents() {
+  const events = [];
+  calEvents.forEach(ev => {
+    const client = clients.find(c => c.id === ev.clientId);
+    const title = ev.type === 'client'
+      ? (client ? client.name + (ev.trattamento ? ' · ' + ev.trattamento : '') : ev.trattamento || 'Cliente')
+      : (ev.title || 'Evento');
+    const hasReminders = ev.type === 'client' && ev.reminderIds && ev.reminderIds.length > 0;
+    events.push({
+      id: ev.id,
+      title: (hasReminders ? '✓ ' : '') + title,
+      start: ev.date + 'T' + ev.timeStart,
+      end: ev.timeEnd ? ev.date + 'T' + ev.timeEnd : undefined,
+      backgroundColor: ev.color,
+      borderColor: ev.color,
+      extendedProps: { evData: ev }
+    });
+  });
+  return events;
+}
+
+function initCalendar() {
+  const el = document.getElementById('cal-wrap');
+  if (!el) return;
+  if (_fcInstance) { refreshCalendar(); return; }
+  _fcInstance = new FullCalendar.Calendar(el, {
+    locale: 'it',
+    initialView: 'dayGridMonth',
+    headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' },
+    height: 'auto',
+    events: buildCalFCEvents(),
+    dateClick(info) { openCalModal(info.dateStr, null); },
+    eventClick(info) { openCalModal(null, info.event.extendedProps.evData); },
+  });
+  _fcInstance.render();
+}
+
+function refreshCalendar() {
+  if (!_fcInstance) return;
+  _fcInstance.removeAllEvents();
+  buildCalFCEvents().forEach(ev => _fcInstance.addEvent(ev));
+}
+
+let _calModalDate = null;
+let _calModalEditId = null;
+let _calSelectedColor = CAL_CLIENT_COLOR;
+
+function openCalModal(dateStr, existingEvent) {
+  _calModalDate = dateStr || (existingEvent ? existingEvent.date : null);
+  _calModalEditId = existingEvent ? existingEvent.id : null;
+  _calSelectedColor = existingEvent ? existingEvent.color : CAL_CLIENT_COLOR;
+
+  const swatches = CAL_COLORS.map(c =>
+    `<div class="color-swatch${c.hex === _calSelectedColor ? ' selected' : ''}" style="background:${c.hex}" title="${c.label}" onclick="selectCalColor('${c.hex}')"></div>`
+  ).join('');
+
+  const isClient = _calSelectedColor === CAL_CLIENT_COLOR;
+  const ev = existingEvent || {};
+  const clientOptions = clients.map(c =>
+    `<option value="${c.id}"${ev.clientId === c.id ? ' selected' : ''}>${c.name}</option>`
+  ).join('');
+
+  const html = `
+  <div class="cal-modal-overlay" id="cal-modal-overlay" onclick="if(event.target===this)closeCalModal()">
+    <div class="cal-modal">
+      <div class="cal-modal-title">
+        ${_calModalEditId ? 'Modifica evento' : 'Nuovo evento'}
+        <button class="cal-modal-close" onclick="closeCalModal()">×</button>
+      </div>
+      <div class="field"><label>Colore</label>
+        <div class="color-swatches" id="cal-swatches">${swatches}</div>
+        <div id="cal-type-hint" class="cal-type-label">${isClient ? '🩶 Appuntamento cliente — verranno creati i promemoria automaticamente' : '🎨 Evento personale'}</div>
+      </div>
+      <div id="cal-form-client" style="${isClient ? '' : 'display:none'}">
+        <div class="field"><label>Cliente</label>
+          <select id="cal-client">${clientOptions}</select>
+        </div>
+        <div class="field"><label>Trattamento</label>
+          <input id="cal-trattamento" type="text" placeholder="es. Massaggio, Tatuaggio, Ceretta…" value="${ev.trattamento || ''}">
+        </div>
+        <div class="row">
+          <div class="field"><label>Data</label><input id="cal-date" type="date" value="${_calModalDate || ev.date || ''}"></div>
+          <div class="field"><label>Inizio</label><input id="cal-time-start" type="time" value="${ev.timeStart || ''}"></div>
+          <div class="field"><label>Fine</label><input id="cal-time-end" type="time" value="${ev.timeEnd || ''}"></div>
+        </div>
+      </div>
+      <div id="cal-form-personal" style="${isClient ? 'display:none' : ''}">
+        <div class="field"><label>Titolo</label>
+          <input id="cal-title" type="text" placeholder="es. Dentista, Palestra…" value="${ev.title || ''}">
+        </div>
+        <div class="row">
+          <div class="field"><label>Data</label><input id="cal-date-p" type="date" value="${_calModalDate || ev.date || ''}"></div>
+          <div class="field"><label>Inizio</label><input id="cal-time-start-p" type="time" value="${ev.timeStart || ''}"></div>
+          <div class="field"><label>Fine</label><input id="cal-time-end-p" type="time" value="${ev.timeEnd || ''}"></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+        <button class="btn btn-primary" style="flex:1" onclick="saveCalEvent()">
+          ${_calModalEditId ? 'Salva modifiche' : 'Aggiungi'}
+        </button>
+        ${_calModalEditId ? `<button class="btn btn-danger" onclick="deleteCalEvent('${_calModalEditId}')">Elimina</button>` : ''}
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function selectCalColor(hex) {
+  _calSelectedColor = hex;
+  document.querySelectorAll('#cal-swatches .color-swatch').forEach(s => {
+    s.classList.toggle('selected', s.style.backgroundColor === hex);
+  });
+  const isClient = hex === CAL_CLIENT_COLOR;
+  document.getElementById('cal-type-hint').textContent = isClient
+    ? '🩶 Appuntamento cliente — verranno creati i promemoria automaticamente'
+    : '🎨 Evento personale';
+  document.getElementById('cal-form-client').style.display = isClient ? '' : 'none';
+  document.getElementById('cal-form-personal').style.display = isClient ? 'none' : '';
+}
+
+function closeCalModal() {
+  document.getElementById('cal-modal-overlay')?.remove();
+}
+
+function saveCalEvent() {
+  const isClient = _calSelectedColor === CAL_CLIENT_COLOR;
+  let ev;
+  if (isClient) {
+    const clientId = document.getElementById('cal-client')?.value;
+    const trattamento = (document.getElementById('cal-trattamento')?.value || '').trim();
+    const date = document.getElementById('cal-date')?.value;
+    const timeStart = document.getElementById('cal-time-start')?.value;
+    const timeEnd = document.getElementById('cal-time-end')?.value;
+    if (!clientId || !date || !timeStart) { showToast('⚠️ Compila cliente, data e ora inizio'); return; }
+    ev = { type: 'client', color: CAL_CLIENT_COLOR, clientId, trattamento, date, timeStart, timeEnd };
+  } else {
+    const title = (document.getElementById('cal-title')?.value || '').trim();
+    const date = document.getElementById('cal-date-p')?.value;
+    const timeStart = document.getElementById('cal-time-start-p')?.value;
+    const timeEnd = document.getElementById('cal-time-end-p')?.value;
+    if (!title || !date) { showToast('⚠️ Compila titolo e data'); return; }
+    ev = { type: 'personal', color: _calSelectedColor, title, date, timeStart, timeEnd };
+  }
+
+  if (_calModalEditId) {
+    const idx = calEvents.findIndex(e => e.id === _calModalEditId);
+    if (idx !== -1) {
+      ev.id = _calModalEditId;
+      ev.reminderIds = calEvents[idx].reminderIds || [];
+      ev.createdAt = calEvents[idx].createdAt;
+      calEvents[idx] = ev;
+    }
+  } else {
+    ev.id = 'ce_' + Date.now();
+    ev.createdAt = new Date().toISOString();
+    ev.reminderIds = [];
+    if (isClient) {
+      const client = clients.find(c => c.id === ev.clientId);
+      const tplConfirm = templates.find(t => t.type === 'confirm') || templates[0];
+      const tplAppt = templates.find(t => t.type === 'appointment') || templates[1];
+      const dataFmt = ev.date
+        ? new Date(ev.date + 'T12:00').toLocaleDateString('it-IT', { weekday:'long', day:'numeric', month:'long' })
+        : '';
+      function fillTpl(tpl) {
+        return (tpl?.text || '')
+          .replace('{nome}', client?.name || '')
+          .replace('{data}', dataFmt)
+          .replace('{ora}', ev.timeStart || '')
+          .replace('{trattamento}', ev.trattamento || '')
+          .replace('{seduta}', '');
+      }
+      const idConf = 'r_' + Date.now() + '_c';
+      const idAppt = 'r_' + (Date.now() + 1) + '_a';
+      const sendAtConf = ev.date + 'T' + (ev.timeStart || '09:00');
+      const dReminder = new Date(ev.date + 'T12:00');
+      dReminder.setDate(dReminder.getDate() - 1);
+      const sendAtAppt = dReminder.toISOString().slice(0, 10) + 'T09:00';
+      reminders.push({ id: idConf, clientId: ev.clientId, type: 'confirm', appointmentDate: ev.date, appointmentTime: ev.timeStart, endTime: ev.timeEnd, trattamento: ev.trattamento, sendAt: sendAtConf, message: fillTpl(tplConfirm), status: 'pending', createdAt: new Date().toISOString() });
+      reminders.push({ id: idAppt, clientId: ev.clientId, type: 'appointment', appointmentDate: ev.date, appointmentTime: ev.timeStart, trattamento: ev.trattamento, sendAt: sendAtAppt, message: fillTpl(tplAppt), status: 'pending', createdAt: new Date().toISOString() });
+      ev.reminderIds = [idConf, idAppt];
+      save(KEY_REMINDERS, reminders);
+      renderReminders();
+    }
+    calEvents.push(ev);
+  }
+
+  save(KEY_CAL_EVENTS, calEvents);
+  refreshCalendar();
+  closeCalModal();
+  showToast(isClient ? '✅ Appuntamento e promemoria creati!' : '✅ Evento salvato!');
+}
+
+function deleteCalEvent(id) {
+  if (!confirm('Eliminare questo evento?')) return;
+  calEvents = calEvents.filter(e => e.id !== id);
+  save(KEY_CAL_EVENTS, calEvents);
+  refreshCalendar();
+  closeCalModal();
+  showToast('🗑 Evento eliminato');
+}
+
 // ── Swipe orizzontale tra tab ──
 (function initSwipe() {
-  const tabOrder = ['reminders', 'clients', 'stats', 'templates'];
+  const tabOrder = ['calendar', 'reminders', 'clients', 'stats', 'templates'];
   let startX = 0, startY = 0, locked = null; // locked: 'h'=horizontal, 'v'=vertical, null=unknown
   document.addEventListener('touchstart', e => {
     // Ignora touch dentro modal/overlay
@@ -2674,6 +2950,7 @@ rescheduleAll();
 migrateImportoFromNote();
 initCardStates();
 window.addEventListener('load', initGoogleAuth);
+window.addEventListener('load', () => setTimeout(initCalendar, 100));
 </script>
 </body>
 </html>
