@@ -2552,13 +2552,14 @@ function renderStats() {
     nameColor:     light ? '#0a1e1e'                    : '#edf7f6',
     valColor:      light ? '#0a1e1e'                    : '#edf7f6',
     sedColor:      light ? 'rgba(10,30,30,0.5)'         : 'rgba(168,230,224,0.6)',
+    fw:            light ? '600'                        : '400',
   };
 
   // Riepilogo
   const summaryEl = document.getElementById('stats-summary');
   const statCard = (label, val) => `<div style="flex:1;min-width:0;background:${TC.cardBg};border:1.5px solid ${TC.cardBorder};border-radius:10px;padding:10px 8px;text-align:center">
     <div style="font-size:9px;color:${TC.labelColor};letter-spacing:0.12em;text-transform:uppercase;margin-bottom:5px">${label}</div>
-    <div style="font-size:19px;font-family:'Cormorant Garamond',serif;color:${TC.textPrimary};font-weight:400;white-space:nowrap">${val}</div>
+    <div style="font-size:19px;font-family:'Cormorant Garamond',serif;color:${TC.textPrimary};font-weight:${TC.fw};white-space:nowrap">${val}</div>
   </div>`;
   if (summaryEl) summaryEl.innerHTML =
     statCard('Incassato', total > 0 ? '€ '+total.toFixed(2) : '—') +
@@ -2577,7 +2578,7 @@ function renderStats() {
           const v = byYear[y]||0;
           return `<div style="background:${TC.cardBg};border:1.5px solid ${TC.cardBorder};border-radius:10px;padding:12px 8px;text-align:center">
             <div style="font-size:10px;color:${TC.labelColor};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">${y}</div>
-            <div style="font-size:17px;font-family:'Cormorant Garamond',serif;color:${TC.textPrimary}">${v>0?'€'+Math.round(v):'<span style="color:'+TC.textMuted+'">—</span>'}</div>
+            <div style="font-size:17px;font-family:'Cormorant Garamond',serif;color:${TC.textPrimary};font-weight:${TC.fw}">${v>0?'€'+Math.round(v):'<span style="color:'+TC.textMuted+'">—</span>'}</div>
           </div>`;
         }).join('')}
       </div>`;
@@ -2590,12 +2591,12 @@ function renderStats() {
         if (isCurrent) {
           return `<div style="background:${TC.curBg};border:1.5px solid ${TC.curBorder};border-radius:10px;padding:12px 8px;text-align:center;box-shadow:0 0 12px rgba(26,138,138,0.15)">
             <div style="font-size:10px;color:${TC.curLabel};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">${MONTHS[i]}</div>
-            <div style="font-size:17px;font-family:'Cormorant Garamond',serif;color:${TC.curText};font-weight:400">${v>0?'€'+Math.round(v):'—'}</div>
+            <div style="font-size:17px;font-family:'Cormorant Garamond',serif;color:${TC.curText};font-weight:${TC.fw}">${v>0?'€'+Math.round(v):'—'}</div>
           </div>`;
         }
         return `<div style="background:${TC.cardBg};border:1.5px solid ${TC.cardBorder};border-radius:10px;padding:12px 8px;text-align:center">
           <div style="font-size:10px;color:${TC.monthLabel};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">${MONTHS[i]}</div>
-          <div style="font-size:17px;font-family:'Cormorant Garamond',serif;color:${v>0?TC.textPrimary:TC.textMuted};font-weight:400">${v>0?'€'+Math.round(v):'—'}</div>
+          <div style="font-size:17px;font-family:'Cormorant Garamond',serif;color:${v>0?TC.textPrimary:TC.textMuted};font-weight:${TC.fw}">${v>0?'€'+Math.round(v):'—'}</div>
         </div>`;
       }).join('');
     }
@@ -2610,8 +2611,8 @@ function renderStats() {
       const maxC = sorted[0].total || 1;
       topEl.innerHTML = sorted.map(c => `<div style="background:${TC.cardBg};border:1.5px solid ${TC.cardBorder};border-radius:10px;padding:12px 14px;margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
-          <span style="color:${TC.nameColor};font-size:14px">${escHtml(c.name)}</span>
-          <span style="color:${TC.valColor};font-weight:400;font-size:14px">${c.total>0?'€ '+c.total.toFixed(2):'—'} <span style="color:${TC.sedColor};font-weight:300;font-size:11px">(${c.sessions} sed.)</span></span>
+          <span style="color:${TC.nameColor};font-size:14px;font-weight:${TC.fw}">${escHtml(c.name)}</span>
+          <span style="color:${TC.valColor};font-weight:${TC.fw};font-size:14px">${c.total>0?'€ '+c.total.toFixed(2):'—'} <span style="color:${TC.sedColor};font-weight:400;font-size:11px">(${c.sessions} sed.)</span></span>
         </div>
         <div style="height:4px;background:${TC.barBg};border-radius:3px;overflow:hidden">
           <div style="height:100%;background:${TC.barFill};width:${Math.round((c.total/maxC)*100)}%;border-radius:3px"></div>
@@ -2631,9 +2632,9 @@ function renderStats() {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <span style="display:flex;align-items:center;gap:8px">
             <span style="width:9px;height:9px;border-radius:50%;background:${t.color};display:inline-block;flex-shrink:0;box-shadow:0 0 6px ${t.color}"></span>
-            <span style="color:${TC.nameColor};font-size:14px">${escHtml(t.label)}</span>
+            <span style="color:${TC.nameColor};font-size:14px;font-weight:${TC.fw}">${escHtml(t.label)}</span>
           </span>
-          <span style="font-weight:400;color:${TC.valColor};font-size:14px">${t.total>0?'€ '+t.total.toFixed(2):'—'} <span style="color:${TC.sedColor};font-weight:300;font-size:11px">(${t.sessions} sed.)</span></span>
+          <span style="font-weight:${TC.fw};color:${TC.valColor};font-size:14px">${t.total>0?'€ '+t.total.toFixed(2):'—'} <span style="color:${TC.sedColor};font-weight:400;font-size:11px">(${t.sessions} sed.)</span></span>
         </div>
         <div style="height:4px;background:${TC.barBg};border-radius:3px;overflow:hidden">
           <div style="height:100%;background:${TC.barFill};width:${Math.round((t.total/maxT)*100)}%;border-radius:3px"></div>
