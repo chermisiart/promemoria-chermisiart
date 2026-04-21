@@ -263,8 +263,9 @@
     --accent:#1a7a6e; --accent2:#0d4f4f;
     --lilla:#1a7a6e; --lilla2:#0d5555; --crimson:#1a7a6e;
     --bg:#dff2f1; --card:#ffffff; --card2:#ffffff;
-    --border:rgba(26,138,138,0.22); --text:#0a1e1e; --muted:rgba(10,30,30,0.62); --green:#1a8a5a;
+    --border:rgba(26,138,138,0.22); --text:#0a1e1e; --muted:rgba(10,30,30,0.72); --green:#1a8a5a;
   }
+  body.light-mode { font-weight:400; }
   body.light-mode { background:var(--bg); }
   body.light-mode::before { background:radial-gradient(circle,rgba(26,138,138,0.09) 0%,transparent 70%); }
   body.light-mode::after  { background:radial-gradient(circle,rgba(20,95,95,0.06)  0%,transparent 70%); }
@@ -332,19 +333,19 @@
   body.light-mode .auth-user-btn { background:rgba(26,138,138,0.1); border-color:rgba(26,138,138,0.28); color:var(--accent2); }
 
   /* ── Testi hardcoded bianchi → scuri in light mode ── */
-  body.light-mode label                { color:rgba(10,30,30,0.7); }
-  body.light-mode .hint                { color:rgba(10,30,30,0.5); }
-  body.light-mode .r-meta              { color:rgba(10,30,30,0.55); }
-  body.light-mode .r-msg               { color:rgba(10,30,30,0.75); border-left-color:rgba(26,138,138,0.35); }
-  body.light-mode .r-name              { color:#0a1e1e; }
-  body.light-mode .c-phone             { color:rgba(10,30,30,0.55); }
-  body.light-mode .tpl-name            { color:#0a1e1e; }
-  body.light-mode .tpl-text            { color:rgba(10,30,30,0.75); }
-  body.light-mode .section-title       { color:#0a1e1e; }
-  body.light-mode .section-count       { color:var(--accent); }
-  body.light-mode .card-title          { color:#0a1e1e; }
+  body.light-mode label                { color:#0a1e1e; font-weight:500; letter-spacing:0.14em; }
+  body.light-mode .hint                { color:rgba(10,30,30,0.65); font-weight:400; }
+  body.light-mode .r-meta              { color:rgba(10,30,30,0.7); font-weight:400; }
+  body.light-mode .r-msg               { color:rgba(10,30,30,0.82); font-weight:400; border-left-color:rgba(26,138,138,0.35); }
+  body.light-mode .r-name              { color:#0a1e1e; font-weight:600; }
+  body.light-mode .c-phone             { color:rgba(10,30,30,0.65); font-weight:400; }
+  body.light-mode .tpl-name            { color:#0a1e1e; font-weight:600; }
+  body.light-mode .tpl-text            { color:rgba(10,30,30,0.82); font-weight:400; }
+  body.light-mode .section-title       { color:#0a1e1e; font-weight:600; }
+  body.light-mode .section-count       { color:var(--accent); font-weight:500; }
+  body.light-mode .card-title          { color:#0a1e1e; font-weight:500; }
   body.light-mode .card-title .card-toggle { color:rgba(10,30,30,0.45); }
-  body.light-mode .empty               { color:rgba(10,30,30,0.45); }
+  body.light-mode .empty               { color:rgba(10,30,30,0.5); }
   body.light-mode .divider span        { color:rgba(10,30,30,0.4); }
   body.light-mode .divider::before,
   body.light-mode .divider::after      { border-top-color:rgba(26,138,138,0.18); }
@@ -372,6 +373,26 @@
   body.light-mode .copy-btn            { color:rgba(10,30,30,0.6); }
   body.light-mode .btn-copy-phone      { color:rgba(10,30,30,0.6); }
   body.light-mode .time-trigger .tv.empty { color:rgba(10,30,30,0.38); }
+
+  /* ── Pulsanti scuri → testo bianco in light mode ── */
+  body.light-mode .btn-primary  { color:#ffffff; font-weight:500; }
+  body.light-mode .btn-wa       { color:#ffffff; font-weight:500; }
+  body.light-mode .gcal-use-btn { color:#ffffff; }
+  body.light-mode .tab.active   { color:#ffffff; font-weight:600; }
+
+  /* ── Input: testo più leggibile ── */
+  body.light-mode input,
+  body.light-mode textarea,
+  body.light-mode select        { color:#0a1e1e; font-weight:400; }
+  body.light-mode input::placeholder,
+  body.light-mode textarea::placeholder { color:rgba(10,30,30,0.45); }
+  body.light-mode .select-search-input  { color:#0a1e1e; }
+  body.light-mode .archive-search       { color:#0a1e1e; }
+  body.light-mode .time-trigger         { color:#0a1e1e; font-weight:400; }
+
+  /* ── Storico/modal testi ── */
+  body.light-mode .seduta-trattamento { font-weight:500; }
+  body.light-mode .extra-rem-option-label { font-weight:500; }
 </style>
 </head>
 <body>
