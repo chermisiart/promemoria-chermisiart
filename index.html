@@ -117,15 +117,24 @@
   .cal-ev { border-radius:3px; font-size:9px; padding:1px 3px; margin-bottom:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#fff; cursor:pointer; line-height:1.5; display:block; }
   .cal-ev-more { font-size:9px; color:var(--accent); padding:0 2px; }
   /* Vista giorno */
-  .cal-day-header { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
-  .cal-day-title { font-family:'Cormorant Garamond',serif; font-size:18px; color:var(--text); text-transform:capitalize; flex:1; }
-  .cal-day-ev-item { display:flex; align-items:flex-start; gap:12px; padding:12px 14px; background:rgba(20,75,75,0.4); border:1px solid rgba(78,205,196,0.15); border-radius:12px; margin-bottom:8px; cursor:pointer; transition:border-color 0.2s; }
-  .cal-day-ev-item:hover { border-color:rgba(78,205,196,0.4); }
-  .cal-day-ev-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-top:4px; }
-  .cal-day-ev-body { flex:1; min-width:0; }
-  .cal-day-ev-time { font-size:11px; color:var(--muted); margin-bottom:3px; }
-  .cal-day-ev-name { font-size:14px; color:var(--text); }
-  .cal-day-empty { text-align:center; padding:32px 0; color:var(--muted); font-size:14px; font-style:italic; }
+  .cal-day-header { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .cal-day-title { font-family:'Cormorant Garamond',serif; font-size:17px; color:var(--text); text-transform:capitalize; flex:1; }
+  .cal-day-allday { display:flex; gap:6px; align-items:flex-start; padding:6px 0 10px; border-bottom:1px solid rgba(78,205,196,0.12); margin-bottom:4px; min-height:28px; }
+  .cal-day-allday-label { font-size:9px; color:var(--muted); width:40px; flex-shrink:0; text-align:right; padding-top:3px; letter-spacing:0.04em; }
+  .cal-day-allday-evs { flex:1; display:flex; flex-wrap:wrap; gap:4px; }
+  .cal-day-allday-ev { border-radius:4px; font-size:10px; padding:2px 6px; color:#fff; cursor:pointer; }
+  .cal-timegrid { display:flex; overflow-y:auto; max-height:62vh; }
+  .cal-times-col { width:40px; flex-shrink:0; }
+  .cal-time-slot { height:60px; font-size:9px; color:var(--muted); text-align:right; padding-right:6px; padding-top:2px; letter-spacing:0.02em; border-top:1px solid rgba(78,205,196,0.1); }
+  .cal-events-col { flex:1; position:relative; }
+  .cal-hour-line { position:absolute; left:0; right:0; border-top:1px solid rgba(78,205,196,0.08); }
+  .cal-half-line { position:absolute; left:0; right:0; border-top:1px dashed rgba(78,205,196,0.05); }
+  .cal-timed-ev { position:absolute; left:4px; right:4px; border-radius:6px; padding:3px 6px; font-size:11px; color:#fff; cursor:pointer; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.3); }
+  .cal-timed-ev-title { font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cal-timed-ev-time { font-size:9px; opacity:0.85; margin-top:1px; }
+  .cal-now-line { position:absolute; left:0; right:0; border-top:2px solid var(--accent); z-index:3; pointer-events:none; }
+  .cal-now-dot { position:absolute; left:-3px; top:-4px; width:8px; height:8px; background:var(--accent); border-radius:50%; }
+  .cal-day-add { width:100%; margin-top:12px; }
   /* Modal evento */
   .cal-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:200; display:flex; align-items:flex-end; justify-content:center; animation:fadeIn 0.15s ease; }
   .cal-modal { background:#0d2020; border:1.5px solid rgba(78,205,196,0.3); border-radius:20px 20px 0 0; width:100%; max-width:500px; padding:24px 20px 32px; max-height:85vh; overflow-y:auto; }
@@ -367,9 +376,9 @@
   body.light-mode .cal-day-num { color:#0d5555; }
   body.light-mode .cal-modal { background:#f0faf9; border-color:rgba(26,138,138,0.28); }
   body.light-mode .cal-event-item { background:#ffffff; border-color:rgba(26,138,138,0.2); }
-  body.light-mode .cal-day-ev-item { background:#ffffff; border-color:rgba(26,138,138,0.2); }
-  body.light-mode .cal-day-ev-time { color:rgba(10,30,30,0.55); }
-  body.light-mode .cal-day-ev-name { color:var(--text); }
+  body.light-mode .cal-time-slot { color:rgba(10,30,30,0.45); }
+  body.light-mode .cal-hour-line { border-color:rgba(26,138,138,0.12); }
+  body.light-mode .cal-half-line { border-color:rgba(26,138,138,0.07); }
 
   /* buttons */
   body.light-mode .btn-ghost { background:rgba(26,138,138,0.07); color:rgba(10,30,30,0.8); border-color:rgba(26,138,138,0.28); }
@@ -2545,37 +2554,81 @@ function openCalDay(dateStr) {
   history.pushState({ calDay: dateStr }, '');
   const wrap = document.getElementById('cal-wrap');
   if (!wrap) return;
+
   const evMap = buildCalEventsMap();
-  const evs = (evMap[dateStr] || []).slice().sort((a, b) => {
-    const ta = a.ev?.timeStart || a.seduta ? '00:00' : '00:00';
-    const tb = b.ev?.timeStart || b.seduta ? '00:00' : '00:00';
-    return (a.ev?.timeStart || '00:00').localeCompare(b.ev?.timeStart || '00:00');
-  });
+  const allEvs = (evMap[dateStr] || []).slice();
   const d = new Date(dateStr + 'T12:00');
   const dateLabel = d.toLocaleDateString('it-IT', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
-  const evList = evs.length === 0
-    ? '<div class="cal-day-empty">Nessun evento — clicca + per aggiungerne uno</div>'
-    : evs.map((e, i) => {
-        const key = dateStr + '_d_' + i;
-        _calClickRegistry[key] = e;
-        const timeStr = e.storico
-          ? 'Tutto il giorno (storico)'
-          : (e.ev?.timeStart ? e.ev.timeStart + (e.ev.timeEnd ? ' – ' + e.ev.timeEnd : '') : 'Tutto il giorno');
-        return `<div class="cal-day-ev-item" onclick="calClickEvent('${key}')">
-          <div class="cal-day-ev-dot" style="background:${e.color}"></div>
-          <div class="cal-day-ev-body">
-            <div class="cal-day-ev-time">${timeStr}</div>
-            <div class="cal-day-ev-name">${e.label}</div>
-          </div>
-        </div>`;
-      }).join('');
+
+  const HOUR_START = 7, HOUR_END = 22, HOUR_H = 60;
+  const totalH = (HOUR_END - HOUR_START) * HOUR_H;
+
+  // Separa eventi con orario da quelli senza
+  const timedEvs = allEvs.filter(e => e.ev?.timeStart);
+  const allDayEvs = allEvs.filter(e => !e.ev?.timeStart);
+
+  // Linee ore + mezz'ore
+  let hourLines = '';
+  for (let h = 0; h < (HOUR_END - HOUR_START); h++) {
+    hourLines += `<div class="cal-hour-line" style="top:${h * HOUR_H}px"></div>`;
+    hourLines += `<div class="cal-half-line" style="top:${h * HOUR_H + 30}px"></div>`;
+  }
+
+  // Linea "adesso" se oggi
+  const todayStr = new Date().toISOString().slice(0, 10);
+  let nowLine = '';
+  if (dateStr === todayStr) {
+    const now = new Date();
+    const nowMins = (now.getHours() - HOUR_START) * 60 + now.getMinutes();
+    const nowTop = nowMins * (HOUR_H / 60);
+    if (nowTop >= 0 && nowTop <= totalH)
+      nowLine = `<div class="cal-now-line" style="top:${nowTop}px"><div class="cal-now-dot"></div></div>`;
+  }
+
+  // Etichette ore
+  let timeLabels = '';
+  for (let h = HOUR_START; h < HOUR_END; h++)
+    timeLabels += `<div class="cal-time-slot">${String(h).padStart(2,'0')}:00</div>`;
+
+  // Blocchi eventi con orario
+  let timedBlocks = '';
+  timedEvs.forEach((e, i) => {
+    const key = dateStr + '_t_' + i;
+    _calClickRegistry[key] = e;
+    const [hh, mm] = (e.ev.timeStart).split(':').map(Number);
+    let dur = 60;
+    if (e.ev.timeEnd) {
+      const [eh, em] = e.ev.timeEnd.split(':').map(Number);
+      dur = (eh * 60 + em) - (hh * 60 + mm);
+    }
+    const top = Math.max(0, (hh - HOUR_START) * HOUR_H + (mm / 60) * HOUR_H);
+    const height = Math.max(28, (dur / 60) * HOUR_H);
+    const timeLabel = e.ev.timeStart + (e.ev.timeEnd ? ' – ' + e.ev.timeEnd : '');
+    timedBlocks += `<div class="cal-timed-ev" style="top:${top}px;height:${height}px;background:${e.color}" onclick="calClickEvent('${key}')">
+      <div class="cal-timed-ev-title">${e.label}</div>
+      <div class="cal-timed-ev-time">${timeLabel}</div>
+    </div>`;
+  });
+
+  // Sezione tutto il giorno
+  let allDayHTML = '';
+  allDayEvs.forEach((e, i) => {
+    const key = dateStr + '_a_' + i;
+    _calClickRegistry[key] = e;
+    allDayHTML += `<div class="cal-day-allday-ev" style="background:${e.color}" onclick="calClickEvent('${key}')">${e.label}</div>`;
+  });
+
   wrap.innerHTML = `
     <div class="cal-day-header">
       <button class="cal-nav-btn" onclick="closeCalDay()">‹ Calendario</button>
       <span class="cal-day-title">${dateLabel}</span>
     </div>
-    <div class="cal-day-list">${evList}</div>
-    <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="openCalModal('${dateStr}',null)">+ Aggiungi evento</button>`;
+    ${allDayEvs.length > 0 ? `<div class="cal-day-allday"><div class="cal-day-allday-label">Tutto il giorno</div><div class="cal-day-allday-evs">${allDayHTML}</div></div>` : ''}
+    <div class="cal-timegrid">
+      <div class="cal-times-col">${timeLabels}</div>
+      <div class="cal-events-col" style="height:${totalH}px">${hourLines}${nowLine}${timedBlocks}</div>
+    </div>
+    <button class="btn btn-primary cal-day-add" onclick="openCalModal('${dateStr}',null)">+ Aggiungi evento</button>`;
 }
 
 function closeCalDay() {
