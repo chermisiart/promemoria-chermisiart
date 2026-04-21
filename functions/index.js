@@ -68,7 +68,7 @@ exports.sendReminderNotifications = onSchedule(
 
       const APP_URL = "https://chermisiart.github.io/promemoria-chermisiart/";
       const ICON    = APP_URL + "icon-192.png";
-      const BADGE   = APP_URL + "badge-icon.png";
+      const BADGE   = ICON; // badge = stessa icona app (badge-icon.png non caricato)
 
       const actions = waUrl
         ? [{ action: "whatsapp", title: "\uD83D\uDCAC WhatsApp" }, { action: "dismiss", title: "Ignora" }]
