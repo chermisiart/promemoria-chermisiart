@@ -251,6 +251,85 @@
   .auth-user-btn { display:flex; align-items:center; gap:6px; background:rgba(78,205,196,0.1); border:1px solid rgba(78,205,196,0.3); border-radius:20px; padding:6px 12px 6px 8px; font-size:12px; cursor:pointer; color:var(--accent2); transition:background 0.2s; white-space:nowrap; }
   .auth-user-btn:hover { background:rgba(78,205,196,0.18); }
   .auth-user-btn img { width:24px; height:24px; border-radius:50%; object-fit:cover; }
+
+  /* ── Theme toggle ── */
+  #theme-toggle { background:rgba(78,205,196,0.08); border:1px solid rgba(78,205,196,0.28); border-radius:50%; width:32px; height:32px; cursor:pointer; font-size:15px; display:flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0; }
+  #theme-toggle:hover { background:rgba(78,205,196,0.18); }
+
+  /* ══════════════════════════════
+     LIGHT MODE
+  ══════════════════════════════ */
+  body.light-mode {
+    --accent:#1a7a6e; --accent2:#0d4f4f;
+    --lilla:#1a7a6e; --lilla2:#0d5555; --crimson:#1a7a6e;
+    --bg:#dff2f1; --card:#ffffff; --card2:#ffffff;
+    --border:rgba(26,138,138,0.22); --text:#0a1e1e; --muted:rgba(10,30,30,0.62); --green:#1a8a5a;
+  }
+  body.light-mode { background:var(--bg); }
+  body.light-mode::before { background:radial-gradient(circle,rgba(26,138,138,0.09) 0%,transparent 70%); }
+  body.light-mode::after  { background:radial-gradient(circle,rgba(20,95,95,0.06)  0%,transparent 70%); }
+
+  /* tabs */
+  body.light-mode .tabs { background:linear-gradient(to bottom,#dff2f1 80%,transparent); }
+  body.light-mode .tab { background:rgba(255,255,255,0.75); border-color:rgba(26,138,138,0.22); color:rgba(10,30,30,0.6); }
+  body.light-mode .tab.active { background:#1a7070; border-color:rgba(26,138,138,0.7); color:#ffffff; box-shadow:0 0 14px rgba(26,138,138,0.2); }
+  body.light-mode .tab:hover:not(.active) { background:rgba(255,255,255,0.95); color:var(--text); }
+
+  /* cards */
+  body.light-mode .card { background:#ffffff; border-color:rgba(26,138,138,0.18); }
+
+  /* inputs */
+  body.light-mode input, body.light-mode textarea, body.light-mode select { background:#ffffff; border-color:rgba(26,138,138,0.38); color:var(--text); box-shadow:0 0 8px rgba(26,138,138,0.06); }
+  body.light-mode input:focus, body.light-mode textarea:focus, body.light-mode select:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(26,138,138,0.1); }
+  body.light-mode input::placeholder, body.light-mode textarea::placeholder { color:rgba(10,30,30,0.38); }
+  body.light-mode .select-search-input { background:#ffffff; border-color:rgba(26,138,138,0.38); color:var(--text); }
+  body.light-mode .archive-search { background:#ffffff; border-color:rgba(26,138,138,0.35); color:var(--text); }
+  body.light-mode .time-trigger { background:#ffffff; border-color:rgba(26,138,138,0.38); color:var(--text); box-shadow:0 0 8px rgba(26,138,138,0.06); }
+
+  /* list items */
+  body.light-mode .reminder-item { background:#ffffff; border-color:rgba(26,138,138,0.28); }
+  body.light-mode .reminder-item:hover { border-color:rgba(26,138,138,0.5); box-shadow:0 0 16px rgba(26,138,138,0.07); }
+  body.light-mode .client-item { background:#ffffff; border-color:rgba(26,138,138,0.28); }
+  body.light-mode .client-item:hover { border-color:rgba(26,138,138,0.5); }
+  body.light-mode .tpl-item { background:#ffffff; border-color:rgba(26,138,138,0.28); }
+
+  /* modals */
+  body.light-mode .clock-modal,
+  body.light-mode .edit-client-modal,
+  body.light-mode .extra-rem-modal,
+  body.light-mode .storico-modal { background:#f0faf9; border-color:rgba(26,138,138,0.25); }
+  body.light-mode .clock-seg { background:rgba(26,138,138,0.07); border-color:rgba(26,138,138,0.25); color:var(--text); }
+  body.light-mode .clock-face { background:rgba(26,138,138,0.05); border-color:rgba(26,138,138,0.2); }
+  body.light-mode .clock-num { color:rgba(10,30,30,0.6); }
+
+  /* misc boxes */
+  body.light-mode .perm-box,
+  body.light-mode .gcal-box,
+  body.light-mode .gcal-login-compact { background:rgba(26,138,138,0.07); border-color:rgba(26,138,138,0.2); }
+  body.light-mode .quick-add-box { background:rgba(26,138,138,0.05); border-color:rgba(26,138,138,0.22); }
+  body.light-mode .gcal-event { background:rgba(26,138,138,0.06); border-color:rgba(26,138,138,0.2); }
+  body.light-mode .seduta-item { background:rgba(26,138,138,0.06); border-color:rgba(26,138,138,0.15); }
+  body.light-mode .add-seduta-box { background:rgba(26,138,138,0.04); border-color:rgba(26,138,138,0.2); }
+  body.light-mode .extra-rem-option { background:rgba(26,138,138,0.06); border-color:rgba(26,138,138,0.18); }
+
+  /* buttons */
+  body.light-mode .btn-ghost { background:rgba(26,138,138,0.07); color:rgba(10,30,30,0.8); border-color:rgba(26,138,138,0.28); }
+  body.light-mode .btn-ghost:hover { background:rgba(26,138,138,0.13); color:var(--text); }
+  body.light-mode .btn-contact { background:rgba(26,138,138,0.08); border-color:rgba(26,138,138,0.3); }
+  body.light-mode .copy-btn, body.light-mode .btn-copy-phone { border-color:rgba(26,138,138,0.25); color:rgba(10,30,30,0.6); }
+  body.light-mode #theme-toggle { background:rgba(26,138,138,0.08); border-color:rgba(26,138,138,0.28); }
+
+  /* sign-in */
+  body.light-mode #signin-overlay { background:#dff2f1; }
+  body.light-mode #signin-overlay::before { background:radial-gradient(circle,rgba(26,138,138,0.12) 0%,transparent 70%); }
+  body.light-mode .signin-card { background:#ffffff; border-color:rgba(26,138,138,0.22); box-shadow:0 8px 40px rgba(26,138,138,0.1); backdrop-filter:none; }
+
+  /* toast */
+  body.light-mode .toast { background:rgba(240,250,249,0.97); border-color:rgba(26,138,138,0.3); color:var(--accent2); }
+
+  /* header border */
+  body.light-mode .header { border-bottom-color:rgba(26,138,138,0.18); }
+  body.light-mode .auth-user-btn { background:rgba(26,138,138,0.1); border-color:rgba(26,138,138,0.28); color:var(--accent2); }
 </style>
 </head>
 <body>
@@ -280,7 +359,10 @@
       <div class="header-title">Chèrmisi<span>Art</span> — Promemoria</div>
       <div class="header-sub">Gestione messaggi clienti WhatsApp</div>
     </div>
-    <div id="auth-area" style="flex-shrink:0;padding-top:4px"></div>
+    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;padding-top:4px">
+      <button id="theme-toggle" onclick="toggleTheme()" title="Cambia tema">☀️</button>
+      <div id="auth-area"></div>
+    </div>
   </div>
 
   <div class="tabs">
@@ -2377,11 +2459,31 @@ function renderStats() {
 
   const avg = sessions > 0 ? total/sessions : 0;
 
+  // Colori adattivi al tema
+  const light = document.body.classList.contains('light-mode');
+  const TC = {
+    cardBg:        light ? '#ffffff'                    : '#080e0e',
+    cardBorder:    light ? 'rgba(26,138,138,0.3)'       : 'rgba(78,205,196,0.35)',
+    labelColor:    light ? 'rgba(10,30,30,0.55)'        : 'rgba(168,230,224,0.75)',
+    textPrimary:   light ? '#0a1e1e'                    : '#edf7f6',
+    textMuted:     light ? 'rgba(10,30,30,0.3)'         : 'rgba(237,247,246,0.2)',
+    monthLabel:    light ? 'rgba(10,30,30,0.5)'         : 'rgba(168,230,224,0.5)',
+    curBg:         light ? 'rgba(26,112,112,0.85)'      : 'rgba(20,75,75,0.65)',
+    curBorder:     light ? 'rgba(26,138,138,0.85)'      : 'rgba(78,205,196,0.7)',
+    curLabel:      light ? 'rgba(255,255,255,0.9)'      : 'rgba(168,230,224,1)',
+    curText:       '#ffffff',
+    barBg:         light ? 'rgba(26,138,138,0.1)'       : 'rgba(78,205,196,0.1)',
+    barFill:       light ? 'rgba(26,138,138,0.55)'      : 'rgba(78,205,196,0.5)',
+    nameColor:     light ? '#0a1e1e'                    : '#edf7f6',
+    valColor:      light ? '#0a1e1e'                    : '#edf7f6',
+    sedColor:      light ? 'rgba(10,30,30,0.5)'         : 'rgba(168,230,224,0.6)',
+  };
+
   // Riepilogo
   const summaryEl = document.getElementById('stats-summary');
-  const statCard = (label, val) => `<div style="flex:1;min-width:0;background:#080e0e;border:1.5px solid rgba(78,205,196,0.35);border-radius:10px;padding:10px 8px;text-align:center">
-    <div style="font-size:9px;color:rgba(168,230,224,0.75);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:5px">${label}</div>
-    <div style="font-size:19px;font-family:'Cormorant Garamond',serif;color:#edf7f6;font-weight:400;white-space:nowrap">${val}</div>
+  const statCard = (label, val) => `<div style="flex:1;min-width:0;background:${TC.cardBg};border:1.5px solid ${TC.cardBorder};border-radius:10px;padding:10px 8px;text-align:center">
+    <div style="font-size:9px;color:${TC.labelColor};letter-spacing:0.12em;text-transform:uppercase;margin-bottom:5px">${label}</div>
+    <div style="font-size:19px;font-family:'Cormorant Garamond',serif;color:${TC.textPrimary};font-weight:400;white-space:nowrap">${val}</div>
   </div>`;
   if (summaryEl) summaryEl.innerHTML =
     statCard('Incassato', total > 0 ? '€ '+total.toFixed(2) : '—') +
@@ -2398,9 +2500,9 @@ function renderStats() {
       chartEl.innerHTML = `<div style="display:grid;grid-template-columns:repeat(${Math.min(yrs.length,4)},1fr);gap:8px 6px">
         ${yrs.map(y => {
           const v = byYear[y]||0;
-          return `<div style="background:rgba(20,75,75,0.55);border:1.5px solid rgba(78,205,196,0.4);border-radius:10px;padding:12px 8px;text-align:center;backdrop-filter:blur(8px)">
-            <div style="font-size:10px;color:rgba(168,230,224,0.9);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">${y}</div>
-            <div style="font-size:17px;font-family:'Cormorant Garamond',serif;color:#edf7f6">${v>0?'€'+Math.round(v):'<span style="color:rgba(237,247,246,0.25)">—</span>'}</div>
+          return `<div style="background:${TC.cardBg};border:1.5px solid ${TC.cardBorder};border-radius:10px;padding:12px 8px;text-align:center">
+            <div style="font-size:10px;color:${TC.labelColor};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">${y}</div>
+            <div style="font-size:17px;font-family:'Cormorant Garamond',serif;color:${TC.textPrimary}">${v>0?'€'+Math.round(v):'<span style="color:'+TC.textMuted+'">—</span>'}</div>
           </div>`;
         }).join('')}
       </div>`;
@@ -2411,14 +2513,14 @@ function renderStats() {
       chartEl.innerHTML = byMonth.map((v,i) => {
         const isCurrent = (filterYear === nowYear && i === nowMonth);
         if (isCurrent) {
-          return `<div style="background:rgba(20,75,75,0.65);border:1.5px solid rgba(78,205,196,0.7);border-radius:10px;padding:12px 8px;text-align:center;backdrop-filter:blur(8px);box-shadow:0 0 12px rgba(78,205,196,0.12)">
-            <div style="font-size:10px;color:rgba(168,230,224,1);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">${MONTHS[i]}</div>
-            <div style="font-size:17px;font-family:'Cormorant Garamond',serif;color:#edf7f6;font-weight:400">${v>0?'€'+Math.round(v):'—'}</div>
+          return `<div style="background:${TC.curBg};border:1.5px solid ${TC.curBorder};border-radius:10px;padding:12px 8px;text-align:center;box-shadow:0 0 12px rgba(26,138,138,0.15)">
+            <div style="font-size:10px;color:${TC.curLabel};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">${MONTHS[i]}</div>
+            <div style="font-size:17px;font-family:'Cormorant Garamond',serif;color:${TC.curText};font-weight:400">${v>0?'€'+Math.round(v):'—'}</div>
           </div>`;
         }
-        return `<div style="background:#080e0e;border:1.5px solid rgba(78,205,196,0.18);border-radius:10px;padding:12px 8px;text-align:center">
-          <div style="font-size:10px;color:rgba(168,230,224,0.5);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">${MONTHS[i]}</div>
-          <div style="font-size:17px;font-family:'Cormorant Garamond',serif;color:${v>0?'#edf7f6':'rgba(237,247,246,0.2)'};font-weight:400">${v>0?'€'+Math.round(v):'—'}</div>
+        return `<div style="background:${TC.cardBg};border:1.5px solid ${TC.cardBorder};border-radius:10px;padding:12px 8px;text-align:center">
+          <div style="font-size:10px;color:${TC.monthLabel};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">${MONTHS[i]}</div>
+          <div style="font-size:17px;font-family:'Cormorant Garamond',serif;color:${v>0?TC.textPrimary:TC.textMuted};font-weight:400">${v>0?'€'+Math.round(v):'—'}</div>
         </div>`;
       }).join('');
     }
@@ -2431,13 +2533,13 @@ function renderStats() {
     if (!sorted.length) { topEl.innerHTML = '<div class="empty" style="padding:20px">Nessun dato disponibile</div>'; }
     else {
       const maxC = sorted[0].total || 1;
-      topEl.innerHTML = sorted.map(c => `<div style="background:#080e0e;border:1.5px solid rgba(78,205,196,0.25);border-radius:10px;padding:12px 14px;margin-bottom:8px">
+      topEl.innerHTML = sorted.map(c => `<div style="background:${TC.cardBg};border:1.5px solid ${TC.cardBorder};border-radius:10px;padding:12px 14px;margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
-          <span style="color:#edf7f6;font-size:14px">${escHtml(c.name)}</span>
-          <span style="color:#edf7f6;font-weight:400;font-size:14px">${c.total>0?'€ '+c.total.toFixed(2):'—'} <span style="color:rgba(168,230,224,0.6);font-weight:300;font-size:11px">(${c.sessions} sed.)</span></span>
+          <span style="color:${TC.nameColor};font-size:14px">${escHtml(c.name)}</span>
+          <span style="color:${TC.valColor};font-weight:400;font-size:14px">${c.total>0?'€ '+c.total.toFixed(2):'—'} <span style="color:${TC.sedColor};font-weight:300;font-size:11px">(${c.sessions} sed.)</span></span>
         </div>
-        <div style="height:4px;background:rgba(78,205,196,0.1);border-radius:3px;overflow:hidden">
-          <div style="height:100%;background:rgba(78,205,196,0.5);width:${Math.round((c.total/maxC)*100)}%;border-radius:3px"></div>
+        <div style="height:4px;background:${TC.barBg};border-radius:3px;overflow:hidden">
+          <div style="height:100%;background:${TC.barFill};width:${Math.round((c.total/maxC)*100)}%;border-radius:3px"></div>
         </div>
       </div>`).join('');
     }
@@ -2450,21 +2552,36 @@ function renderStats() {
     if (!sorted.length) { trattEl.innerHTML = '<div class="empty" style="padding:20px">Nessun dato disponibile</div>'; }
     else {
       const maxT = sorted[0].total || 1;
-      trattEl.innerHTML = sorted.map(t => `<div style="background:#080e0e;border:1.5px solid rgba(78,205,196,0.25);border-radius:10px;padding:12px 14px;margin-bottom:8px">
+      trattEl.innerHTML = sorted.map(t => `<div style="background:${TC.cardBg};border:1.5px solid ${TC.cardBorder};border-radius:10px;padding:12px 14px;margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <span style="display:flex;align-items:center;gap:8px">
             <span style="width:9px;height:9px;border-radius:50%;background:${t.color};display:inline-block;flex-shrink:0;box-shadow:0 0 6px ${t.color}"></span>
-            <span style="color:#edf7f6;font-size:14px">${escHtml(t.label)}</span>
+            <span style="color:${TC.nameColor};font-size:14px">${escHtml(t.label)}</span>
           </span>
-          <span style="font-weight:400;color:#edf7f6;font-size:14px">${t.total>0?'€ '+t.total.toFixed(2):'—'} <span style="color:rgba(168,230,224,0.6);font-weight:300;font-size:11px">(${t.sessions} sed.)</span></span>
+          <span style="font-weight:400;color:${TC.valColor};font-size:14px">${t.total>0?'€ '+t.total.toFixed(2):'—'} <span style="color:${TC.sedColor};font-weight:300;font-size:11px">(${t.sessions} sed.)</span></span>
         </div>
-        <div style="height:4px;background:rgba(78,205,196,0.1);border-radius:3px;overflow:hidden">
-          <div style="height:100%;background:rgba(78,205,196,0.5);width:${Math.round((t.total/maxT)*100)}%;border-radius:3px"></div>
+        <div style="height:4px;background:${TC.barBg};border-radius:3px;overflow:hidden">
+          <div style="height:100%;background:${TC.barFill};width:${Math.round((t.total/maxT)*100)}%;border-radius:3px"></div>
         </div>
       </div>`).join('');
     }
   }
 }
+
+// ── Dark / Light theme ──
+function toggleTheme() {
+  const isNowLight = document.body.classList.toggle('light-mode');
+  document.getElementById('theme-toggle').textContent = isNowLight ? '🌙' : '☀️';
+  localStorage.setItem('chermisi-theme', isNowLight ? 'light' : 'dark');
+  if (document.getElementById('panel-stats').classList.contains('active')) renderStats();
+}
+(function applyTheme() {
+  if (localStorage.getItem('chermisi-theme') === 'light') {
+    document.body.classList.add('light-mode');
+    const btn = document.getElementById('theme-toggle');
+    if (btn) btn.textContent = '🌙';
+  }
+})();
 
 // ── Init ──
 onTypeChange();
