@@ -2668,7 +2668,8 @@ function openCalModal(dateStr, existingEvent) {
 
   const isClient = _calSelectedColor === CAL_CLIENT_COLOR;
   const ev = existingEvent || {};
-  const clientOptions = clients.map(c =>
+  const sortedClients = [...clients].sort((a, b) => a.name.localeCompare(b.name, 'it'));
+  const clientOptions = sortedClients.map(c =>
     `<option value="${c.id}"${ev.clientId === c.id ? ' selected' : ''}>${c.name}</option>`
   ).join('');
 
@@ -2685,7 +2686,8 @@ function openCalModal(dateStr, existingEvent) {
       </div>
       <div id="cal-form-client" style="${isClient ? '' : 'display:none'}">
         <div class="field"><label>Cliente</label>
-          <select id="cal-client">${clientOptions}</select>
+          <input id="cal-client-search" type="text" placeholder="Cerca cliente…" oninput="filterCalClients()" style="margin-bottom:6px">
+          <select id="cal-client" size="4" style="height:auto">${clientOptions}</select>
         </div>
         <div class="field"><label>Trattamento</label>
           <input id="cal-trattamento" type="text" placeholder="es. Massaggio, Tatuaggio, Ceretta…" value="${ev.trattamento || ''}">
@@ -2715,6 +2717,15 @@ function openCalModal(dateStr, existingEvent) {
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function filterCalClients() {
+  const q = (document.getElementById('cal-client-search')?.value || '').toLowerCase();
+  const sel = document.getElementById('cal-client');
+  if (!sel) return;
+  Array.from(sel.options).forEach(opt => {
+    opt.hidden = q && !opt.text.toLowerCase().includes(q);
+  });
 }
 
 function selectCalColor(hex) {
@@ -2792,6 +2803,10 @@ function saveCalEvent() {
       ev.reminderIds = [idConf, idAppt];
       save(KEY_REMINDERS, reminders);
       renderReminders();
+      // Aggiungi automaticamente allo storico
+      if (!storico[ev.clientId]) storico[ev.clientId] = [];
+      storico[ev.clientId].push({ id: uid(), data: ev.date, trattamento: ev.trattamento || '', note: '', importo: 0, categoria: detectCategory(ev.trattamento || ''), clientName: client?.name || '' });
+      save(KEY_STORICO, storico);
     }
     calEvents.push(ev);
   }
