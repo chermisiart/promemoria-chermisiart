@@ -2446,6 +2446,27 @@ const CAL_CLIENT_COLOR = '#9e9e9e';
 
 function buildCalFCEvents() {
   const events = [];
+
+  // Sedute dallo storico (read-only, grigio scuro)
+  Object.entries(storico || {}).forEach(([clientId, sedute]) => {
+    (sedute || []).forEach(s => {
+      if (!s.data) return;
+      const client = clients.find(c => c.id === clientId);
+      const nome = client?.name || s.clientName || 'Cliente';
+      events.push({
+        id: 'st_' + s.id,
+        title: nome + (s.trattamento ? ' · ' + s.trattamento : ''),
+        start: s.data,
+        allDay: true,
+        backgroundColor: '#616161',
+        borderColor: '#616161',
+        textColor: '#e0e0e0',
+        extendedProps: { storico: true, seduta: s, clientName: nome }
+      });
+    });
+  });
+
+  // Eventi aggiunti manualmente dal calendario
   calEvents.forEach(ev => {
     const client = clients.find(c => c.id === ev.clientId);
     const title = ev.type === 'client'
@@ -2476,7 +2497,15 @@ function initCalendar() {
     height: 'auto',
     events: buildCalFCEvents(),
     dateClick(info) { openCalModal(info.dateStr, null); },
-    eventClick(info) { openCalModal(null, info.event.extendedProps.evData); },
+    eventClick(info) {
+      if (info.event.extendedProps.storico) {
+        const s = info.event.extendedProps.seduta;
+        const nome = info.event.extendedProps.clientName;
+        showToast(`📋 ${nome} · ${s.trattamento}${s.importo ? ' · €' + Number(s.importo).toFixed(2) : ''}`);
+        return;
+      }
+      openCalModal(null, info.event.extendedProps.evData);
+    },
   });
   _fcInstance.render();
 }
