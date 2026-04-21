@@ -106,16 +106,16 @@
   .cal-nav-btn { background:rgba(78,205,196,0.1); border:1px solid rgba(78,205,196,0.3); color:var(--accent2); border-radius:8px; padding:6px 12px; cursor:pointer; font-size:16px; line-height:1; font-family:'DM Sans',sans-serif; transition:background 0.2s; }
   .cal-nav-btn:hover { background:rgba(78,205,196,0.2); }
   .cal-today-btn { font-size:12px; padding:6px 10px; }
-  .cal-grid { width:100%; border-collapse:collapse; }
-  .cal-grid th { font-size:11px; color:var(--muted); letter-spacing:0.08em; text-align:center; padding:4px 0 8px; font-weight:400; }
-  .cal-grid td { vertical-align:top; border:1px solid rgba(78,205,196,0.1); padding:4px; min-height:64px; cursor:pointer; transition:background 0.15s; }
+  .cal-grid { width:100%; border-collapse:collapse; table-layout:fixed; }
+  .cal-grid th { font-size:10px; color:var(--muted); letter-spacing:0.06em; text-align:center; padding:4px 0 8px; font-weight:400; width:calc(100%/7); overflow:hidden; }
+  .cal-grid td { vertical-align:top; border:1px solid rgba(78,205,196,0.1); padding:3px 2px; height:72px; width:calc(100%/7); cursor:pointer; transition:background 0.15s; overflow:hidden; }
   .cal-grid td:hover { background:rgba(78,205,196,0.07); }
   .cal-grid td.other-month { opacity:0.35; }
   .cal-grid td.today { background:rgba(78,205,196,0.08); }
-  .cal-day-num { font-size:12px; color:var(--accent2); margin-bottom:3px; font-weight:400; }
-  .cal-grid td.today .cal-day-num { color:var(--accent); font-weight:600; background:rgba(78,205,196,0.18); border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; }
-  .cal-ev { border-radius:4px; font-size:10px; padding:1px 5px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#fff; cursor:pointer; line-height:1.6; }
-  .cal-ev-more { font-size:10px; color:var(--accent); padding:1px 4px; }
+  .cal-day-num { font-size:11px; color:var(--accent2); margin-bottom:2px; font-weight:400; text-align:right; padding-right:3px; }
+  .cal-grid td.today .cal-day-num { color:var(--accent); font-weight:700; }
+  .cal-ev { border-radius:3px; font-size:9px; padding:1px 3px; margin-bottom:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#fff; cursor:pointer; line-height:1.5; display:block; }
+  .cal-ev-more { font-size:9px; color:var(--accent); padding:0 2px; }
   /* Modal evento */
   .cal-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:200; display:flex; align-items:flex-end; justify-content:center; animation:fadeIn 0.15s ease; }
   .cal-modal { background:#0d2020; border:1.5px solid rgba(78,205,196,0.3); border-radius:20px 20px 0 0; width:100%; max-width:500px; padding:24px 20px 32px; max-height:85vh; overflow-y:auto; }
