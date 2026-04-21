@@ -3002,7 +3002,10 @@ rescheduleAll();
 migrateImportoFromNote();
 initCardStates();
 window.addEventListener('load', initGoogleAuth);
-window.addEventListener('load', () => setTimeout(initCalendar, 100));
+try { initCalendar(); } catch(e) {
+  const w = document.getElementById('cal-wrap');
+  if (w) w.innerHTML = '<p style="color:#e06060;padding:20px;font-size:13px">Errore calendario: ' + e.message + '</p>';
+}
 </script>
 </body>
 </html>
