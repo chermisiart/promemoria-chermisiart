@@ -2695,6 +2695,7 @@ function openCalModal(dateStr, existingEvent) {
           <div class="field"><label>Inizio</label><input id="cal-time-start" type="time" value="${ev.timeStart || ''}"></div>
           <div class="field"><label>Fine</label><input id="cal-time-end" type="time" value="${ev.timeEnd || ''}"></div>
         </div>
+        <div class="field"><label>Prezzo (€)</label><input id="cal-importo" type="number" min="0" step="0.5" inputmode="decimal" placeholder="es. 35" value="${ev.importo || ''}"></div>
       </div>
       <div id="cal-form-personal" style="${isClient ? 'display:none' : ''}">
         <div class="field"><label>Titolo</label>
@@ -2752,8 +2753,9 @@ function saveCalEvent() {
     const date = document.getElementById('cal-date')?.value;
     const timeStart = document.getElementById('cal-time-start')?.value;
     const timeEnd = document.getElementById('cal-time-end')?.value;
+    const importo = parseFloat(document.getElementById('cal-importo')?.value || '0') || 0;
     if (!clientId || !date || !timeStart) { showToast('⚠️ Compila cliente, data e ora inizio'); return; }
-    ev = { type: 'client', color: CAL_CLIENT_COLOR, clientId, trattamento, date, timeStart, timeEnd };
+    ev = { type: 'client', color: CAL_CLIENT_COLOR, clientId, trattamento, date, timeStart, timeEnd, importo };
   } else {
     const title = (document.getElementById('cal-title')?.value || '').trim();
     const date = document.getElementById('cal-date-p')?.value;
@@ -2803,7 +2805,7 @@ function saveCalEvent() {
       renderReminders();
       // Aggiungi automaticamente allo storico
       if (!storico[ev.clientId]) storico[ev.clientId] = [];
-      storico[ev.clientId].push({ id: uid(), data: ev.date, trattamento: ev.trattamento || '', note: '', importo: 0, categoria: detectCategory(ev.trattamento || ''), clientName: client?.name || '' });
+      storico[ev.clientId].push({ id: uid(), data: ev.date, trattamento: ev.trattamento || '', note: '', importo: ev.importo || 0, categoria: detectCategory(ev.trattamento || ''), clientName: client?.name || '' });
       save(KEY_STORICO, storico);
     }
     calEvents.push(ev);
