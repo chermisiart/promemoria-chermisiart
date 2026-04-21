@@ -2470,16 +2470,20 @@ function buildCalEventsMap() {
 function initCalendar() { renderCalendar(); }
 function refreshCalendar() { renderCalendar(); }
 
+const _calClickRegistry = {};
+
 function renderCalendar() {
   const wrap = document.getElementById('cal-wrap');
   if (!wrap) return;
+  // Pulisci registry vecchio
+  Object.keys(_calClickRegistry).forEach(k => delete _calClickRegistry[k]);
+
   const evMap = buildCalEventsMap();
   const today = new Date(); today.setHours(0,0,0,0);
   const todayStr = today.toISOString().slice(0,10);
 
-  // Prima del mese (lunedì=0)
   const firstDay = new Date(_calYear, _calMonth, 1);
-  let startOffset = (firstDay.getDay() + 6) % 7; // 0=lun
+  let startOffset = (firstDay.getDay() + 6) % 7;
   const daysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
   const daysInPrev  = new Date(_calYear, _calMonth, 0).getDate();
 
@@ -2495,9 +2499,11 @@ function renderCalendar() {
       const isToday = dateStr === todayStr;
       const evs = evMap[dateStr] || [];
       const MAX = 3;
-      const evHTML = evs.slice(0, MAX).map(e =>
-        `<div class="cal-ev" style="background:${e.color}" onclick="event.stopPropagation();calClickEvent(${JSON.stringify(JSON.stringify(e))})">${e.label}</div>`
-      ).join('') + (evs.length > MAX ? `<div class="cal-ev-more">+${evs.length - MAX}</div>` : '');
+      const evHTML = evs.slice(0, MAX).map((e, i) => {
+        const key = dateStr + '_' + i;
+        _calClickRegistry[key] = e;
+        return `<div class="cal-ev" style="background:${e.color}" onclick="event.stopPropagation();calClickEvent('${key}')">${e.label}</div>`;
+      }).join('') + (evs.length > MAX ? `<div class="cal-ev-more">+${evs.length - MAX}</div>` : '');
       cells += `<td class="${other?'other-month':''}${isToday?' today':''}" onclick="openCalModal('${dateStr}',null)">
         <div class="cal-day-num">${d}</div>${evHTML}</td>`;
     }
@@ -2522,11 +2528,12 @@ function calPrev() { _calMonth--; if (_calMonth < 0) { _calMonth = 11; _calYear-
 function calNext() { _calMonth++; if (_calMonth > 11) { _calMonth = 0; _calYear++; } renderCalendar(); }
 function calGoToday() { _calYear = new Date().getFullYear(); _calMonth = new Date().getMonth(); renderCalendar(); }
 
-function calClickEvent(jsonStr) {
-  const e = JSON.parse(jsonStr);
+function calClickEvent(key) {
+  const e = _calClickRegistry[key];
+  if (!e) return;
   if (e.storico) {
     const s = e.seduta;
-    showToast(`📋 ${e.clientName} · ${s.trattamento}${s.importo ? ' · €' + Number(s.importo).toFixed(2) : ''}`);
+    showToast('📋 ' + e.clientName + ' · ' + s.trattamento + (s.importo ? ' · €' + Number(s.importo).toFixed(2) : ''));
     return;
   }
   openCalModal(null, e.ev);
