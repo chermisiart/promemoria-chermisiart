@@ -2270,7 +2270,8 @@ function openStorico(clientId) {
   overlay.innerHTML = `
     <div class="storico-modal" onclick="event.stopPropagation()">
       <div class="storico-header">
-        <div class="storico-title">📋 ${escHtml(client.name)}</div>
+        <button class="cal-nav-btn" style="font-size:13px;padding:6px 10px" onclick="closeStorico()">‹ Clienti</button>
+        <div class="storico-title" style="font-size:17px">📋 ${escHtml(client.name)}</div>
         <button class="storico-close" onclick="closeStorico()">✕</button>
       </div>
       ${(() => {
