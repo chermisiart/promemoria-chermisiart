@@ -834,17 +834,9 @@ window._auth = auth;
 window._signOut = () => signOut(auth);
 window._currentUid = null;
 
-// Prova popup prima (migliore UX); se bloccato, usa redirect
+// Usa sempre redirect (funziona su tutti i browser e dispositivi)
 window._googleSignIn = async () => {
-  try {
-    await signInWithPopup(auth, googleProvider);
-  } catch(e) {
-    if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
-      // Popup bloccato → usa redirect
-      return signInWithRedirect(auth, googleProvider);
-    }
-    throw e;
-  }
+  return signInWithRedirect(auth, googleProvider);
 };
 
 // Gestisci il ritorno dal redirect Google (se il popup era bloccato)
@@ -1285,14 +1277,11 @@ function checkNotifUI() {
 
 // ── Firebase Auth ──
 function doGoogleSignIn() {
+  const btn = document.querySelector('.signin-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Reindirizzamento...'; }
   window._googleSignIn().catch(e => {
-    const code = e.code || '';
-    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
-    if (code === 'auth/popup-blocked') {
-      showToast('⚠️ Popup bloccato, reindirizzamento in corso...');
-    } else {
-      showToast('❌ Errore: ' + (e.message || code));
-    }
+    if (btn) { btn.disabled = false; btn.textContent = 'Accedi con Google'; }
+    showToast('❌ Errore: ' + (e.message || e.code || 'sconosciuto'));
   });
 }
 
