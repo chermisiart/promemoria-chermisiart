@@ -803,7 +803,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRe
 
 const firebaseConfig = {
   apiKey: "AIzaSyD9lmycIBZZm7Ef3GumXYBcYEYMLeo4y0c",
-  authDomain: "chermisiart.github.io",
+  authDomain: "promemoria-chermisiart.firebaseapp.com",
   projectId: "promemoria-chermisiart",
   storageBucket: "promemoria-chermisiart.firebasestorage.app",
   messagingSenderId: "1008023462326",
@@ -834,9 +834,16 @@ window._auth = auth;
 window._signOut = () => signOut(auth);
 window._currentUid = null;
 
-// Usa sempre redirect (funziona su tutti i browser e dispositivi)
+// Popup prima; se bloccato usa redirect
 window._googleSignIn = async () => {
-  return signInWithRedirect(auth, googleProvider);
+  try {
+    await signInWithPopup(auth, googleProvider);
+  } catch(e) {
+    if (['auth/popup-blocked','auth/popup-closed-by-user','auth/cancelled-popup-request'].includes(e.code)) {
+      return signInWithRedirect(auth, googleProvider);
+    }
+    throw e;
+  }
 };
 
 // Gestisci il ritorno dal redirect Google (se il popup era bloccato)
@@ -1278,10 +1285,20 @@ function checkNotifUI() {
 // ── Firebase Auth ──
 function doGoogleSignIn() {
   const btn = document.querySelector('.signin-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Reindirizzamento...'; }
-  window._googleSignIn().catch(e => {
+  if (btn) { btn.disabled = true; btn.textContent = 'Apertura Google...'; }
+  // Su Safari/iPhone se il popup non si apre, aspetta 4s e mostra suggerimento
+  const hint = setTimeout(() => {
+    if (btn && btn.disabled) btn.textContent = 'Se non si apre niente, riprova…';
+  }, 4000);
+  window._googleSignIn().then(() => {
+    clearTimeout(hint);
+  }).catch(e => {
+    clearTimeout(hint);
     if (btn) { btn.disabled = false; btn.textContent = 'Accedi con Google'; }
-    showToast('❌ Errore: ' + (e.message || e.code || 'sconosciuto'));
+    const code = e.code || '';
+    if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
+      showToast('❌ ' + (e.message || code || 'Errore sconosciuto'));
+    }
   });
 }
 
