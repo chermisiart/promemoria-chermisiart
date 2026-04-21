@@ -2448,7 +2448,7 @@ function buildCalEventsMap() {
 
   // Storico sedute (read-only)
   Object.entries(storico || {}).forEach(([clientId, sedute]) => {
-    (sedute || []).forEach(s => {
+    (Array.isArray(sedute) ? sedute : []).forEach(s => {
       if (!s.data) return;
       const nome = clients.find(c => c.id === clientId)?.name || s.clientName || '';
       add(s.data, { color: '#616161', label: nome + (s.trattamento ? ' · ' + s.trattamento : ''), storico: true, seduta: s, clientName: nome });
