@@ -160,6 +160,20 @@
   .notif-status { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--green); margin-top:8px; }
   .notif-status.off { color:var(--muted); }
 
+  /* ── Spese ── */
+  .spesa-item { background:rgba(20,75,75,0.5); border:1px solid rgba(78,205,196,0.2); border-radius:12px; padding:12px 14px; margin-bottom:8px; display:flex; align-items:center; gap:10px; }
+  .spesa-cat { font-size:18px; flex-shrink:0; }
+  .spesa-info { flex:1; min-width:0; }
+  .spesa-nome { font-size:13px; color:var(--text); }
+  .spesa-data { font-size:11px; color:var(--muted); margin-top:2px; }
+  .spesa-importo { font-size:15px; font-weight:500; color:#e06060; white-space:nowrap; flex-shrink:0; }
+  .spese-summary-box { background:rgba(20,75,75,0.5); border:1.5px solid rgba(78,205,196,0.28); border-radius:16px; padding:16px 20px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; text-align:center; }
+  .spese-summary-box .s-val { font-size:18px; font-weight:500; margin-bottom:2px; }
+  .spese-summary-box .s-lbl { font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+  .spese-summary-box .s-entrate { color:#50c8a0; }
+  .spese-summary-box .s-uscite { color:#e06060; }
+  .spese-summary-box .s-margine { color:var(--accent); }
+
   /* ── Google Calendar events ── */
   .gcal-event { background:rgba(78,205,196,0.06); border:1px solid rgba(78,205,196,0.25); border-radius:10px; padding:12px 14px; margin-bottom:8px; display:flex; align-items:center; gap:10px; transition:border-color 0.2s; }
   .gcal-event:hover { border-color:var(--accent); }
@@ -382,6 +396,8 @@
   body.light-mode .cal-day-num { color:#0d5555; }
   body.light-mode .cal-modal { background:#f0faf9; border-color:rgba(26,138,138,0.28); }
   body.light-mode .cal-event-item { background:#ffffff; border-color:rgba(26,138,138,0.2); }
+  body.light-mode .spesa-item { background:#ffffff; border-color:rgba(26,138,138,0.2); }
+  body.light-mode .spese-summary-box { background:#ffffff; border-color:rgba(26,138,138,0.2); }
   body.light-mode .cal-time-slot { color:rgba(10,30,30,0.45); }
   body.light-mode .cal-hour-line { border-color:rgba(26,138,138,0.12); }
   body.light-mode .cal-half-line { border-color:rgba(26,138,138,0.07); }
@@ -509,10 +525,11 @@
   </div>
 
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('calendar',this)"><span class="tab-icon">🗓</span><span class="tab-label">Calendario</span></button>
-    <button class="tab" onclick="switchTab('reminders',this)"><span class="tab-icon">📅</span><span class="tab-label">Prom.</span></button>
+    <button class="tab active" onclick="switchTab('calendar',this)"><span class="tab-icon">🗓</span><span class="tab-label">Calen</span></button>
+    <button class="tab" onclick="switchTab('reminders',this)"><span class="tab-icon">📅</span><span class="tab-label">Prom</span></button>
     <button class="tab" onclick="switchTab('clients',this)"><span class="tab-icon">👤</span><span class="tab-label">Clienti</span></button>
-    <button class="tab" onclick="switchTab('stats',this)"><span class="tab-icon">📊</span><span class="tab-label">Stat.</span></button>
+    <button class="tab" onclick="switchTab('stats',this)"><span class="tab-icon">📊</span><span class="tab-label">Stat</span></button>
+    <button class="tab" onclick="switchTab('spese',this)"><span class="tab-icon">💰</span><span class="tab-label">Spese</span></button>
     <button class="tab" onclick="switchTab('templates',this)"><span class="tab-icon">💬</span><span class="tab-label">Msg</span></button>
   </div>
 
@@ -712,6 +729,41 @@
     </div>
     <input class="archive-search" id="clients-search" placeholder="🔍 Cerca nell'archivio..." oninput="renderClients()" autocomplete="off">
     <div id="clients-list"></div>
+  </div>
+
+  <!-- ── SPESE ── -->
+  <div id="panel-spese" class="panel">
+    <div class="card" id="card-new-spesa">
+      <div class="card-title" onclick="toggleCard('card-new-spesa')">✦ Nuova spesa <span class="card-toggle">▾</span></div>
+      <div class="row">
+        <div class="field"><label>Importo (€)</label><input id="sp-importo" type="number" step="0.01" min="0" placeholder="0.00"></div>
+        <div class="field"><label>Data</label><input id="sp-data" type="date"></div>
+      </div>
+      <div class="field"><label>Categoria</label>
+        <select id="sp-categoria">
+          <option value="Prodotti">🧴 Prodotti</option>
+          <option value="Affitto">🏠 Affitto</option>
+          <option value="Percentuale clienti">💸 Percentuale clienti</option>
+          <option value="Corsi">📚 Corsi</option>
+          <option value="Attrezzatura">🔧 Attrezzatura</option>
+          <option value="Pubblicità">📣 Pubblicità</option>
+          <option value="Trasporti">🚗 Trasporti</option>
+          <option value="Altro">➕ Altro</option>
+        </select>
+      </div>
+      <div class="field"><label>Nota <span style="opacity:.5">(opzionale)</span></label><input id="sp-nota" type="text" placeholder="Es. acquisto cere, affitto aprile..."></div>
+      <button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="saveSpesa()">Aggiungi spesa</button>
+    </div>
+
+    <!-- Riepilogo mese -->
+    <div id="spese-summary" style="margin-bottom:16px"></div>
+
+    <!-- Filtro mese -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <div class="section-title" style="margin:0">📋 Registro spese</div>
+      <select id="sp-filter-month" onchange="renderSpese()" style="width:auto;padding:6px 28px 6px 10px;font-size:13px;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;margin-left:auto"></select>
+    </div>
+    <div id="spese-list"></div>
   </div>
 
   <!-- ── MESSAGGI ── -->
@@ -1065,6 +1117,7 @@ const KEY_TOKEN     = 'chermisi_gtoken';
 const KEY_FCM       = 'chermisi_fcm_token';
 const KEY_STORICO   = 'chermisi_storico';
 const KEY_CAL_EVENTS = 'chermisi_cal_events';
+const KEY_SPESE      = 'chermisi_spese';
 
 const DEFAULT_TEMPLATES = [
   { id: 't1', name: 'Conferma appuntamento', type: 'confirm',
@@ -1169,6 +1222,7 @@ let clients   = load(KEY_CLIENTS, []);
 let reminders = load(KEY_REMINDERS, []);
 let templates = load(KEY_TEMPLATES, DEFAULT_TEMPLATES);
 let calEvents = load(KEY_CAL_EVENTS, []);
+let spese     = load(KEY_SPESE, []);
 let gcalToken = localStorage.getItem(KEY_TOKEN) || null;
 let gcalAllEvents = [];
 let gcalColorFilter = '';
@@ -1244,6 +1298,97 @@ function showToast(msg) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
 }
 
+// ── SPESE ──────────────────────────────────────────
+const SPESE_CAT_ICONS = {
+  'Prodotti':'🧴','Affitto':'🏠','Percentuale clienti':'💸',
+  'Corsi':'📚','Attrezzatura':'🔧','Pubblicità':'📣','Trasporti':'🚗','Altro':'➕'
+};
+
+function initSpeseMonthFilter() {
+  const sel = document.getElementById('sp-filter-month');
+  if (!sel) return;
+  const now = new Date();
+  const opts = [];
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const val = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    const lbl = d.toLocaleDateString('it-IT', { month:'long', year:'numeric' });
+    opts.push(`<option value="${val}">${lbl.charAt(0).toUpperCase()+lbl.slice(1)}</option>`);
+  }
+  opts.push('<option value="all">Tutti</option>');
+  sel.innerHTML = opts.join('');
+}
+
+function saveSpesa() {
+  const importo = parseFloat(document.getElementById('sp-importo').value);
+  const data    = document.getElementById('sp-data').value;
+  const cat     = document.getElementById('sp-categoria').value;
+  const nota    = (document.getElementById('sp-nota').value || '').trim();
+  if (!importo || importo <= 0) { showToast('⚠️ Inserisci un importo valido'); return; }
+  if (!data) { showToast('⚠️ Inserisci la data'); return; }
+  spese.push({ id: uid(), importo, data, categoria: cat, nota, createdAt: new Date().toISOString() });
+  save(KEY_SPESE, spese);
+  document.getElementById('sp-importo').value = '';
+  document.getElementById('sp-nota').value = '';
+  renderSpese();
+  showToast('✅ Spesa aggiunta!');
+}
+
+function deleteSpesa(id) {
+  if (!confirm('Eliminare questa spesa?')) return;
+  spese = spese.filter(s => s.id !== id);
+  save(KEY_SPESE, spese);
+  renderSpese();
+}
+
+function renderSpese() {
+  const listEl = document.getElementById('spese-list');
+  const summEl = document.getElementById('spese-summary');
+  if (!listEl) return;
+
+  const filter = document.getElementById('sp-filter-month')?.value || 'all';
+  const filtered = filter === 'all' ? spese : spese.filter(s => s.data && s.data.startsWith(filter));
+  const sorted = [...filtered].sort((a,b) => b.data.localeCompare(a.data));
+
+  // Calcola entrate del mese dallo storico
+  let entrate = 0;
+  if (filter !== 'all') {
+    Object.values(storico).forEach(sedute => {
+      (Array.isArray(sedute) ? sedute : []).forEach(s => {
+        if (s.data && s.data.startsWith(filter)) entrate += parseFloat(s.importo || 0);
+      });
+    });
+  }
+  const uscite  = filtered.reduce((t, s) => t + parseFloat(s.importo || 0), 0);
+  const margine = entrate - uscite;
+  const fmt = v => v.toLocaleString('it-IT', { minimumFractionDigits:2, maximumFractionDigits:2 });
+
+  summEl.innerHTML = `<div class="spese-summary-box">
+    <div><div class="s-val s-entrate">€ ${fmt(entrate)}</div><div class="s-lbl">Entrate</div></div>
+    <div><div class="s-val s-uscite">− € ${fmt(uscite)}</div><div class="s-lbl">Uscite</div></div>
+    <div><div class="s-val s-margine" style="color:${margine>=0?'#50c8a0':'#e06060'}">€ ${fmt(margine)}</div><div class="s-lbl">Margine</div></div>
+  </div>`;
+
+  if (!sorted.length) {
+    listEl.innerHTML = '<div class="empty" style="padding:20px 0">Nessuna spesa registrata</div>';
+    return;
+  }
+  listEl.innerHTML = sorted.map(s => {
+    const icon = SPESE_CAT_ICONS[s.categoria] || '➕';
+    const dataFmt = s.data ? new Date(s.data+'T12:00').toLocaleDateString('it-IT',{day:'numeric',month:'long',year:'numeric'}) : '';
+    return `<div class="spesa-item">
+      <div class="spesa-cat">${icon}</div>
+      <div class="spesa-info">
+        <div class="spesa-nome">${escHtml(s.categoria)}${s.nota ? ' · <span style="opacity:.7;font-size:12px">'+escHtml(s.nota)+'</span>' : ''}</div>
+        <div class="spesa-data">${dataFmt}</div>
+      </div>
+      <div class="spesa-importo">− € ${parseFloat(s.importo).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+      <button onclick="deleteSpesa('${s.id}')" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 2px;line-height:1" title="Elimina">✕</button>
+    </div>`;
+  }).join('');
+}
+// ────────────────────────────────────────────────────
+
 function switchTab(tab, btn) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1251,6 +1396,7 @@ function switchTab(tab, btn) {
   btn.classList.add('active');
   if (tab === 'stats') { initStatsYearSelect(); renderStats(); }
   if (tab === 'calendar') { initCalendar(); }
+  if (tab === 'spese') { initSpeseMonthFilter(); renderSpese(); }
 }
 
 // Attende che il Service Worker sia registrato (max 5s).
@@ -3238,6 +3384,8 @@ onTypeChange();
 checkNotifUI();
 initContactPicker();
 renderClientSelect(); renderTemplateSelect(); renderReminders(); renderClients(); renderTemplates();
+// Spese: data default = oggi
+(function(){ const d = document.getElementById('sp-data'); if(d){ const t=new Date(); d.value=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'); } })();
 rescheduleAll();
 migrateImportoFromNote();
 initCardStates();
