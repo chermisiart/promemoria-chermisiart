@@ -1713,6 +1713,26 @@ async function pickContact(target) {
       document.getElementById('qa-phone').value = phone;
       document.getElementById('quick-add-box').classList.add('open');
       document.getElementById('btn-quickadd').textContent = '✕ Annulla';
+    } else if (target==='calendar') {
+      // Cerca se la cliente esiste già
+      const firstName = name.split(' ')[0].toLowerCase();
+      let existing = clients.find(c => c.name.toLowerCase().startsWith(firstName));
+      if (!existing) {
+        // Crea la cliente al volo e selezionala
+        existing = { id: uid(), name, phone, notes: '', createdAt: new Date().toISOString() };
+        clients.push(existing);
+        save(KEY_CLIENTS, clients);
+        filterCalClients();
+        showToast('✅ ' + name + ' aggiunta!');
+      }
+      const sel = document.getElementById('cal-client');
+      if (sel) {
+        // Aggiorna la lista e seleziona
+        const sorted = [...clients].sort((a,b) => a.name.localeCompare(b.name,'it'));
+        sel.innerHTML = sorted.map(c => `<option value="${c.id}"${c.id===existing.id?' selected':''}>${escHtml(c.name)}</option>`).join('');
+        document.getElementById('cal-client-search').value = existing.name;
+        filterCalClients();
+      }
     } else {
       document.getElementById('c-name').value = name;
       document.getElementById('c-phone').value = phone;
@@ -2725,7 +2745,10 @@ function openCalModal(dateStr, existingEvent, prefillStart, prefillEnd) {
       </div>
       <div id="cal-form-client" style="${isClient ? '' : 'display:none'}">
         <div class="field"><label>Cliente</label>
-          <input id="cal-client-search" type="text" placeholder="Cerca cliente…" oninput="filterCalClients()" style="margin-bottom:6px">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+            <input id="cal-client-search" type="text" placeholder="Cerca cliente…" oninput="filterCalClients()" style="margin-bottom:0;flex:1">
+            ${hasContactPicker() ? `<button class="btn-contact" onclick="pickContact('calendar')" title="Scegli dalla rubrica" style="flex-shrink:0">📒</button>` : ''}
+          </div>
           <select id="cal-client" size="4" style="height:auto">${clientOptions}</select>
         </div>
         <div class="field"><label>Trattamento</label>
