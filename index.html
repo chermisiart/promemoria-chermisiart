@@ -741,6 +741,7 @@
       </div>
       <div class="field"><label>Categoria</label>
         <select id="sp-categoria">
+          <option value="" disabled selected>Scegli categoria…</option>
           <option value="Prodotti">🧴 Prodotti</option>
           <option value="Affitto">🏠 Affitto</option>
           <option value="Percentuale clienti">💸 Percentuale clienti</option>
@@ -755,16 +756,22 @@
         </select>
       </div>
       <div class="field"><label>Nota <span style="opacity:.5">(opzionale)</span></label><input id="sp-nota" type="text" placeholder="Es. acquisto cere, affitto aprile..."></div>
-      <button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="saveSpesa()">Aggiungi spesa</button>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button id="sp-save-btn" class="btn btn-primary" style="flex:1" onclick="saveSpesa()">Aggiungi spesa</button>
+        <button id="sp-cancel-edit" class="btn btn-ghost" style="display:none" onclick="resetSpeseForm()">Annulla</button>
+      </div>
     </div>
 
     <!-- Riepilogo mese -->
     <div id="spese-summary" style="margin-bottom:16px"></div>
 
-    <!-- Filtro mese -->
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    <!-- Filtro anno + mese -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
       <div class="section-title" style="margin:0">📋 Registro spese</div>
-      <select id="sp-filter-month" onchange="renderSpese()" style="width:auto;padding:6px 28px 6px 10px;font-size:13px;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;margin-left:auto"></select>
+      <div style="display:flex;gap:6px;margin-left:auto">
+        <select id="sp-filter-year" onchange="renderSpese()" style="width:auto;padding:6px 24px 6px 10px;font-size:13px;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif"></select>
+        <select id="sp-filter-month" onchange="renderSpese()" style="width:auto;padding:6px 24px 6px 10px;font-size:13px;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif"></select>
+      </div>
     </div>
     <div id="spese-list"></div>
   </div>
@@ -1308,19 +1315,44 @@ const SPESE_CAT_ICONS = {
   'Supermercato':'🛒','Spese mediche':'🏥','Vacanza':'✈️','Altro':'➕'
 };
 
-function initSpeseMonthFilter() {
-  const sel = document.getElementById('sp-filter-month');
-  if (!sel) return;
+function initSpeseFilters() {
   const now = new Date();
-  const opts = [];
-  for (let i = 0; i < 12; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const val = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-    const lbl = d.toLocaleDateString('it-IT', { month:'long', year:'numeric' });
-    opts.push(`<option value="${val}">${lbl.charAt(0).toUpperCase()+lbl.slice(1)}</option>`);
+  const thisYear = now.getFullYear();
+
+  // Anno
+  const years = new Set([thisYear]);
+  spese.forEach(s => { if (s.data) years.add(parseInt(s.data.slice(0,4))); });
+  Object.values(storico).forEach(arr => {
+    (Array.isArray(arr) ? arr : []).forEach(s => { if (s.data) years.add(parseInt(s.data.slice(0,4))); });
+  });
+  const selY = document.getElementById('sp-filter-year');
+  if (selY) {
+    const prev = selY.value;
+    selY.innerHTML = [...years].sort((a,b)=>b-a).map(y => `<option value="${y}"${y===thisYear?' selected':''}>${y}</option>`).join('');
+    if (prev && years.has(parseInt(prev))) selY.value = prev;
   }
-  opts.push('<option value="all">Tutti</option>');
-  sel.innerHTML = opts.join('');
+
+  // Mese
+  const selM = document.getElementById('sp-filter-month');
+  if (selM) {
+    const prevM = selM.value;
+    const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+    selM.innerHTML = `<option value="all">Tutti i mesi</option>` +
+      MESI.map((m,i) => `<option value="${String(i+1).padStart(2,'0')}">${m}</option>`).join('');
+    if (prevM) selM.value = prevM;
+  }
+}
+
+function resetSpeseForm() {
+  const t = new Date();
+  const today = t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+  document.getElementById('sp-importo').value = '';
+  document.getElementById('sp-data').value = today;
+  document.getElementById('sp-categoria').value = '';
+  document.getElementById('sp-nota').value = '';
+  document.getElementById('sp-save-btn').textContent = 'Aggiungi spesa';
+  document.getElementById('sp-save-btn').onclick = saveSpesa;
+  document.getElementById('sp-cancel-edit')?.style && (document.getElementById('sp-cancel-edit').style.display = 'none');
 }
 
 function saveSpesa() {
@@ -1330,12 +1362,44 @@ function saveSpesa() {
   const nota    = (document.getElementById('sp-nota').value || '').trim();
   if (!importo || importo <= 0) { showToast('⚠️ Inserisci un importo valido'); return; }
   if (!data) { showToast('⚠️ Inserisci la data'); return; }
+  if (!cat) { showToast('⚠️ Scegli una categoria'); return; }
   spese.push({ id: uid(), importo, data, categoria: cat, nota, createdAt: new Date().toISOString() });
   save(KEY_SPESE, spese);
-  document.getElementById('sp-importo').value = '';
-  document.getElementById('sp-nota').value = '';
+  resetSpeseForm();
+  initSpeseFilters();
   renderSpese();
   showToast('✅ Spesa aggiunta!');
+}
+
+function editSpesa(id) {
+  const s = spese.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('sp-importo').value = s.importo;
+  document.getElementById('sp-data').value = s.data;
+  document.getElementById('sp-categoria').value = s.categoria;
+  document.getElementById('sp-nota').value = s.nota || '';
+  const btn = document.getElementById('sp-save-btn');
+  btn.textContent = 'Salva modifiche';
+  btn.onclick = () => {
+    const importo = parseFloat(document.getElementById('sp-importo').value);
+    const data    = document.getElementById('sp-data').value;
+    const cat     = document.getElementById('sp-categoria').value;
+    const nota    = (document.getElementById('sp-nota').value || '').trim();
+    if (!importo || importo <= 0) { showToast('⚠️ Inserisci un importo valido'); return; }
+    if (!data) { showToast('⚠️ Inserisci la data'); return; }
+    if (!cat) { showToast('⚠️ Scegli una categoria'); return; }
+    const idx = spese.findIndex(x => x.id === id);
+    if (idx !== -1) spese[idx] = { ...spese[idx], importo, data, categoria: cat, nota };
+    save(KEY_SPESE, spese);
+    resetSpeseForm();
+    renderSpese();
+    showToast('✅ Spesa modificata!');
+  };
+  const cancelBtn = document.getElementById('sp-cancel-edit');
+  if (cancelBtn) cancelBtn.style.display = '';
+  // Apri il form e scrolla su
+  document.getElementById('card-new-spesa').classList.remove('collapsed');
+  document.getElementById('card-new-spesa').scrollIntoView({ behavior:'smooth' });
 }
 
 function deleteSpesa(id) {
@@ -1350,19 +1414,21 @@ function renderSpese() {
   const summEl = document.getElementById('spese-summary');
   if (!listEl) return;
 
-  const filter = document.getElementById('sp-filter-month')?.value || 'all';
-  const filtered = filter === 'all' ? spese : spese.filter(s => s.data && s.data.startsWith(filter));
+  const year  = parseInt(document.getElementById('sp-filter-year')?.value) || new Date().getFullYear();
+  const month = document.getElementById('sp-filter-month')?.value || 'all';
+  const prefix = month === 'all' ? String(year) : `${year}-${month}`;
+
+  const filtered = spese.filter(s => s.data && s.data.startsWith(prefix));
   const sorted = [...filtered].sort((a,b) => b.data.localeCompare(a.data));
 
-  // Calcola entrate del mese dallo storico
+  // Entrate dallo storico per lo stesso periodo
   let entrate = 0;
-  if (filter !== 'all') {
-    Object.values(storico).forEach(sedute => {
-      (Array.isArray(sedute) ? sedute : []).forEach(s => {
-        if (s.data && s.data.startsWith(filter)) entrate += parseFloat(s.importo || 0);
-      });
+  Object.values(storico).forEach(sedute => {
+    (Array.isArray(sedute) ? sedute : []).forEach(s => {
+      if (s.data && s.data.startsWith(prefix)) entrate += parseFloat(s.importo || 0);
     });
-  }
+  });
+
   const uscite  = filtered.reduce((t, s) => t + parseFloat(s.importo || 0), 0);
   const margine = entrate - uscite;
   const fmt = v => v.toLocaleString('it-IT', { minimumFractionDigits:2, maximumFractionDigits:2 });
@@ -1387,6 +1453,7 @@ function renderSpese() {
         <div class="spesa-data">${dataFmt}</div>
       </div>
       <div class="spesa-importo">− € ${parseFloat(s.importo).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+      <button onclick="editSpesa('${s.id}')" style="background:transparent;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0 3px;line-height:1" title="Modifica">✏️</button>
       <button onclick="deleteSpesa('${s.id}')" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 2px;line-height:1" title="Elimina">✕</button>
     </div>`;
   }).join('');
@@ -1400,7 +1467,7 @@ function switchTab(tab, btn) {
   btn.classList.add('active');
   if (tab === 'stats') { initStatsYearSelect(); renderStats(); }
   if (tab === 'calendar') { initCalendar(); }
-  if (tab === 'spese') { initSpeseMonthFilter(); renderSpese(); }
+  if (tab === 'spese') { initSpeseFilters(); renderSpese(); }
 }
 
 // Attende che il Service Worker sia registrato (max 5s).
@@ -3458,8 +3525,8 @@ onTypeChange();
 checkNotifUI();
 initContactPicker();
 renderClientSelect(); renderTemplateSelect(); renderReminders(); renderClients(); renderTemplates();
-// Spese: data default = oggi
-(function(){ const d = document.getElementById('sp-data'); if(d){ const t=new Date(); d.value=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'); } })();
+// Spese: reset form con data di oggi
+resetSpeseForm();
 rescheduleAll();
 migrateImportoFromNote();
 initCardStates();
