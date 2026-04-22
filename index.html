@@ -3106,7 +3106,7 @@ function deleteCalEvent(id) {
 
 // ── Swipe orizzontale tra tab ──
 (function initSwipe() {
-  const tabOrder = ['calendar', 'reminders', 'clients', 'stats', 'templates'];
+  const tabOrder = ['calendar', 'reminders', 'clients', 'stats', 'spese', 'templates'];
   let startX = 0, startY = 0, locked = null; // locked: 'h'=horizontal, 'v'=vertical, null=unknown
   document.addEventListener('touchstart', e => {
     // Ignora touch dentro modal/overlay
