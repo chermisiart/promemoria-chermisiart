@@ -167,11 +167,11 @@
   .spesa-nome { font-size:13px; color:var(--text); }
   .spesa-data { font-size:11px; color:var(--muted); margin-top:2px; }
   .spesa-importo { font-size:15px; font-weight:500; color:#e06060; white-space:nowrap; flex-shrink:0; }
-  .spese-summary-box { background:rgba(20,75,75,0.5); border:1.5px solid rgba(78,205,196,0.28); border-radius:16px; padding:16px 20px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; text-align:center; }
-  .spese-summary-box .s-val { font-size:18px; font-weight:500; margin-bottom:2px; }
+  .spese-summary-box { background:rgba(20,75,75,0.5); border:1.5px solid rgba(78,205,196,0.28); border-radius:16px; padding:16px 12px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; text-align:center; }
+  .spese-summary-box .s-val { font-size:clamp(13px,4vw,18px); font-weight:500; margin-bottom:2px; white-space:nowrap; }
   .spese-summary-box .s-lbl { font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
   .spese-summary-box .s-entrate { color:#50c8a0; }
-  .spese-summary-box .s-uscite { color:#e06060; }
+  .spese-summary-box .s-uscite { color:var(--text); }
   .spese-summary-box .s-margine { color:var(--accent); }
 
   /* ── Google Calendar events ── */
@@ -733,6 +733,8 @@
 
   <!-- ── SPESE ── -->
   <div id="panel-spese" class="panel">
+    <!-- Riepilogo -->
+    <div id="spese-summary" style="margin-bottom:16px"></div>
     <div class="card" id="card-new-spesa">
       <div class="card-title" onclick="toggleCard('card-new-spesa')">✦ Nuova spesa <span class="card-toggle">▾</span></div>
       <div class="row">
@@ -761,9 +763,6 @@
         <button id="sp-cancel-edit" class="btn btn-ghost" style="display:none" onclick="resetSpeseForm()">Annulla</button>
       </div>
     </div>
-
-    <!-- Riepilogo mese -->
-    <div id="spese-summary" style="margin-bottom:16px"></div>
 
     <!-- Filtro anno + mese -->
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
@@ -1436,7 +1435,7 @@ function renderSpese() {
   summEl.innerHTML = `<div class="spese-summary-box">
     <div><div class="s-val s-entrate">€ ${fmt(entrate)}</div><div class="s-lbl">Entrate</div></div>
     <div><div class="s-val s-uscite">− € ${fmt(uscite)}</div><div class="s-lbl">Uscite</div></div>
-    <div><div class="s-val s-margine" style="color:${margine>=0?'#50c8a0':'#e06060'}">€ ${fmt(margine)}</div><div class="s-lbl">Margine</div></div>
+    <div><div class="s-val s-margine" style="color:${margine>=0?'var(--accent)':'#e06060'}">€ ${fmt(margine)}</div><div class="s-lbl">Margine</div></div>
   </div>`;
 
   if (!sorted.length) {
@@ -3466,7 +3465,7 @@ function renderStats() {
   // Top clienti
   const topEl = document.getElementById('stats-top-clients');
   if (topEl) {
-    const sorted = Object.values(byClient).sort((a,b) => b.total-a.total);
+    const sorted = Object.values(byClient).sort((a,b) => b.total-a.total).slice(0,10);
     if (!sorted.length) { topEl.innerHTML = '<div class="empty" style="padding:20px">Nessun dato disponibile</div>'; }
     else {
       const maxC = sorted[0].total || 1;
