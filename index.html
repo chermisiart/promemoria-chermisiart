@@ -2809,9 +2809,48 @@ function saveCalEvent() {
   if (_calModalEditId) {
     const idx = calEvents.findIndex(e => e.id === _calModalEditId);
     if (idx !== -1) {
+      const old = calEvents[idx];
       ev.id = _calModalEditId;
-      ev.reminderIds = calEvents[idx].reminderIds || [];
-      ev.createdAt = calEvents[idx].createdAt;
+      ev.createdAt = old.createdAt;
+      ev.storicoPushed = old.storicoPushed; // preserva stato contabilizzazione
+
+      if (isClient) {
+        // Cancella i vecchi promemoria pending legati a questo evento
+        const oldIds = old.reminderIds || [];
+        reminders = reminders.filter(r => !oldIds.includes(r.id) || r.status !== 'pending');
+
+        // Ricrea i promemoria con i nuovi tempi
+        const client = clients.find(c => c.id === ev.clientId);
+        const tplConfirm = templates.find(t => t.type === 'confirm') || templates[0];
+        const tplAppt = templates.find(t => t.type === 'appointment') || templates[1];
+        const dataFmt = ev.date
+          ? new Date(ev.date + 'T12:00').toLocaleDateString('it-IT', { weekday:'long', day:'numeric', month:'long' })
+          : '';
+        function fillTplEdit(tpl) {
+          return (tpl?.text || '')
+            .replace('{nome}', client?.name || '')
+            .replace('{data}', dataFmt)
+            .replace('{ora}', ev.timeStart || '')
+            .replace('{trattamento}', ev.trattamento || '')
+            .replace('{seduta}', '');
+        }
+        const idConf = 'r_' + Date.now() + '_c';
+        const idAppt = 'r_' + (Date.now() + 1) + '_a';
+        const now = new Date();
+        const pad = n => String(n).padStart(2,'0');
+        const sendAtConf = now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate())+'T'+pad(now.getHours())+':'+pad(now.getMinutes());
+        const apptDt = new Date(ev.date + 'T' + (ev.timeStart || '09:00') + ':00');
+        const remDt = new Date(apptDt.getTime() - 26 * 3600 * 1000);
+        const sendAtAppt = remDt.getFullYear()+'-'+pad(remDt.getMonth()+1)+'-'+pad(remDt.getDate())+'T'+pad(remDt.getHours())+':'+pad(remDt.getMinutes());
+        reminders.push({ id: idConf, clientId: ev.clientId, type: 'confirm', appointmentDate: ev.date, appointmentTime: ev.timeStart, endTime: ev.timeEnd, trattamento: ev.trattamento, sendAt: sendAtConf, message: fillTplEdit(tplConfirm), status: 'pending', createdAt: new Date().toISOString() });
+        reminders.push({ id: idAppt, clientId: ev.clientId, type: 'appointment', appointmentDate: ev.date, appointmentTime: ev.timeStart, trattamento: ev.trattamento, sendAt: sendAtAppt, message: fillTplEdit(tplAppt), status: 'pending', createdAt: new Date().toISOString() });
+        ev.reminderIds = [idConf, idAppt];
+        save(KEY_REMINDERS, reminders);
+        renderReminders();
+      } else {
+        ev.reminderIds = [];
+      }
+
       calEvents[idx] = ev;
     }
   } else {
