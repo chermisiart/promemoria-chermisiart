@@ -2828,7 +2828,7 @@ function saveCalEvent() {
           : '';
         function fillTplEdit(tpl) {
           return (tpl?.text || '')
-            .replace('{nome}', client?.name || '')
+            .replace('{nome}', (client?.name || '').split(' ')[0])
             .replace('{data}', dataFmt)
             .replace('{ora}', ev.timeStart || '')
             .replace('{trattamento}', ev.trattamento || '')
@@ -2866,7 +2866,7 @@ function saveCalEvent() {
         : '';
       function fillTpl(tpl) {
         return (tpl?.text || '')
-          .replace('{nome}', client?.name || '')
+          .replace('{nome}', (client?.name || '').split(' ')[0])
           .replace('{data}', dataFmt)
           .replace('{ora}', ev.timeStart || '')
           .replace('{trattamento}', ev.trattamento || '')
