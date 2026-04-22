@@ -2566,7 +2566,7 @@ function renderCalendar() {
       else if (day > daysInMonth) { d = day - daysInMonth; mo = _calMonth + 1; if (mo > 11) { mo = 0; yr++; } other = true; }
       const dateStr = yr + '-' + String(mo+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
       const isToday = dateStr === todayStr;
-      const evs = evMap[dateStr] || [];
+      const evs = (evMap[dateStr] || []).slice().sort((a,b) => (a.ev.timeStart||'00:00').localeCompare(b.ev.timeStart||'00:00'));
       const MAX = 3;
       const evHTML = evs.slice(0, MAX).map(e =>
         `<div class="cal-ev" style="background:${e.color}">${e.dotClass ? `<span class="cal-status-dot ${e.dotClass}"></span>` : ''}${e.label}</div>`
