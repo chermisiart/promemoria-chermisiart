@@ -2466,19 +2466,10 @@ let _calYear = new Date().getFullYear();
 let _calMonth = new Date().getMonth();
 
 function buildCalEventsMap() {
-  const map = {}; // dateStr → [{color, label, storico, ev}]
+  const map = {}; // dateStr → [{color, label, ev}]
   const add = (dateStr, obj) => { if (!map[dateStr]) map[dateStr] = []; map[dateStr].push(obj); };
 
-  // Storico sedute (read-only)
-  Object.entries(storico || {}).forEach(([clientId, sedute]) => {
-    (Array.isArray(sedute) ? sedute : []).forEach(s => {
-      if (!s.data) return;
-      const nome = clients.find(c => c.id === clientId)?.name || s.clientName || '';
-      add(s.data, { color: '#616161', label: nome + (s.trattamento ? ' · ' + s.trattamento : ''), storico: true, seduta: s, clientName: nome });
-    });
-  });
-
-  // calEvents
+  // Solo calEvents (storico non appare più sul calendario)
   calEvents.forEach(ev => {
     const client = clients.find(c => c.id === ev.clientId);
     const label = ev.type === 'client'
@@ -2490,7 +2481,34 @@ function buildCalEventsMap() {
   return map;
 }
 
-function initCalendar() { renderCalendar(); }
+function autoSyncCalToStorico() {
+  // Sposta automaticamente nello storico i calEvents di tipo 'client'
+  // il giorno DOPO l'appuntamento (date < oggi), se non già sincronizzati
+  const today = new Date(); today.setHours(0,0,0,0);
+  let changed = false;
+  calEvents.forEach(ev => {
+    if (ev.type !== 'client' || ev.storicoPushed) return;
+    const apptDate = new Date(ev.date + 'T00:00:00');
+    if (apptDate >= today) return; // appuntamento non ancora avvenuto
+    // Aggiungi allo storico
+    const client = clients.find(c => c.id === ev.clientId);
+    if (!storico[ev.clientId]) storico[ev.clientId] = [];
+    storico[ev.clientId].push({
+      id: uid(), data: ev.date, trattamento: ev.trattamento || '',
+      note: '', importo: ev.importo || 0,
+      categoria: detectCategory(ev.trattamento || ''),
+      clientName: client?.name || ''
+    });
+    ev.storicoPushed = true;
+    changed = true;
+  });
+  if (changed) {
+    save(KEY_STORICO, storico);
+    save(KEY_CAL_EVENTS, calEvents);
+  }
+}
+
+function initCalendar() { autoSyncCalToStorico(); renderCalendar(); }
 function refreshCalendar() { renderCalendar(); }
 
 const _calClickRegistry = {};
@@ -2808,10 +2826,7 @@ function saveCalEvent() {
       ev.reminderIds = [idConf, idAppt];
       save(KEY_REMINDERS, reminders);
       renderReminders();
-      // Aggiungi automaticamente allo storico
-      if (!storico[ev.clientId]) storico[ev.clientId] = [];
-      storico[ev.clientId].push({ id: uid(), data: ev.date, trattamento: ev.trattamento || '', note: '', importo: ev.importo || 0, categoria: detectCategory(ev.trattamento || ''), clientName: client?.name || '' });
-      save(KEY_STORICO, storico);
+      // Lo storico verrà aggiornato automaticamente il giorno dopo l'appuntamento
     }
     calEvents.push(ev);
   }
