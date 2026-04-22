@@ -3007,7 +3007,8 @@ function saveCalEvent() {
         const idAppt = 'r_' + (Date.now() + 1) + '_a';
         const now = new Date();
         const pad = n => String(n).padStart(2,'0');
-        const sendAtConf = now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate())+'T'+pad(now.getHours())+':'+pad(now.getMinutes());
+        const confDt = new Date(now.getTime() + 2 * 60 * 1000); // +2 minuti, così la Cloud Function ha tempo di trovarla
+        const sendAtConf = confDt.getFullYear()+'-'+pad(confDt.getMonth()+1)+'-'+pad(confDt.getDate())+'T'+pad(confDt.getHours())+':'+pad(confDt.getMinutes());
         const apptDt = new Date(ev.date + 'T' + (ev.timeStart || '09:00') + ':00');
         const remDt = new Date(apptDt.getTime() - 26 * 3600 * 1000);
         const sendAtAppt = remDt.getFullYear()+'-'+pad(remDt.getMonth()+1)+'-'+pad(remDt.getDate())+'T'+pad(remDt.getHours())+':'+pad(remDt.getMinutes());
@@ -3046,7 +3047,8 @@ function saveCalEvent() {
       // Conferma: invia subito (al momento del salvataggio)
       const now = new Date();
       const pad = n => String(n).padStart(2,'0');
-      const sendAtConf = now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate())+'T'+pad(now.getHours())+':'+pad(now.getMinutes());
+      const confDt = new Date(now.getTime() + 2 * 60 * 1000); // +2 minuti, così la Cloud Function ha tempo di trovarla
+        const sendAtConf = confDt.getFullYear()+'-'+pad(confDt.getMonth()+1)+'-'+pad(confDt.getDate())+'T'+pad(confDt.getHours())+':'+pad(confDt.getMinutes());
       // Promemoria: esattamente 26 ore prima dell'appuntamento
       const apptDt = new Date(ev.date + 'T' + (ev.timeStart || '09:00') + ':00');
       const remDt = new Date(apptDt.getTime() - 26 * 3600 * 1000);
