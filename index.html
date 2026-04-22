@@ -2253,7 +2253,19 @@ function addClient() {
   document.getElementById('c-name').value=''; document.getElementById('c-phone').value=''; document.getElementById('c-notes').value='';
   showToast('✅ Cliente aggiunta!'); renderClients(); renderClientSelect();
 }
-function deleteClient(id) { clients=clients.filter(c=>c.id!==id); save(KEY_CLIENTS,clients); renderClients(); renderClientSelect(); }
+function deleteClient(id) {
+  const c = clients.find(x => x.id === id);
+  if (!confirm(`Eliminare ${c?.name || 'questo cliente'} e tutto il suo storico? Questa azione non è reversibile.`)) return;
+  clients = clients.filter(x => x.id !== id);
+  delete storico[id];
+  delete storico[id + '_precauzioni'];
+  save(KEY_CLIENTS, clients);
+  save(KEY_STORICO, storico);
+  renderClients(); renderClientSelect();
+  document.querySelectorAll('.storico-overlay').forEach(e => e.remove());
+  _storicoOpen = false;
+  showToast('🗑 Cliente eliminato');
+}
 function openEditClient(id) {
   const c = clients.find(x=>x.id===id); if (!c) return;
   document.getElementById('edit-client-id').value = id;
@@ -2288,7 +2300,7 @@ function renderClients() {
     const link=waLink(c.phone);
     const waBtn=link?`<a href="${escHtml(link)}" target="_blank" class="btn-wa">💬</a>`:'';
     const noteMeta = c.notes ? `<div class="c-phone">${escHtml(c.notes)}</div>` : '';
-    return `<div class="client-item" onclick="openStorico('${c.id}')"><div class="c-avatar">${escHtml(c.name.charAt(0).toUpperCase())}</div><div style="flex:1;min-width:0"><div class="c-name">${escHtml(c.name)}</div>${noteMeta}</div><div class="c-actions">${waBtn}<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openEditClient('${c.id}')" title="Modifica">✏️</button><button class="btn btn-danger" onclick="event.stopPropagation();deleteClient('${c.id}')">✕</button></div></div>`;
+    return `<div class="client-item" onclick="openStorico('${c.id}')"><div class="c-avatar">${escHtml(c.name.charAt(0).toUpperCase())}</div><div style="flex:1;min-width:0"><div class="c-name">${escHtml(c.name)}</div>${noteMeta}</div><div class="c-actions">${waBtn}<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openEditClient('${c.id}')" title="Modifica">✏️</button></div></div>`;
   }).join('');
 }
 
@@ -2512,6 +2524,9 @@ function openStorico(clientId) {
             ${Number(s.importo) > 0 ? `<div style="font-size:12px;color:var(--lilla);font-weight:500;margin-top:2px">€ ${Number(s.importo).toFixed(2)}</div>` : ''}
             ${s.note ? `<div class="seduta-note" id="note-${s.id}">${escHtml(s.note)}</div>` : `<div class="seduta-note" id="note-${s.id}" style="display:none"></div>`}
           </div>`).join('') : '<div class="empty" style="padding:20px">Nessuna seduta registrata</div>'}
+      </div>
+      <div style="margin-top:24px;padding-top:16px;border-top:1px solid rgba(78,205,196,0.15);text-align:center">
+        <button class="btn btn-danger" style="font-size:12px;padding:8px 18px;opacity:0.7" onclick="deleteClient('${clientId}')">✕ Cancella cliente e storico</button>
       </div>
     </div>`;
   overlay.onclick = closeStorico;
