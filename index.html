@@ -2795,10 +2795,14 @@ function saveCalEvent() {
       }
       const idConf = 'r_' + Date.now() + '_c';
       const idAppt = 'r_' + (Date.now() + 1) + '_a';
-      const sendAtConf = ev.date + 'T' + (ev.timeStart || '09:00');
-      const dReminder = new Date(ev.date + 'T12:00');
-      dReminder.setDate(dReminder.getDate() - 1);
-      const sendAtAppt = dReminder.toISOString().slice(0, 10) + 'T09:00';
+      // Conferma: invia subito (al momento del salvataggio)
+      const now = new Date();
+      const pad = n => String(n).padStart(2,'0');
+      const sendAtConf = now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate())+'T'+pad(now.getHours())+':'+pad(now.getMinutes());
+      // Promemoria: esattamente 26 ore prima dell'appuntamento
+      const apptDt = new Date(ev.date + 'T' + (ev.timeStart || '09:00') + ':00');
+      const remDt = new Date(apptDt.getTime() - 26 * 3600 * 1000);
+      const sendAtAppt = remDt.getFullYear()+'-'+pad(remDt.getMonth()+1)+'-'+pad(remDt.getDate())+'T'+pad(remDt.getHours())+':'+pad(remDt.getMinutes());
       reminders.push({ id: idConf, clientId: ev.clientId, type: 'confirm', appointmentDate: ev.date, appointmentTime: ev.timeStart, endTime: ev.timeEnd, trattamento: ev.trattamento, sendAt: sendAtConf, message: fillTpl(tplConfirm), status: 'pending', createdAt: new Date().toISOString() });
       reminders.push({ id: idAppt, clientId: ev.clientId, type: 'appointment', appointmentDate: ev.date, appointmentTime: ev.timeStart, trattamento: ev.trattamento, sendAt: sendAtAppt, message: fillTpl(tplAppt), status: 'pending', createdAt: new Date().toISOString() });
       ev.reminderIds = [idConf, idAppt];
