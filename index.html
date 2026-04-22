@@ -2621,7 +2621,7 @@ function openCalDay(dateStr) {
     const top = Math.max(0, (hh - HOUR_START) * HOUR_H + (mm / 60) * HOUR_H);
     const height = Math.max(28, (dur / 60) * HOUR_H);
     const timeLabel = e.ev.timeStart + (e.ev.timeEnd ? ' – ' + e.ev.timeEnd : '');
-    timedBlocks += `<div class="cal-timed-ev" style="top:${top}px;height:${height}px;background:${e.color}" onclick="calClickEvent('${key}')">
+    timedBlocks += `<div class="cal-timed-ev" style="top:${top}px;height:${height}px;background:${e.color}" onclick="event.stopPropagation();calClickEvent('${key}')">
       <div class="cal-timed-ev-title">${e.label}</div>
       <div class="cal-timed-ev-time">${timeLabel}</div>
     </div>`;
@@ -2643,13 +2643,26 @@ function openCalDay(dateStr) {
     ${allDayEvs.length > 0 ? `<div class="cal-day-allday"><div class="cal-day-allday-label">Tutto il giorno</div><div class="cal-day-allday-evs">${allDayHTML}</div></div>` : ''}
     <div class="cal-timegrid">
       <div class="cal-times-col">${timeLabels}</div>
-      <div class="cal-events-col" style="height:${totalH}px">${hourLines}${nowLine}${timedBlocks}</div>
+      <div class="cal-events-col" style="height:${totalH}px;cursor:crosshair" onclick="calClickTimeSlot('${dateStr}',event.offsetY)">${hourLines}${nowLine}${timedBlocks}</div>
     </div>
     <button class="btn btn-primary cal-day-add" onclick="openCalModal('${dateStr}',null)">+ Aggiungi evento</button>`;
 }
 
 function closeCalDay() {
   history.back();
+}
+
+function calClickTimeSlot(dateStr, offsetY) {
+  const HOUR_START = 7, HOUR_H = 60;
+  const totalMins = (offsetY / HOUR_H) * 60;
+  const rawH = Math.floor(totalMins / 60) + HOUR_START;
+  const rawM = Math.round((totalMins % 60) / 15) * 15;
+  const h = Math.min(21, rawH + (rawM >= 60 ? 1 : 0));
+  const m = rawM >= 60 ? 0 : rawM;
+  const pad = n => String(n).padStart(2,'0');
+  const start = pad(h) + ':' + pad(m);
+  const end   = pad(Math.min(22, h + 1)) + ':' + pad(m);
+  openCalModal(dateStr, null, start, end);
 }
 
 window.addEventListener('popstate', e => {
@@ -2674,7 +2687,7 @@ let _calModalDate = null;
 let _calModalEditId = null;
 let _calSelectedColor = CAL_CLIENT_COLOR;
 
-function openCalModal(dateStr, existingEvent) {
+function openCalModal(dateStr, existingEvent, prefillStart, prefillEnd) {
   _calModalDate = dateStr || (existingEvent ? existingEvent.date : null);
   _calModalEditId = existingEvent ? existingEvent.id : null;
   _calSelectedColor = existingEvent ? existingEvent.color : CAL_CLIENT_COLOR;
@@ -2711,8 +2724,8 @@ function openCalModal(dateStr, existingEvent) {
         </div>
         <div class="row">
           <div class="field"><label>Data</label><input id="cal-date" type="date" value="${_calModalDate || ev.date || ''}"></div>
-          <div class="field"><label>Inizio</label><input id="cal-time-start" type="time" value="${ev.timeStart || ''}"></div>
-          <div class="field"><label>Fine</label><input id="cal-time-end" type="time" value="${ev.timeEnd || ''}"></div>
+          <div class="field"><label>Inizio</label><input id="cal-time-start" type="time" value="${prefillStart || ev.timeStart || ''}"></div>
+          <div class="field"><label>Fine</label><input id="cal-time-end" type="time" value="${prefillEnd || ev.timeEnd || ''}"></div>
         </div>
         <div class="field"><label>Prezzo (€)</label><input id="cal-importo" type="number" min="0" step="0.5" inputmode="decimal" placeholder="es. 35" value="${ev.importo || ''}"></div>
       </div>
@@ -2722,8 +2735,8 @@ function openCalModal(dateStr, existingEvent) {
         </div>
         <div class="row">
           <div class="field"><label>Data</label><input id="cal-date-p" type="date" value="${_calModalDate || ev.date || ''}"></div>
-          <div class="field"><label>Inizio</label><input id="cal-time-start-p" type="time" value="${ev.timeStart || ''}"></div>
-          <div class="field"><label>Fine</label><input id="cal-time-end-p" type="time" value="${ev.timeEnd || ''}"></div>
+          <div class="field"><label>Inizio</label><input id="cal-time-start-p" type="time" value="${prefillStart || ev.timeStart || ''}"></div>
+          <div class="field"><label>Fine</label><input id="cal-time-end-p" type="time" value="${prefillEnd || ev.timeEnd || ''}"></div>
         </div>
       </div>
       <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
