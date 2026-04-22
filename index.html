@@ -2900,6 +2900,13 @@ function saveCalEvent() {
 
 function deleteCalEvent(id) {
   if (!confirm('Eliminare questo evento?')) return;
+  const ev = calEvents.find(e => e.id === id);
+  // Cancella i promemoria pending collegati
+  if (ev?.reminderIds?.length) {
+    reminders = reminders.filter(r => !ev.reminderIds.includes(r.id) || r.status !== 'pending');
+    save(KEY_REMINDERS, reminders);
+    renderReminders();
+  }
   calEvents = calEvents.filter(e => e.id !== id);
   save(KEY_CAL_EVENTS, calEvents);
   refreshCalendar();
