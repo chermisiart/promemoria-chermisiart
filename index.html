@@ -116,6 +116,12 @@
   .cal-grid td.today .cal-day-num { color:var(--accent); font-weight:700; font-size:13px; }
   .cal-ev { border-radius:3px; font-size:9px; padding:1px 3px; margin-bottom:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#fff; line-height:1.5; display:block; pointer-events:none; }
   .cal-ev-more { font-size:9px; color:var(--accent); padding:0 2px; }
+  .cal-status-dot { display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:3px; vertical-align:middle; flex-shrink:0; }
+  .cal-status-dot.green { background:#50c8a0; box-shadow:0 0 4px #50c8a0; }
+  .cal-status-dot.yellow { background:#f6bf26; box-shadow:0 0 4px #f6bf26; }
+  .cal-timed-ev-dot { position:absolute; top:5px; right:6px; width:8px; height:8px; border-radius:50%; }
+  .cal-timed-ev-dot.green { background:#50c8a0; box-shadow:0 0 5px #50c8a0; }
+  .cal-timed-ev-dot.yellow { background:#f6bf26; box-shadow:0 0 5px #f6bf26; }
   /* Vista giorno */
   .cal-day-header { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
   .cal-day-title { font-family:'Cormorant Garamond',serif; font-size:17px; color:var(--text); text-transform:capitalize; flex:1; }
@@ -2476,7 +2482,9 @@ function buildCalEventsMap() {
       ? ((client?.name || '') + (ev.trattamento ? ' · ' + ev.trattamento : ''))
       : (ev.title || 'Evento');
     const hasRem = ev.type === 'client' && ev.reminderIds?.length > 0;
-    add(ev.date, { color: ev.color, label: (hasRem ? '✓ ' : '') + label, ev });
+    // Stato contabilizzazione: solo per appuntamenti cliente
+    const dotClass = ev.type === 'client' ? (ev.storicoPushed ? 'green' : 'yellow') : null;
+    add(ev.date, { color: ev.color, label: (hasRem ? '✓ ' : '') + label, dotClass, ev });
   });
   return map;
 }
@@ -2541,7 +2549,7 @@ function renderCalendar() {
       const evs = evMap[dateStr] || [];
       const MAX = 3;
       const evHTML = evs.slice(0, MAX).map(e =>
-        `<div class="cal-ev" style="background:${e.color}">${e.label}</div>`
+        `<div class="cal-ev" style="background:${e.color}">${e.dotClass ? `<span class="cal-status-dot ${e.dotClass}"></span>` : ''}${e.label}</div>`
       ).join('') + (evs.length > MAX ? `<div class="cal-ev-more">+${evs.length - MAX}</div>` : '');
       cells += `<td class="${other?'other-month':''}${isToday?' today':''}" onclick="openCalDay('${dateStr}')">
         <div class="cal-day-num">${d}</div>${evHTML}</td>`;
@@ -2622,6 +2630,7 @@ function openCalDay(dateStr) {
     const height = Math.max(28, (dur / 60) * HOUR_H);
     const timeLabel = e.ev.timeStart + (e.ev.timeEnd ? ' – ' + e.ev.timeEnd : '');
     timedBlocks += `<div class="cal-timed-ev" style="top:${top}px;height:${height}px;background:${e.color}" onclick="event.stopPropagation();calClickEvent('${key}')">
+      ${e.dotClass ? `<div class="cal-timed-ev-dot ${e.dotClass}"></div>` : ''}
       <div class="cal-timed-ev-title">${e.label}</div>
       <div class="cal-timed-ev-time">${timeLabel}</div>
     </div>`;
