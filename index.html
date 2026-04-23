@@ -2936,9 +2936,31 @@ function openCalDay(dateStr) {
   for (let h = HOUR_START; h < HOUR_END; h++)
     timeLabels += `<div class="cal-time-slot">${String(h).padStart(2,'0')}:00</div>`;
 
+  // Calcola colonne per eventi sovrapposti
+  const tMin = ev => { const [h,m] = (ev.ev.timeStart||'00:00').split(':').map(Number); return h*60+m; };
+  const tMax = ev => { if (!ev.ev.timeEnd) return tMin(ev)+60; const [h,m] = ev.ev.timeEnd.split(':').map(Number); return h*60+m; };
+  const sorted = [...timedEvs].sort((a,b) => tMin(a)-tMin(b));
+  // Assegna colonna a ogni evento
+  const cols = []; // cols[i] = fine dell'ultimo evento nella colonna i
+  sorted.forEach(e => {
+    const s = tMin(e), end = tMax(e);
+    let col = cols.findIndex(c => c <= s);
+    if (col === -1) col = cols.length;
+    cols[col] = end;
+    e._col = col;
+  });
+  // Per ogni evento: quante colonne ci sono nel suo gruppo sovrapposto
+  sorted.forEach(e => {
+    const s = tMin(e), end = tMax(e);
+    e._span = cols.filter((_, ci) => {
+      // questa colonna ha almeno un evento che si sovrappone a e?
+      return sorted.some(o => o._col === ci && tMin(o) < end && tMax(o) > s);
+    }).length || 1;
+  });
+
   // Blocchi eventi con orario
   let timedBlocks = '';
-  timedEvs.forEach((e, i) => {
+  sorted.forEach((e, i) => {
     const key = dateStr + '_t_' + i;
     _calClickRegistry[key] = e;
     const [hh, mm] = (e.ev.timeStart).split(':').map(Number);
@@ -2950,7 +2972,10 @@ function openCalDay(dateStr) {
     const top = Math.max(0, (hh - HOUR_START) * HOUR_H + (mm / 60) * HOUR_H);
     const height = Math.max(28, (dur / 60) * HOUR_H);
     const timeLabel = e.ev.timeStart + (e.ev.timeEnd ? ' – ' + e.ev.timeEnd : '');
-    timedBlocks += `<div class="cal-timed-ev" style="top:${top}px;height:${height}px;background:${e.color}" onclick="event.stopPropagation();calClickEvent('${key}')">
+    const colW = 100 / e._span;
+    const colL = e._col * colW;
+    const gap = 2;
+    timedBlocks += `<div class="cal-timed-ev" style="top:${top}px;height:${height}px;background:${e.color};left:calc(${colL}% + ${gap}px);width:calc(${colW}% - ${gap*2}px);right:auto" onclick="event.stopPropagation();calClickEvent('${key}')">
       ${e.dotClass ? `<div class="cal-timed-ev-dot ${e.dotClass}"></div>` : ''}
       <div class="cal-timed-ev-title">${e.label}</div>
       <div class="cal-timed-ev-time">${timeLabel}</div>
@@ -2976,6 +3001,30 @@ function openCalDay(dateStr) {
       <div class="cal-events-col" style="height:${totalH}px;cursor:crosshair" onclick="calClickTimeSlot('${dateStr}',event.offsetY)">${hourLines}${nowLine}${timedBlocks}</div>
     </div>
     <button class="btn btn-primary cal-day-add" onclick="openCalModal('${dateStr}',null)">+ Aggiungi evento</button>`;
+
+  // Swipe orizzontale per cambiare giorno
+  const grid = wrap.querySelector('.cal-timegrid');
+  if (grid) {
+    let sx = 0, sy = 0, locked = null;
+    grid.addEventListener('touchstart', e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; locked = null; }, { passive:true });
+    grid.addEventListener('touchmove', e => {
+      if (!locked) {
+        const dx = Math.abs(e.touches[0].clientX - sx), dy = Math.abs(e.touches[0].clientY - sy);
+        locked = dx > dy ? 'h' : 'v';
+      }
+      if (locked === 'h') e.preventDefault();
+    }, { passive:false });
+    grid.addEventListener('touchend', e => {
+      if (locked !== 'h') return;
+      const dx = e.changedTouches[0].clientX - sx;
+      if (Math.abs(dx) < 50) return;
+      const d = new Date(dateStr + 'T12:00');
+      d.setDate(d.getDate() + (dx < 0 ? 1 : -1));
+      const nd = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      history.replaceState({ calDay: nd }, '');
+      openCalDay(nd);
+    }, { passive:true });
+  }
 }
 
 function closeCalDay() {
