@@ -1999,7 +1999,7 @@ function formatDate(iso) { if (!iso) return ''; return new Date(iso).toLocaleStr
 function formatDateIT(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr+'T12:00:00');
-  return d.toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
+  return d.toLocaleDateString('it-IT',{weekday:'long', day:'numeric', month:'long'});
 }
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function escJs(s) { return String(s).replace(/'/g,"\\'").replace(/\n/g,' '); }
