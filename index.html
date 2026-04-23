@@ -3249,15 +3249,15 @@ function initCardStates() {
 
 // ── Statistiche ──
 const TREATMENT_CATS = [
-  { id:'viso',    label:'Trattamento viso',   color:'#0070c0', keywords:['viso','face','pulizia viso','hydra','peeling','maschera viso','trattamento viso'] },
-  { id:'corpo',   label:'Trattamenti corpo',  color:'#1a7a4a', keywords:['corpo','body','schiena','pancia','caviglia','wrap','scrub corpo','bendaggio'] },
-  { id:'mani',    label:'Trattamenti mani',   color:'#b01a28', keywords:['mani','manicure','unghie','gel','semipermanente','semiper','smalto','ricostruzione','nail'] },
-  { id:'piedi',   label:'Trattamenti piedi',  color:'#7c3aed', keywords:['piedi','pedicure','pedi','callositĂ '] },
+  { id:'viso',    label:'Trattamento viso',   color:'#0070c0', keywords:['viso','face','pulizia viso','pulizia classica','pulizia profonda','acneica','antiage','collagene','borse','occhiaie','botox','kigelia','illuminante','ipercromie','grassa','pori dilatati','radiofrequenza viso','microneedling','sublimazione','décolleté','decollete','kobido','hydra','peeling','maschera viso','trattamento viso'] },
+  { id:'corpo',   label:'Trattamenti corpo',  color:'#1a7a4a', keywords:['corpo','body','schiena','pancia','caviglia','wrap','scrub corpo','bendaggio','radiofrequenza corpo','vacuum','ultrasuoni','cavitazione','smagliature','pressoterapia','gambe linfodrenanti','bendaggi','cicatrici'] },
+  { id:'mani',    label:'Trattamenti mani',   color:'#b01a28', keywords:['mani','manicure','manicure estetica','manicure curativa','unghie','gel','semipermanente','semiper','smalto','ricostruzione','nail','cuticole'] },
+  { id:'piedi',   label:'Trattamenti piedi',  color:'#7c3aed', keywords:['piedi','pedicure','pedicure estetica','pedicure curativa','pedi','callosità','nail care','ispessimenti','tiloma','incarnate','pernice','heloma','duroni','ammollo'] },
   { id:'ceretta', label:'Ceretta',            color:'#c87000', keywords:['ceretta','cera','ceratura','depilaz','brasiliana','ascelle','inguine','baffetti','cerette'] },
-  { id:'massaggi',label:'Massaggi',           color:'#2196a0', keywords:['massaggio','massaggi','massage','rilassante','drenante','linfodrenaggio','shiatsu','sportivo'] },
-  { id:'pmu',     label:'PMU',                color:'#8e24aa', keywords:['pmu','microblading','micropigment','dermopigment','sopracciglia','ciglia','lash','brow','laminazione','extension','trucco permanente','ombré'] },
-  { id:'piercing',label:'Piercing',           color:'#e0a000', keywords:['piercing'] },
-  { id:'tatuaggi',label:'Tatuaggi',           color:'#333a60', keywords:['tatuaggio','tattoo','tatuaggi','touch up tattoo'] },
+  { id:'massaggi',label:'Massaggi',           color:'#2196a0', keywords:['massaggio','massaggi','massage','rilassante','drenante','linfodrenaggio','shiatsu','sportivo','decontratturante','anticellulite','cervico','dorsale','connettivale','riflessologia','plantare','coppettazione','percussione','kinesio','taping','thailandese','californiano','ayurvedico','hawaiano','lomi','bamboo'] },
+  { id:'pmu',     label:'PMU / Trucco semipermanente', color:'#8e24aa', keywords:['pmu','microblading','micropigment','dermopigment','sopracciglia','ciglia','lash','brow','laminazione','extension','trucco permanente','trucco semipermanente','ombré','powder','effetto sfumato','hennè','efelidi','rimozione pigmento'] },
+  { id:'piercing',label:'Piercing',           color:'#e0a000', keywords:['piercing','navel','ombelico','trago','helix','lobo','nipple','nostril','narice','labbro','industrial','dermal','impianto','septum','eyebrow'] },
+  { id:'tatuaggi',label:'Tatuaggi',           color:'#333a60', keywords:['tatuaggio','tattoo','tatuaggi','touch up tattoo','realistico','fine line','geometrico','tribale','dot tattoo','patch tattoo','lettering','black work','cover up'] },
   { id:'altro',   label:'Altro',              color:'#6a5880', keywords:[] },
 ];
 function detectCategory(trattamento) {
