@@ -2816,6 +2816,7 @@ function renderCalendar() {
         <span class="cal-nav-title">${CAL_MONTHS[_calMonth]} ${_calYear}</span>
         <button class="cal-nav-btn cal-today-btn" onclick="calGoToday()">Oggi</button>
       </div>
+      <button class="cal-nav-btn cal-today-btn" onclick="openProssimiAppuntamenti()" title="Prossimi appuntamenti">📋</button>
       <button class="cal-nav-btn" onclick="calNext()">›</button>
     </div>
     <table class="cal-grid"><thead><tr>${CAL_DAYS.map(d=>`<th>${d}</th>`).join('')}</tr></thead>
@@ -2825,6 +2826,75 @@ function renderCalendar() {
 function calPrev() { _calMonth--; if (_calMonth < 0) { _calMonth = 11; _calYear--; } renderCalendar(); }
 function calNext() { _calMonth++; if (_calMonth > 11) { _calMonth = 0; _calYear++; } renderCalendar(); }
 function calGoToday() { _calYear = new Date().getFullYear(); _calMonth = new Date().getMonth(); renderCalendar(); }
+
+function openProssimiAppuntamenti() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayStr = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+
+  const futuri = calEvents
+    .filter(ev => ev.type === 'client' && ev.date >= todayStr)
+    .sort((a,b) => a.date.localeCompare(b.date) || (a.timeStart||'').localeCompare(b.timeStart||''));
+
+  const light = document.body.classList.contains('light-mode');
+  const bg = light ? '#f0faf9' : '#0d1f1f';
+  const border = light ? 'rgba(26,138,138,0.28)' : 'rgba(78,205,196,0.28)';
+
+  function renderRows(list) {
+    if (!list.length) return '<div style="padding:20px;text-align:center;color:var(--muted)">Nessun appuntamento futuro</div>';
+    let lastDate = '';
+    return list.map(ev => {
+      const client = clients.find(c => c.id === ev.clientId);
+      const nome = client?.name || '—';
+      const dataFmt = new Date(ev.date+'T12:00').toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'});
+      let header = '';
+      if (ev.date !== lastDate) {
+        lastDate = ev.date;
+        const isToday = ev.date === todayStr;
+        const isTomorrow = ev.date === new Date(today.getTime()+86400000).toISOString().slice(0,10);
+        const label = isToday ? 'Oggi' : isTomorrow ? 'Domani' : dataFmt;
+        header = `<div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--accent);margin:12px 0 6px;padding-left:2px">${label}</div>`;
+      }
+      return header + `<div style="background:rgba(78,205,196,0.06);border:1px solid ${border};border-radius:10px;padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;cursor:pointer" onclick="document.getElementById('prossimi-overlay').remove();_calYear=${parseInt(ev.date.slice(0,4))};_calMonth=${parseInt(ev.date.slice(5,7))-1};renderCalendar();openCalDay('${ev.date}')">
+        <div style="width:8px;height:8px;border-radius:50%;background:${ev.color};flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;color:var(--text);font-weight:500">${escHtml(nome)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:1px">${ev.trattamento ? escHtml(ev.trattamento)+' · ' : ''}${ev.timeStart||''}${ev.timeEnd?' – '+ev.timeEnd:''}</div>
+        </div>
+        ${ev.importo ? `<div style="font-size:13px;color:var(--accent);white-space:nowrap">€ ${parseFloat(ev.importo).toFixed(2)}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  const overlayEl = document.createElement('div');
+  overlayEl.id = 'prossimi-overlay';
+  overlayEl.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:flex-end;justify-content:center';
+  overlayEl.onclick = e => { if (e.target === overlayEl) overlayEl.remove(); };
+  overlayEl.innerHTML = `
+    <div style="background:${bg};border:1.5px solid ${border};border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:85vh;display:flex;flex-direction:column;padding:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--text)">📋 Prossimi appuntamenti</div>
+        <button onclick="document.getElementById('prossimi-overlay').remove()" style="background:transparent;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1">✕</button>
+      </div>
+      <input id="prossimi-search" type="text" placeholder="🔍 Cerca cliente..." style="width:100%;margin-bottom:12px;padding:8px 12px;background:rgba(78,205,196,0.08);border:1px solid ${border};border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px" oninput="filterProssimi(this.value)">
+      <div id="prossimi-list" style="overflow-y:auto;flex:1">${renderRows(futuri)}</div>
+    </div>`;
+  window._prossimiList = futuri;
+  window._prossimiRenderRows = renderRows;
+  document.getElementById('prossimi-overlay')?.remove();
+  document.body.appendChild(overlayEl);
+}
+
+function filterProssimi(q) {
+  const list = document.getElementById('prossimi-list');
+  if (!list || !window._prossimiList) return;
+  const filtered = q.trim()
+    ? window._prossimiList.filter(ev => {
+        const nome = (clients.find(c => c.id === ev.clientId)?.name || '').toLowerCase();
+        return nome.includes(q.toLowerCase());
+      })
+    : window._prossimiList;
+  list.innerHTML = window._prossimiRenderRows(filtered);
+}
 
 function openCalDay(dateStr) {
   history.pushState({ calDay: dateStr }, '');
