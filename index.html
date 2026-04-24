@@ -141,6 +141,13 @@
   .cal-now-line { position:absolute; left:0; right:0; border-top:2px solid var(--accent); z-index:3; pointer-events:none; }
   .cal-now-dot { position:absolute; left:-3px; top:-4px; width:8px; height:8px; background:var(--accent); border-radius:50%; }
   .cal-day-add { width:100%; margin-top:12px; }
+  .cal-peek { position:fixed; z-index:2000; background:#0d2a2a; border:1.5px solid rgba(78,205,196,0.5); border-radius:12px; padding:12px 16px; min-width:180px; max-width:260px; box-shadow:0 8px 32px rgba(0,0,0,0.5); pointer-events:none; animation:peekIn 0.15s ease; }
+  .cal-peek-name { font-size:15px; color:var(--text); font-weight:500; margin-bottom:4px; }
+  .cal-peek-tratt { font-size:12px; color:var(--accent2); margin-bottom:4px; }
+  .cal-peek-time { font-size:11px; color:var(--muted); }
+  .cal-peek-importo { font-size:13px; color:var(--accent); margin-top:4px; font-weight:500; }
+  @keyframes peekIn { from { opacity:0; transform:scale(0.92); } to { opacity:1; transform:scale(1); } }
+  body.light-mode .cal-peek { background:#f0faf9; border-color:rgba(26,138,138,0.5); }
   /* Modal evento */
   .cal-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:200; display:flex; align-items:flex-end; justify-content:center; animation:fadeIn 0.15s ease; }
   .cal-modal { background:#0d2020; border:1.5px solid rgba(78,205,196,0.3); border-radius:20px 20px 0 0; width:100%; max-width:500px; padding:24px 20px 32px; max-height:85vh; overflow-y:auto; }
@@ -2884,6 +2891,44 @@ function openProssimiAppuntamenti() {
   document.body.appendChild(overlayEl);
 }
 
+// ── Peek (long press) ──
+let _peekTimer = null;
+function calPeekStart(event, key) {
+  _peekTimer = setTimeout(() => {
+    const e = _calClickRegistry[key];
+    if (!e) return;
+    const client = e.ev?.clientId ? clients.find(c => c.id === e.ev.clientId) : null;
+    const nome = client?.name || e.label || '';
+    const tratt = e.ev?.trattamento || '';
+    const time = e.ev?.timeStart ? (e.ev.timeStart + (e.ev.timeEnd ? ' – ' + e.ev.timeEnd : '')) : '';
+    const importo = e.ev?.importo ? '€ ' + parseFloat(e.ev.importo).toFixed(2) : '';
+    const touch = event.touches[0];
+    const px = touch.clientX, py = touch.clientY;
+    document.getElementById('cal-peek')?.remove();
+    const peek = document.createElement('div');
+    peek.id = 'cal-peek';
+    peek.className = 'cal-peek';
+    peek.innerHTML = `
+      ${nome ? `<div class="cal-peek-name">${escHtml(nome)}</div>` : ''}
+      ${tratt ? `<div class="cal-peek-tratt">${escHtml(tratt)}</div>` : ''}
+      ${time ? `<div class="cal-peek-time">🕐 ${time}</div>` : ''}
+      ${importo ? `<div class="cal-peek-importo">${importo}</div>` : ''}`;
+    document.body.appendChild(peek);
+    // Posiziona vicino al tocco, evitando i bordi
+    const pw = peek.offsetWidth || 200, ph = peek.offsetHeight || 80;
+    let left = px + 12, top = py - ph / 2;
+    if (left + pw > window.innerWidth - 8) left = px - pw - 12;
+    if (top < 8) top = 8;
+    if (top + ph > window.innerHeight - 8) top = window.innerHeight - ph - 8;
+    peek.style.left = left + 'px';
+    peek.style.top = top + 'px';
+  }, 450);
+}
+function calPeekEnd() {
+  clearTimeout(_peekTimer);
+  document.getElementById('cal-peek')?.remove();
+}
+
 function filterProssimi(q) {
   const list = document.getElementById('prossimi-list');
   if (!list || !window._prossimiList) return;
@@ -2975,7 +3020,7 @@ function openCalDay(dateStr) {
     const colW = 100 / e._span;
     const colL = e._col * colW;
     const gap = 2;
-    timedBlocks += `<div class="cal-timed-ev" style="top:${top}px;height:${height}px;background:${e.color};left:calc(${colL}% + ${gap}px);width:calc(${colW}% - ${gap*2}px);right:auto" onclick="event.stopPropagation();calClickEvent('${key}')">
+    timedBlocks += `<div class="cal-timed-ev" style="top:${top}px;height:${height}px;background:${e.color};left:calc(${colL}% + ${gap}px);width:calc(${colW}% - ${gap*2}px);right:auto" onclick="event.stopPropagation();calClickEvent('${key}')" oncontextmenu="event.preventDefault()" ontouchstart="calPeekStart(event,'${key}')" ontouchend="calPeekEnd()" ontouchcancel="calPeekEnd()">
       ${e.dotClass ? `<div class="cal-timed-ev-dot ${e.dotClass}"></div>` : ''}
       <div class="cal-timed-ev-title">${e.label}</div>
       <div class="cal-timed-ev-time">${timeLabel}</div>
