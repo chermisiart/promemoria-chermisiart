@@ -3350,8 +3350,10 @@ function deleteCalEvent(id) {
   const tabOrder = ['calendar', 'reminders', 'clients', 'stats', 'spese', 'templates'];
   let startX = 0, startY = 0, locked = null; // locked: 'h'=horizontal, 'v'=vertical, null=unknown
   document.addEventListener('touchstart', e => {
-    // Ignora touch dentro modal/overlay
-    if (e.target.closest('.storico-overlay, .edit-reminder-overlay, .clock-overlay')) return;
+    // Ignora touch dentro modal/overlay o timegrid del calendario (ha il proprio swipe)
+    if (e.target.closest('.storico-overlay, .edit-reminder-overlay, .clock-overlay, .cal-timegrid')) {
+      locked = 'skip'; return;
+    }
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     locked = null;
