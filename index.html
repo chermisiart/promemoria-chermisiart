@@ -734,7 +734,10 @@
       <div class="section-title">Archivio clienti</div>
       <div class="section-count" id="clients-count"></div>
     </div>
-    <input class="archive-search" id="clients-search" placeholder="🔍 Cerca nell'archivio..." oninput="renderClients()" autocomplete="off">
+    <div style="position:relative">
+      <input class="archive-search" id="clients-search" placeholder="🔍 Cerca nell'archivio..." oninput="renderClients();document.getElementById('clients-search-clear').style.display=this.value?'flex':'none'" autocomplete="off" style="padding-right:32px">
+      <button id="clients-search-clear" onclick="document.getElementById('clients-search').value='';renderClients();this.style.display='none'" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;padding:0">✕</button>
+    </div>
     <div id="clients-list"></div>
   </div>
 
@@ -2684,7 +2687,11 @@ function closeStorico() {
 }
 // Tasto indietro del telefono: chiude il modal invece di uscire dall'app
 window.addEventListener('popstate', () => {
+  if (document.getElementById('prossimi-overlay')) { document.getElementById('prossimi-overlay').remove(); return; }
   if (document.querySelector('.storico-overlay')) { _doCloseStorico(); return; }
+  // Ricerca clienti attiva → pulisce la ricerca
+  const cs = document.getElementById('clients-search');
+  if (cs && cs.value) { cs.value = ''; renderClients(); document.getElementById('clients-search-clear').style.display='none'; history.pushState({},''); return; }
   if (document.getElementById('edit-client-overlay')?.classList.contains('open')) { closeEditClient(); return; }
   if (document.getElementById('extra-rem-overlay')?.classList.contains('open')) { closeExtraRemDialog(); return; }
 });
@@ -2882,13 +2889,17 @@ function openProssimiAppuntamenti() {
         <div style="font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--text)">📋 Prossimi appuntamenti</div>
         <button onclick="document.getElementById('prossimi-overlay').remove()" style="background:transparent;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1">✕</button>
       </div>
-      <input id="prossimi-search" type="text" placeholder="🔍 Cerca cliente..." style="width:100%;margin-bottom:12px;padding:8px 12px;background:rgba(78,205,196,0.08);border:1px solid ${border};border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px" oninput="filterProssimi(this.value)">
+      <div style="position:relative;margin-bottom:12px">
+        <input id="prossimi-search" type="text" placeholder="🔍 Cerca cliente..." style="width:100%;padding:8px 36px 8px 12px;background:rgba(78,205,196,0.08);border:1px solid ${border};border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px" oninput="filterProssimi(this.value);document.getElementById('prossimi-search-clear').style.display=this.value?'flex':'none'">
+        <button id="prossimi-search-clear" onclick="document.getElementById('prossimi-search').value='';filterProssimi('');this.style.display='none'" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;padding:0">✕</button>
+      </div>
       <div id="prossimi-list" style="overflow-y:auto;flex:1">${renderRows(futuri)}</div>
     </div>`;
   window._prossimiList = futuri;
   window._prossimiRenderRows = renderRows;
   document.getElementById('prossimi-overlay')?.remove();
   document.body.appendChild(overlayEl);
+  history.pushState({ modal: 'prossimi' }, '');
 }
 
 // ── Peek (long press) ──
