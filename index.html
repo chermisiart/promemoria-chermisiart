@@ -2782,7 +2782,15 @@ function autoSyncCalToStorico() {
 }
 
 function initCalendar() { autoSyncCalToStorico(); renderCalendar(); }
-function refreshCalendar() { renderCalendar(); }
+function refreshCalendar(dateStr) {
+  const wrap = document.getElementById('cal-wrap');
+  const inDayView = wrap && wrap.querySelector('.cal-day-header');
+  if (inDayView && dateStr) {
+    openCalDay(dateStr);
+  } else {
+    renderCalendar();
+  }
+}
 
 const _calClickRegistry = {};
 
@@ -3324,7 +3332,7 @@ function saveCalEvent() {
   }
 
   save(KEY_CAL_EVENTS, calEvents);
-  refreshCalendar();
+  refreshCalendar(ev.date);
   closeCalModal();
   showToast(isClient ? '✅ Appuntamento e promemoria creati!' : '✅ Evento salvato!');
 }
@@ -3332,6 +3340,7 @@ function saveCalEvent() {
 function deleteCalEvent(id) {
   if (!confirm('Eliminare questo evento?')) return;
   const ev = calEvents.find(e => e.id === id);
+  const evDate = ev?.date;
   // Cancella i promemoria pending collegati
   if (ev?.reminderIds?.length) {
     reminders = reminders.filter(r => !ev.reminderIds.includes(r.id) || r.status !== 'pending');
@@ -3340,7 +3349,7 @@ function deleteCalEvent(id) {
   }
   calEvents = calEvents.filter(e => e.id !== id);
   save(KEY_CAL_EVENTS, calEvents);
-  refreshCalendar();
+  refreshCalendar(evDate);
   closeCalModal();
   showToast('🗑 Evento eliminato');
 }
