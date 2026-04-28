@@ -1199,7 +1199,7 @@ async function fsSync(key, val) {
 async function fsLoadAll() {
   if (!window._db || !window._currentUid) return;
   try {
-    const keys = [KEY_CLIENTS, KEY_REMINDERS, KEY_TEMPLATES, KEY_STORICO, KEY_CAL_EVENTS];
+    const keys = [KEY_CLIENTS, KEY_REMINDERS, KEY_TEMPLATES, KEY_STORICO, KEY_CAL_EVENTS, KEY_SPESE];
     let updated = false;
     for (const key of keys) {
       const snap = await window._fsGetDoc(
@@ -1226,6 +1226,7 @@ async function fsLoadAll() {
     if (updated) {
       showToast('✅ Dati sincronizzati dal cloud!');
       renderClients(); renderReminders(); renderTemplates(); renderClientSelect(); renderTemplateSelect();
+      renderCalendar(); renderSpese();
       rescheduleAll();
     }
   } catch(e) { console.warn('Firestore load error:', e); }
