@@ -53,9 +53,10 @@
   </p>
   <div style="display:flex;flex-wrap:wrap;gap:8px">
     <button style="background:#e06060;color:#fff" onclick="scanLocalBackups()">🔍 Scansiona backup nel browser</button>
-    <button style="background:#e06060;color:#fff;display:none" id="btn-restore-bk1" onclick="restoreFromBackup(1)">↩️ Ripristina Backup 1 (più recente)</button>
-    <button style="background:#c04040;color:#fff;display:none" id="btn-restore-bk2" onclick="restoreFromBackup(2)">↩️ Ripristina Backup 2</button>
-    <button style="background:#a03030;color:#fff;display:none" id="btn-restore-bk3" onclick="restoreFromBackup(3)">↩️ Ripristina Backup 3 (più vecchio)</button>
+    <button style="background:#27ae60;color:#fff;display:none" id="btn-merge-bk1" onclick="mergeWithBackup(1)">🔀 Unisci Backup 1 + dati attuali (CONSIGLIATO)</button>
+    <button style="background:#e06060;color:#fff;display:none" id="btn-restore-bk1" onclick="restoreFromBackup(1)">↩️ Sostituisci con Backup 1 (più recente)</button>
+    <button style="background:#c04040;color:#fff;display:none" id="btn-restore-bk2" onclick="restoreFromBackup(2)">↩️ Sostituisci con Backup 2</button>
+    <button style="background:#a03030;color:#fff;display:none" id="btn-restore-bk3" onclick="restoreFromBackup(3)">↩️ Sostituisci con Backup 3 (più vecchio)</button>
   </div>
   <div id="backup-scan-result" style="margin-top:10px;font-size:13px;color:#ccc"></div>
 </div>
@@ -362,6 +363,114 @@ window.restoreCalEvents = async function() {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
+// UNISCI — prende backup + dati attuali e li combina senza perdere nulla
+// ══════════════════════════════════════════════════════════════════════════════
+
+window.mergeWithBackup = async function(bkN) {
+  const uidSuffix = findUidSuffix();
+  if (!uidSuffix) { alert('Esegui prima la scansione.'); return; }
+  const bkData = _bkData[bkN];
+  if (!bkData || !Object.keys(bkData).length) { alert('Backup non disponibile. Esegui prima la scansione.'); return; }
+
+  const logEl = document.getElementById('restore-log');
+  logEl.style.display = 'block';
+  logEl.innerHTML = '<b style="color:#27ae60">🔀 Unione in corso...</b><br>';
+
+  const now     = new Date().toISOString();
+  const APP_URL = 'https://chermisiart.github.io/promemoria-chermisiart/';
+  const merged  = {};
+
+  // ── cal_events: unisci per chiave date+clientId+timeStart ──
+  const bkCal  = Array.isArray(bkData['chermisi_cal_events'])  ? bkData['chermisi_cal_events']  : [];
+  const nowRaw = localStorage.getItem('chermisi_cal_events' + uidSuffix);
+  const nowCal = nowRaw ? JSON.parse(nowRaw) : [];
+
+  const calMap = new Map();
+  // Prima metti quelli del backup (base)
+  bkCal.forEach(e => {
+    const k = (e.date||'') + '|' + (e.clientId||e.title||'') + '|' + (e.timeStart||'');
+    calMap.set(k, e);
+  });
+  // Poi aggiungi/sovrascrivi con quelli attuali (più recenti — includono le aggiunte manuali)
+  nowCal.forEach(e => {
+    const k = (e.date||'') + '|' + (e.clientId||e.title||'') + '|' + (e.timeStart||'');
+    calMap.set(k, e);
+  });
+  merged['chermisi_cal_events'] = Array.from(calMap.values()).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  logEl.innerHTML += `✅ cal_events: backup ${bkCal.length} + attuali ${nowCal.length} → uniti: <b>${merged['chermisi_cal_events'].length}</b><br>`;
+
+  // ── storico: unisci per cliente, poi per data+trattamento ──
+  const bkSt  = (typeof bkData['chermisi_storico'] === 'object' && !Array.isArray(bkData['chermisi_storico'])) ? bkData['chermisi_storico'] : {};
+  const stRaw = localStorage.getItem('chermisi_storico' + uidSuffix);
+  const nowSt = stRaw ? JSON.parse(stRaw) : {};
+
+  const stMerged = {};
+  const allClientIds = new Set([...Object.keys(bkSt), ...Object.keys(nowSt)]);
+  allClientIds.forEach(cid => {
+    if (cid.endsWith('_precauzioni')) {
+      // Per le precauzioni prendi la versione più recente (attuali)
+      stMerged[cid] = nowSt[cid] ?? bkSt[cid];
+      return;
+    }
+    const bkArr  = Array.isArray(bkSt[cid])  ? bkSt[cid]  : [];
+    const nowArr = Array.isArray(nowSt[cid]) ? nowSt[cid] : [];
+    const sMap   = new Map();
+    bkArr.forEach(s  => { const k = (s.data||'')+'|'+(s.trattamento||''); sMap.set(k, s); });
+    nowArr.forEach(s => { const k = (s.data||'')+'|'+(s.trattamento||''); sMap.set(k, s); });
+    stMerged[cid] = Array.from(sMap.values()).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  });
+  merged['chermisi_storico'] = stMerged;
+  const bkStCount  = Object.keys(bkSt).filter(k=>!k.endsWith('_precauzioni')).length;
+  const nowStCount = Object.keys(nowSt).filter(k=>!k.endsWith('_precauzioni')).length;
+  const merStCount = Object.keys(stMerged).filter(k=>!k.endsWith('_precauzioni')).length;
+  logEl.innerHTML += `✅ storico: backup ${bkStCount} clienti + attuali ${nowStCount} clienti → uniti: <b>${merStCount} clienti</b><br>`;
+
+  // ── clients: prendi gli attuali (più aggiornati), fallback al backup ──
+  const clRaw = localStorage.getItem('chermisi_clients' + uidSuffix);
+  const nowCl = clRaw ? JSON.parse(clRaw) : (bkData['chermisi_clients'] || []);
+  merged['chermisi_clients'] = nowCl;
+  logEl.innerHTML += `✅ clients: ${nowCl.length} clienti (versione attuale conservata)<br>`;
+
+  // ── spese: prendi gli attuali, fallback al backup ──
+  const spRaw = localStorage.getItem('chermisi_spese' + uidSuffix);
+  const nowSp = spRaw ? JSON.parse(spRaw) : (bkData['chermisi_spese'] || []);
+  merged['chermisi_spese'] = nowSp;
+  logEl.innerHTML += `✅ spese: ${nowSp.length} voci (versione attuale conservata)<br>`;
+
+  // ── Salva emergency backup di quello che c'è ora ──
+  for (const key of CRITICAL_KEYS) {
+    const cur = localStorage.getItem(key + uidSuffix);
+    if (cur) { try { localStorage.setItem(key + uidSuffix + '_emergency', cur); } catch(e) {} }
+  }
+
+  // ── Scrivi dati uniti nel localStorage ──
+  for (const key of CRITICAL_KEYS) {
+    try {
+      localStorage.setItem(key + uidSuffix, JSON.stringify(merged[key]));
+      localStorage.setItem(key + uidSuffix + '_ts', now);
+    } catch(e) { logEl.innerHTML += `❌ Errore scrittura ${key}: ${e.message}<br>`; }
+  }
+
+  // ── Salva anche in Firestore se loggata ──
+  if (_uid) {
+    logEl.innerHTML += '<br>☁️ Aggiorno Firestore...<br>';
+    for (const key of CRITICAL_KEYS) {
+      try {
+        await setDoc(doc(db, 'users', _uid, 'data', key), {
+          data: JSON.stringify(merged[key]),
+          updatedAt: now
+        });
+        logEl.innerHTML += `✅ Firestore ${key} aggiornato<br>`;
+      } catch(e) { logEl.innerHTML += `⚠️ Firestore ${key}: ${e.message} (dato locale salvato ugualmente)<br>`; }
+    }
+  }
+
+  logEl.innerHTML += `<br><b style="color:#27ae60">✅ Unione completata! Apro l'app tra 3 secondi…</b><br>`;
+  document.getElementById('status').textContent = '✅ Dati uniti! Apertura app…';
+  setTimeout(() => { window.location.href = APP_URL; }, 3000);
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
 // BACKUP LOCALI — scansiona _bk1 / _bk2 / _bk3 salvati dall'app nel browser
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -431,6 +540,7 @@ window.scanLocalBackups = function() {
 
     if (hasAny) {
       document.getElementById('btn-restore-bk' + bkN).style.display = '';
+      if (bkN === 1) document.getElementById('btn-merge-bk1').style.display = '';
     }
     html += `</div>`;
   }
