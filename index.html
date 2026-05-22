@@ -1189,6 +1189,19 @@ function load(key, def) {
 
 function save(key, val) {
   try {
+    // ── Backup automatico rotante (3 versioni) per le chiavi critiche ──
+    const CRITICAL_BK = [KEY_CAL_EVENTS, KEY_STORICO, KEY_CLIENTS, KEY_SPESE];
+    if (CRITICAL_BK.includes(key)) {
+      const prev = localStorage.getItem(_lsKey(key));
+      if (prev) {
+        const prevTs = localStorage.getItem(_lsKey(key) + '_ts') || '';
+        const bk1 = localStorage.getItem(_lsKey(key) + '_bk1');
+        const bk2 = localStorage.getItem(_lsKey(key) + '_bk2');
+        if (bk2) { try { localStorage.setItem(_lsKey(key) + '_bk3', bk2); } catch {} }
+        if (bk1) { try { localStorage.setItem(_lsKey(key) + '_bk2', bk1); } catch {} }
+        try { localStorage.setItem(_lsKey(key) + '_bk1', JSON.stringify({ data: prev, ts: prevTs })); } catch {}
+      }
+    }
     localStorage.setItem(_lsKey(key), JSON.stringify(val));
     localStorage.setItem(_lsKey(key) + '_ts', new Date().toISOString());
   } catch {}
@@ -1213,7 +1226,48 @@ async function fsSync(key, val) {
 }
 
 async function fsLoadAll() {
+  // ── SICUREZZA: carica da Firestore SOLO se il dato locale è assente (primo accesso) ──
+  // Non sovrascrive mai dati locali esistenti automaticamente.
+  // Per sincronizzare manualmente usa fsForceLoadAll().
   if (!window._db || !window._currentUid) return;
+  try {
+    const keys = [KEY_CLIENTS, KEY_REMINDERS, KEY_TEMPLATES, KEY_STORICO, KEY_CAL_EVENTS, KEY_SPESE];
+    let updated = false;
+    for (const key of keys) {
+      const localRaw = localStorage.getItem(_lsKey(key));
+      if (localRaw !== null) {
+        console.log('Dato locale presente, skip cloud:', key);
+        continue; // ← non sovrascrivere mai dati esistenti
+      }
+      // Dato assente (nuovo dispositivo/browser) → carica dal cloud
+      const snap = await window._fsGetDoc(
+        window._fsDoc(window._db, 'users', window._currentUid, 'data', key)
+      );
+      if (!snap.exists()) continue;
+      const val = JSON.parse(snap.data().data || '[]');
+      localStorage.setItem(_lsKey(key), JSON.stringify(val));
+      localStorage.setItem(_lsKey(key) + '_ts', snap.data().updatedAt || new Date().toISOString());
+      if (key === KEY_CLIENTS)   { clients  = val; }
+      if (key === KEY_REMINDERS) { reminders = val; }
+      if (key === KEY_TEMPLATES) { templates = val.length ? val : DEFAULT_TEMPLATES; }
+      if (key === KEY_STORICO)   { storico   = val; }
+      if (key === KEY_CAL_EVENTS){ calEvents = val; }
+      if (key === KEY_SPESE)     { spese     = val; }
+      updated = true;
+    }
+    if (updated) {
+      showToast('✅ Dati caricati dal cloud!');
+      renderClients(); renderReminders(); renderTemplates(); renderClientSelect(); renderTemplateSelect();
+      renderCalendar(); renderSpese();
+      rescheduleAll();
+    }
+  } catch(e) { console.warn('Firestore load error:', e); }
+}
+
+async function fsForceLoadAll() {
+  // Sincronizzazione forzata dal cloud (sovrascrive locale) — solo su richiesta esplicita
+  if (!window._db || !window._currentUid) { showToast('❌ Connessione non pronta'); return; }
+  if (!confirm('Attenzione: questo sovrascriverà i dati locali con quelli salvati nel cloud. Continuare?')) return;
   try {
     const keys = [KEY_CLIENTS, KEY_REMINDERS, KEY_TEMPLATES, KEY_STORICO, KEY_CAL_EVENTS, KEY_SPESE];
     let updated = false;
@@ -1222,30 +1276,23 @@ async function fsLoadAll() {
         window._fsDoc(window._db, 'users', window._currentUid, 'data', key)
       );
       if (!snap.exists()) continue;
-      const fsTs = snap.data().updatedAt || '0';
-      const localTs = localStorage.getItem(_lsKey(key) + '_ts') || '0';
-      // Carica da Firestore SOLO se è più recente del dato locale
-      if (fsTs <= localTs) {
-        console.log('Cloud più vecchio del locale, tengo locale:', key);
-        continue;
-      }
-      const val = JSON.parse(snap.data().data);
+      const val = JSON.parse(snap.data().data || '[]');
       localStorage.setItem(_lsKey(key), JSON.stringify(val));
-      localStorage.setItem(_lsKey(key) + '_ts', fsTs);
-      if (key === KEY_CLIENTS) { clients = val; }
+      localStorage.setItem(_lsKey(key) + '_ts', snap.data().updatedAt || new Date().toISOString());
+      if (key === KEY_CLIENTS)   { clients  = val; }
       if (key === KEY_REMINDERS) { reminders = val; }
       if (key === KEY_TEMPLATES) { templates = val.length ? val : DEFAULT_TEMPLATES; }
-      if (key === KEY_STORICO) { storico = val; }
-      if (key === KEY_CAL_EVENTS) { calEvents = val; }
+      if (key === KEY_STORICO)   { storico   = val; }
+      if (key === KEY_CAL_EVENTS){ calEvents = val; }
+      if (key === KEY_SPESE)     { spese     = val; }
       updated = true;
     }
     if (updated) {
-      showToast('✅ Dati sincronizzati dal cloud!');
       renderClients(); renderReminders(); renderTemplates(); renderClientSelect(); renderTemplateSelect();
-      renderCalendar(); renderSpese();
-      rescheduleAll();
+      renderCalendar(); renderSpese(); rescheduleAll();
+      showToast('✅ Dati ripristinati dal cloud!');
     }
-  } catch(e) { console.warn('Firestore load error:', e); }
+  } catch(e) { showToast('❌ Errore sync: ' + e.message); }
 }
 
 // Carica da Firestore quando Firebase è pronto
