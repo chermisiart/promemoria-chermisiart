@@ -5,34 +5,52 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Recupero Dati — ChèrmisiArt</title>
 <style>
-  body { font-family: sans-serif; background: #0e1a1a; color: #eee; padding: 20px; max-width: 900px; margin: 0 auto; }
+  body { font-family: sans-serif; background: #0e1a1a; color: #eee; padding: 20px; max-width: 960px; margin: 0 auto; }
   h2 { color: #50c8a0; }
-  button { background: #50c8a0; color: #0e1a1a; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: 700; margin: 6px 4px; }
+  button { background: #50c8a0; color: #0e1a1a; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 700; margin: 4px; }
   button:hover { background: #3db890; }
+  button.warn { background: #c8a96e; }
   button.danger { background: #e06060; color: #fff; }
+  button.sec { background: rgba(78,205,196,0.15); color: #50c8a0; border: 1px solid #50c8a0; }
   #status { color: #c8a96e; margin: 12px 0; font-size: 14px; min-height: 20px; }
-  #results { margin-top: 16px; }
-  .ev { background: #162828; border: 1px solid rgba(78,205,196,0.3); border-radius: 10px; padding: 12px; margin-bottom: 8px; }
+  .section { margin-top: 24px; }
+  .section-title { font-size: 15px; color: #c8a96e; font-weight: 700; margin-bottom: 10px; border-bottom: 1px solid rgba(200,169,110,0.3); padding-bottom: 6px; }
+  .ev { background: #162828; border: 1px solid rgba(78,205,196,0.25); border-radius: 10px; padding: 12px; margin-bottom: 8px; display:flex; align-items:flex-start; gap:12px; }
+  .ev.future { border-color: rgba(80,200,160,0.5); }
+  .ev.past   { border-color: rgba(150,150,150,0.2); opacity:.85; }
+  .ev-body { flex:1; min-width:0; }
   .ev-date { font-size: 13px; color: #50c8a0; font-weight: 600; }
-  .ev-name { font-size: 15px; color: #eee; margin: 4px 0; }
+  .ev-name { font-size: 15px; color: #eee; margin: 3px 0; }
   .ev-detail { font-size: 12px; color: #aaa; }
-  .section-title { font-size: 16px; color: #c8a96e; font-weight: 700; margin: 20px 0 10px; border-bottom: 1px solid rgba(200,169,110,0.3); padding-bottom: 6px; }
-  pre { background: #0a1414; border: 1px solid #333; border-radius: 8px; padding: 12px; font-size: 11px; overflow-x: auto; color: #ccc; max-height: 300px; overflow-y: auto; }
-  .badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; margin-left:6px; }
-  .badge-future { background:rgba(80,200,160,0.2); color:#50c8a0; border:1px solid #50c8a0; }
-  .badge-past { background:rgba(150,150,150,0.15); color:#aaa; }
-  .badge-today { background:rgba(200,169,110,0.2); color:#c8a96e; border:1px solid #c8a96e; }
+  .badge { display:inline-block; padding:2px 7px; border-radius:10px; font-size:10px; font-weight:700; margin-left:6px; }
+  .bf { background:rgba(80,200,160,0.2); color:#50c8a0; border:1px solid #50c8a0; }
+  .bp { background:rgba(150,150,150,0.15); color:#aaa; }
+  .bt { background:rgba(200,169,110,0.25); color:#c8a96e; border:1px solid #c8a96e; }
+  .stats-row { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px; }
+  .stat-box { background:#162828; border:1px solid rgba(78,205,196,0.3); border-radius:10px; padding:12px 16px; text-align:center; min-width:110px; }
+  .stat-val { font-size:22px; color:#50c8a0; font-weight:700; }
+  .stat-lbl { font-size:11px; color:#aaa; margin-top:4px; }
+  .restore-btn { font-size:11px; padding:4px 10px; margin:0; }
+  #restore-log { background:#0a1414; border:1px solid #333; border-radius:8px; padding:10px; font-size:12px; color:#ccc; max-height:200px; overflow-y:auto; margin-top:8px; display:none; }
+  .tabs { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+  .tab-btn { background:transparent; border:1px solid rgba(78,205,196,0.3); color:#aaa; border-radius:8px; padding:8px 16px; cursor:pointer; }
+  .tab-btn.active { background:rgba(78,205,196,0.15); color:#50c8a0; border-color:#50c8a0; }
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
 </style>
 </head>
 <body>
 <h2>🔍 Recupero Dati ChèrmisiArt</h2>
-<p style="color:#aaa;font-size:14px">Questo strumento legge direttamente da Firestore e mostra/ripristina tutti i tuoi dati salvati nel cloud.</p>
+<p style="color:#aaa;font-size:13px">Ricostruisce gli appuntamenti dai promemoria e dallo storico salvati in Firestore.</p>
 
-<button onclick="startRecovery()">🔐 Accedi con Google e recupera dati</button>
-<button onclick="exportAll()" id="btn-export" style="display:none">💾 Scarica backup JSON</button>
-<button onclick="restoreToApp()" id="btn-restore" style="display:none" class="danger">⚠️ Ripristina nel browser</button>
+<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+  <button onclick="startRecovery()">🔐 Accedi con Google</button>
+  <button class="warn" onclick="exportAll()" id="btn-export" style="display:none">💾 Backup JSON completo</button>
+  <button class="danger" onclick="restoreCalEvents()" id="btn-restore-cal" style="display:none">♻️ Ripristina appuntamenti ricostruiti</button>
+</div>
 
-<div id="status">In attesa...</div>
+<div id="status">In attesa di accesso...</div>
+<div id="restore-log"></div>
 <div id="results"></div>
 
 <script type="module">
@@ -40,165 +58,247 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
-const firebaseConfig = {
+const app = initializeApp({
   apiKey: "AIzaSyD9lmycIBZZm7Ef3GumXYBcYEYMLeo4y0c",
   authDomain: "promemoria-chermisiart.firebaseapp.com",
   projectId: "promemoria-chermisiart",
   storageBucket: "promemoria-chermisiart.firebasestorage.app",
   messagingSenderId: "1008023462326",
   appId: "1:1008023462326:web:d31fd9ef1207e6e70e6117"
-};
-
-const app  = initializeApp(firebaseConfig);
+});
 const db   = getFirestore(app);
 const auth = getAuth(app);
 
 let _uid = null;
 let _allData = {};
+let _reconstructed = []; // appuntamenti ricostruiti dai promemoria
 
-function setStatus(msg) { document.getElementById('status').textContent = msg; }
+function setStatus(msg) { document.getElementById('status').innerHTML = msg; }
+function log(msg) {
+  const el = document.getElementById('restore-log');
+  el.style.display = 'block';
+  el.innerHTML += msg + '<br>';
+  el.scrollTop = el.scrollHeight;
+}
 
 window.startRecovery = async function() {
   setStatus('Accesso in corso...');
   try {
-    const provider = new GoogleAuthProvider();
-    const result   = await signInWithPopup(auth, provider);
+    const result = await signInWithPopup(auth, new GoogleAuthProvider());
     _uid = result.user.uid;
-    setStatus(`✅ Loggata come ${result.user.email} — lettura dati...`);
-    await loadAllData();
-  } catch(e) {
-    setStatus('❌ Errore: ' + e.message);
-  }
+    setStatus(`✅ ${result.user.email} — carico dati...`);
+    await loadAll();
+  } catch(e) { setStatus('❌ ' + e.message); }
 };
 
-async function loadAllData() {
-  const keys = [
-    'chermisi_cal_events',
-    'chermisi_clients',
-    'chermisi_reminders',
-    'chermisi_storico',
-    'chermisi_spese',
-    'chermisi_templates'
-  ];
-
+async function loadAll() {
+  const keys = ['chermisi_cal_events','chermisi_clients','chermisi_reminders','chermisi_storico','chermisi_spese'];
   for (const key of keys) {
     try {
       const snap = await getDoc(doc(db, 'users', _uid, 'data', key));
-      if (snap.exists()) {
-        const parsed = JSON.parse(snap.data().data || '[]');
-        _allData[key] = { data: parsed, updatedAt: snap.data().updatedAt };
-      } else {
-        _allData[key] = { data: [], updatedAt: null };
-      }
-    } catch(e) {
-      _allData[key] = { data: [], updatedAt: null, error: e.message };
-    }
+      _allData[key] = snap.exists() ? JSON.parse(snap.data().data || (key.includes('storico') ? '{}' : '[]')) : (key.includes('storico') ? {} : []);
+    } catch(e) { _allData[key] = key.includes('storico') ? {} : []; }
   }
-
-  renderResults();
+  reconstruct();
+  renderAll();
   document.getElementById('btn-export').style.display = '';
-  document.getElementById('btn-restore').style.display = '';
-  setStatus('✅ Dati caricati da Firestore!');
+  setStatus('✅ Dati caricati — vedi ricostruzione sotto');
 }
 
-function renderResults() {
-  const calEvents = _allData['chermisi_cal_events']?.data || [];
-  const clients   = _allData['chermisi_clients']?.data || [];
-  const spese     = _allData['chermisi_spese']?.data || [];
-  const reminders = _allData['chermisi_reminders']?.data || [];
-  const storico   = _allData['chermisi_storico']?.data || {};
+function reconstruct() {
+  const reminders = _allData['chermisi_reminders'] || [];
+  const clients   = _allData['chermisi_clients']   || [];
+  const calEvents = _allData['chermisi_cal_events'] || [];
+  const clientMap = {};
+  clients.forEach(c => clientMap[c.id] = c);
 
-  const today = new Date().toISOString().slice(0,10);
-  const todayStr = today;
+  // Raccoglie tutti gli appointmentDate unici dai promemoria di tipo 'appointment' o 'confirm'
+  const seen = new Set();
+  const fromReminders = [];
 
+  reminders.forEach(r => {
+    if (!r.appointmentDate) return;
+    const key = r.clientId + '_' + r.appointmentDate + '_' + (r.appointmentTime||'');
+    if (seen.has(key)) return;
+    seen.add(key);
+    fromReminders.push({
+      id: 'rec_' + r.clientId + '_' + r.appointmentDate,
+      type: 'client',
+      clientId: r.clientId,
+      clientName: clientMap[r.clientId]?.name || '(sconosciuta)',
+      date: r.appointmentDate,
+      timeStart: r.appointmentTime || '',
+      timeEnd: r.endTime || '',
+      trattamento: r.trattamento || '',
+      importo: 0,
+      color: '#4ecdc4',
+      _source: 'promemoria',
+      _reminderStatus: r.status,
+    });
+  });
+
+  // Confronta con cal_events esistenti: trova quelli MANCANTI
+  const calIds = new Set(calEvents.map(e => e.clientId + '_' + e.date + '_' + (e.timeStart||'')));
+  const missing = fromReminders.filter(r => !calIds.has(r.clientId + '_' + r.date + '_' + (r.timeStart||'')));
+
+  _reconstructed = missing;
+
+  // Anche quelli già presenti, per avere il quadro completo
+  window._allCalForRestore = { fromReminders, calEvents, missing };
+}
+
+function renderAll() {
+  const today     = new Date().toISOString().slice(0,10);
+  const clients   = _allData['chermisi_clients'] || [];
+  const calEvents = _allData['chermisi_cal_events'] || [];
+  const storico   = _allData['chermisi_storico'] || {};
   const clientMap = {};
   clients.forEach(c => clientMap[c.id] = c.name);
 
-  // Ordina appuntamenti per data
-  const sorted = [...calEvents].sort((a,b) => (a.date||'').localeCompare(b.date||''));
-  const future = sorted.filter(e => e.date >= todayStr);
-  const past   = sorted.filter(e => e.date < todayStr);
+  const { fromReminders, missing } = window._allCalForRestore;
+  const future = fromReminders.filter(e => e.date >= today).sort((a,b) => a.date.localeCompare(b.date)||a.timeStart.localeCompare(b.timeStart));
+  const past   = fromReminders.filter(e => e.date <  today).sort((a,b) => b.date.localeCompare(a.date));
+
+  // Storico recente (ultimi 60gg)
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-60);
+  const cutStr = cutoff.toISOString().slice(0,10);
+  const storicoRows = [];
+  Object.entries(storico).forEach(([cid, arr]) => {
+    if (cid.endsWith('_precauzioni') || !Array.isArray(arr)) return;
+    arr.forEach(s => { if (s.data >= cutStr) storicoRows.push({...s, clientName: clientMap[cid]||s.clientName||cid}); });
+  });
+  storicoRows.sort((a,b)=>b.data.localeCompare(a.data));
 
   let html = '';
 
-  // Riepilogo numeri
-  html += `<div class="section-title">📊 Riepilogo dati in Firestore</div>`;
-  html += `<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">
-    ${stat('📅 Appuntamenti', calEvents.length)}
-    ${stat('👤 Clienti', clients.length)}
-    ${stat('🔔 Promemoria', reminders.length)}
-    ${stat('💰 Spese/Entrate', spese.length)}
+  // Stats
+  html += `<div class="stats-row">
+    ${sbox(calEvents.length,'📅 Cal. Firestore')}
+    ${sbox(fromReminders.length,'🔔 Da promemoria')}
+    ${sbox(missing.length,'⚠️ Mancanti in cal','#e06060')}
+    ${sbox(clients.length,'👤 Clienti')}
   </div>`;
 
-  // Appuntamenti futuri (più importanti!)
-  html += `<div class="section-title">📅 Appuntamenti futuri (${future.length}) — DA RECUPERARE</div>`;
-  if (future.length === 0) {
-    html += '<div style="color:#aaa;padding:10px 0">Nessun appuntamento futuro trovato</div>';
+  // Appuntamenti mancanti (ricostruiti ma non in cal_events)
+  if (missing.length > 0) {
+    html += `<div class="section"><div class="section-title">⚠️ Appuntamenti ricostruiti dai promemoria — NON presenti in calendario (${missing.length})</div>`;
+    html += `<p style="font-size:13px;color:#c8a96e;margin-bottom:10px">Questi appuntamenti esistono nei promemoria ma mancano dal calendario. Clicca <b>"♻️ Ripristina appuntamenti ricostruiti"</b> per aggiungerli.</p>`;
+    missing.forEach(e => { html += evCard(e, today, true); });
+    html += `</div>`;
+    document.getElementById('btn-restore-cal').style.display = '';
   } else {
-    future.forEach(e => {
-      const nome = e.type === 'client' ? (clientMap[e.clientId] || '(cliente rimosso)') : (e.title || '—');
-      const isToday = e.date === todayStr;
-      const badge = isToday
-        ? '<span class="badge badge-today">OGGI</span>'
-        : '<span class="badge badge-future">FUTURO</span>';
-      html += `<div class="ev">
-        <div class="ev-date">${formatDate(e.date)} ${e.timeStart ? '· ore '+e.timeStart : ''} ${badge}</div>
-        <div class="ev-name">${escHtml(nome)}</div>
-        <div class="ev-detail">${e.trattamento ? '🔧 '+escHtml(e.trattamento) : ''} ${e.importo ? '· € '+e.importo : ''}</div>
-      </div>`;
-    });
+    html += `<div class="section"><div class="section-title">✅ Nessun appuntamento mancante rilevato</div></div>`;
   }
 
-  // Appuntamenti passati
-  html += `<div class="section-title">📅 Appuntamenti passati (${past.length})</div>`;
-  const recentPast = [...past].reverse().slice(0, 20);
-  recentPast.forEach(e => {
-    const nome = e.type === 'client' ? (clientMap[e.clientId] || '(cliente rimosso)') : (e.title || '—');
-    html += `<div class="ev">
-      <div class="ev-date">${formatDate(e.date)} ${e.timeStart ? '· ore '+e.timeStart : ''} <span class="badge badge-past">PASSATO</span></div>
-      <div class="ev-name">${escHtml(nome)}</div>
-      <div class="ev-detail">${e.trattamento ? '🔧 '+escHtml(e.trattamento) : ''} ${e.importo ? '· € '+e.importo : ''}</div>
+  // Tutti gli appuntamenti dai promemoria
+  html += `<div class="section">
+    <div class="section-title">📅 Tutti gli appuntamenti futuri dai promemoria (${future.length})</div>`;
+  future.forEach(e => { html += evCard(e, today, false); });
+  if (!future.length) html += '<div style="color:#aaa;padding:8px 0">Nessuno</div>';
+  html += `</div>`;
+
+  html += `<div class="section">
+    <div class="section-title">📅 Appuntamenti passati dai promemoria — ultimi 3 mesi (${past.length})</div>`;
+  past.slice(0,30).forEach(e => { html += evCard(e, today, false); });
+  if (!past.length) html += '<div style="color:#aaa;padding:8px 0">Nessuno</div>';
+  html += `</div>`;
+
+  // Storico recente
+  html += `<div class="section">
+    <div class="section-title">📋 Storico sedute recenti (ultimi 60 giorni) — ${storicoRows.length} voci</div>`;
+  storicoRows.slice(0,40).forEach(s => {
+    const df = fmtDate(s.data);
+    html += `<div class="ev past">
+      <div class="ev-body">
+        <div class="ev-date">${df} <span class="badge bp">STORICO</span></div>
+        <div class="ev-name">${esc(s.clientName)}</div>
+        <div class="ev-detail">${s.trattamento?'🔧 '+esc(s.trattamento):''} ${s.importo?'· € '+s.importo:''}</div>
+      </div>
     </div>`;
   });
-  if (past.length > 20) html += `<div style="color:#aaa;font-size:13px;padding:8px 0">... e altri ${past.length-20} appuntamenti passati (visibili nel JSON)</div>`;
+  if (!storicoRows.length) html += '<div style="color:#aaa;padding:8px 0">Nessuno</div>';
+  html += `</div>`;
 
   document.getElementById('results').innerHTML = html;
 }
 
-function stat(label, val) {
-  return `<div style="background:#162828;border:1px solid rgba(78,205,196,0.3);border-radius:10px;padding:12px 16px;text-align:center;min-width:120px">
-    <div style="font-size:22px;color:#50c8a0;font-weight:700">${val}</div>
-    <div style="font-size:12px;color:#aaa;margin-top:4px">${label}</div>
+function evCard(e, today, highlight) {
+  const isToday  = e.date === today;
+  const isFuture = e.date >= today;
+  const badge = isToday  ? `<span class="badge bt">OGGI</span>`
+              : isFuture ? `<span class="badge bf">FUTURO</span>`
+              :             `<span class="badge bp">PASSATO</span>`;
+  const cls = isFuture ? 'future' : 'past';
+  const border = highlight ? 'border-color:rgba(224,96,96,0.6)' : '';
+  return `<div class="ev ${cls}" style="${border}">
+    <div class="ev-body">
+      <div class="ev-date">${fmtDate(e.date)} ${e.timeStart?'· ore '+e.timeStart:''} ${badge} <span style="font-size:10px;color:#777">(${e._source})</span></div>
+      <div class="ev-name">${esc(e.clientName)}</div>
+      <div class="ev-detail">${e.trattamento?'🔧 '+esc(e.trattamento):''}</div>
+    </div>
   </div>`;
 }
 
-function formatDate(d) {
+function sbox(val, label, color) {
+  return `<div class="stat-box"><div class="stat-val" style="${color?'color:'+color:''}">${val}</div><div class="stat-lbl">${label}</div></div>`;
+}
+function fmtDate(d) {
   if (!d) return '—';
   return new Date(d+'T12:00').toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'long',year:'numeric'});
 }
-
-function escHtml(s) {
-  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 window.exportAll = function() {
-  const blob = new Blob([JSON.stringify(_allData, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'chermisiart-backup-' + new Date().toISOString().slice(0,10) + '.json';
-  a.click();
-  setStatus('✅ Backup scaricato!');
+  const blob = new Blob([JSON.stringify(_allData, null, 2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'chermisiart-backup-' + new Date().toISOString().slice(0,10) + '.json'; a.click();
 };
 
-window.restoreToApp = function() {
-  if (!confirm('Questo sovrascriverà i dati nel localStorage di questo browser con quelli di Firestore. Continuare?')) return;
-  const uid = _uid;
-  function lsKey(key) { return key + '__u' + uid.slice(-10); }
-  Object.entries(_allData).forEach(([key, val]) => {
-    localStorage.setItem(lsKey(key), JSON.stringify(val.data));
-    if (val.updatedAt) localStorage.setItem(lsKey(key)+'_ts', val.updatedAt);
+window.restoreCalEvents = async function() {
+  if (!_reconstructed.length) { alert('Nessun appuntamento da ripristinare.'); return; }
+  if (!confirm(`Aggiungere ${_reconstructed.length} appuntamenti mancanti al calendario in Firestore?`)) return;
+
+  const calEvents = [...(_allData['chermisi_cal_events'] || [])];
+  const clients   = _allData['chermisi_clients'] || [];
+  const templates = [];
+
+  // Aggiungi solo quelli mancanti
+  _reconstructed.forEach(e => {
+    // Trova il colore cliente
+    const client = clients.find(c => c.id === e.clientId);
+    calEvents.push({
+      id: 'ce_rec_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+      type: 'client',
+      color: '#4ecdc4',
+      clientId: e.clientId,
+      trattamento: e.trattamento,
+      date: e.date,
+      timeStart: e.timeStart,
+      timeEnd: e.timeEnd,
+      importo: 0,
+      createdAt: new Date().toISOString(),
+      reminderIds: [],
+      storicoPushed: false,
+      _recovered: true,
+    });
   });
-  setStatus('✅ Dati ripristinati in localStorage! Apri l\'app e ricarica.');
+
+  try {
+    await setDoc(doc(db, 'users', _uid, 'data', 'chermisi_cal_events'), {
+      data: JSON.stringify(calEvents),
+      updatedAt: new Date().toISOString()
+    });
+    _allData['chermisi_cal_events'] = calEvents;
+    log(`✅ Ripristinati ${_reconstructed.length} appuntamenti in Firestore`);
+    log('ℹ️ Ora apri l\'app, vai nelle Impostazioni e usa "Sincronizza dal cloud" per caricarli.');
+    setStatus('✅ Appuntamenti ripristinati! Ora sincronizza l\'app.');
+    _reconstructed = [];
+    document.getElementById('btn-restore-cal').style.display = 'none';
+    reconstruct();
+    renderAll();
+  } catch(e) {
+    log('❌ Errore: ' + e.message);
+  }
 };
 </script>
 </body>
