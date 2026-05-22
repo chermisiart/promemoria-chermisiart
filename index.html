@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ChèrmisiArt — Promemoria</title>
+<title>ChèrmisiArt Studio</title>
 <meta name="theme-color" content="#080e0e">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Promemoria">
+<meta name="apple-mobile-web-app-title" content="ChèrmisiArt Studio">
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -522,8 +522,8 @@
 <div class="app">
   <div class="header">
     <div>
-      <div class="header-title">Chèrmisi<span>Art</span> — Promemoria</div>
-      <div class="header-sub">Gestione messaggi clienti WhatsApp</div>
+      <div class="header-title">Chèrmisi<span>Art</span> Studio</div>
+      <div class="header-sub">Gestionale clienti</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;padding-top:4px">
       <button id="theme-toggle" onclick="toggleTheme()" title="Cambia tema">☀️</button>
@@ -2324,7 +2324,7 @@ function scheduleLocalNotification(reminder, clientName) {
   const delay = new Date(reminder.sendAt) - new Date();
   if (delay <= 0 || delay > 7*24*60*60*1000) return; // max 7 giorni
   setTimeout(() => {
-    new Notification('⏰ ChèrmisiArt — Promemoria', {
+    new Notification('⏰ ChèrmisiArt Studio', {
       body: 'È ora di scrivere a ' + (clientName||'cliente') + ' su WhatsApp!',
       icon: '/icon.png',
       tag: reminder.id,

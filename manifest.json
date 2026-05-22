@@ -1,7 +1,7 @@
 {
-  "name": "ChèrmisiArt — Promemoria",
-  "short_name": "Promemoria",
-  "description": "Gestione messaggi clienti WhatsApp",
+  "name": "ChèrmisiArt Studio",
+  "short_name": "ChèrmisiArt",
+  "description": "Gestionale clienti",
   "start_url": "/promemoria-chermisiart/",
   "scope": "/promemoria-chermisiart/",
   "display": "standalone",
