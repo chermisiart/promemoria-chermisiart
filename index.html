@@ -527,7 +527,7 @@
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;padding-top:4px">
       <button id="theme-toggle" onclick="toggleTheme()" title="Cambia tema">☀️</button>
-      <button onclick="fsForceLoadAll()" title="Sincronizza dal cloud" style="background:transparent;border:1px solid rgba(78,205,196,0.35);border-radius:10px;padding:6px 9px;font-size:15px;cursor:pointer;color:var(--accent)">🔄</button>
+      <button onclick="fsForceLoadAll()" title="Unisci dati cloud + locali (sicuro)" style="background:transparent;border:1px solid rgba(78,205,196,0.35);border-radius:10px;padding:6px 9px;font-size:15px;cursor:pointer;color:var(--accent)">🔄</button>
       <div id="auth-area"></div>
     </div>
   </div>
@@ -556,6 +556,15 @@
         <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="requestPushNotif()">Attiva notifiche</button>
         <button class="btn btn-ghost btn-sm" style="margin-top:8px;margin-left:6px" onclick="forceSaveToken()">🔄 Registra token</button>
         <div id="notif-status-label" class="notif-status off" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="perm-box" style="background:rgba(80,200,160,0.06);border-color:rgba(80,200,160,0.3)">
+      <div class="perm-icon">💾</div>
+      <div>
+        <div class="perm-text" style="color:#50c8a0">Backup dati</div>
+        <div class="perm-text" style="font-size:12px;margin-top:2px;color:rgba(237,247,246,0.6)">Scarica una copia di tutti i tuoi dati sul dispositivo. Fallo regolarmente!</div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px;border-color:#50c8a0;color:#50c8a0" onclick="exportBackupJSON()">⬇️ Scarica backup JSON</button>
       </div>
     </div>
 
@@ -1266,33 +1275,131 @@ async function fsLoadAll() {
 }
 
 async function fsForceLoadAll() {
-  // Sincronizzazione forzata dal cloud (sovrascrive locale) — solo su richiesta esplicita
+  // 🔀 MERGE SICURO: unisce dati cloud + locali senza mai cancellare nulla
   if (!window._db || !window._currentUid) { showToast('❌ Connessione non pronta'); return; }
-  if (!confirm('Attenzione: questo sovrascriverà i dati locali con quelli salvati nel cloud. Continuare?')) return;
+  if (!confirm('Unisci i dati del cloud con quelli locali?\n\nNON verrà cancellato nulla: i dati vengono combinati.')) return;
   try {
-    const keys = [KEY_CLIENTS, KEY_REMINDERS, KEY_TEMPLATES, KEY_STORICO, KEY_CAL_EVENTS, KEY_SPESE];
+    const now = new Date().toISOString();
     let updated = false;
-    for (const key of keys) {
-      const snap = await window._fsGetDoc(
-        window._fsDoc(window._db, 'users', window._currentUid, 'data', key)
-      );
-      if (!snap.exists()) continue;
-      const val = JSON.parse(snap.data().data || '[]');
-      localStorage.setItem(_lsKey(key), JSON.stringify(val));
-      localStorage.setItem(_lsKey(key) + '_ts', snap.data().updatedAt || new Date().toISOString());
-      if (key === KEY_CLIENTS)   { clients  = val; }
-      if (key === KEY_REMINDERS) { reminders = val; }
-      if (key === KEY_TEMPLATES) { templates = val.length ? val : DEFAULT_TEMPLATES; }
-      if (key === KEY_STORICO)   { storico   = val; }
-      if (key === KEY_CAL_EVENTS){ calEvents = val; }
-      if (key === KEY_SPESE)     { spese     = val; }
+
+    // ── cal_events: unisci per date+clientId+timeStart ──
+    const snapCal = await window._fsGetDoc(window._fsDoc(window._db, 'users', window._currentUid, 'data', KEY_CAL_EVENTS));
+    if (snapCal.exists()) {
+      const cloudCal = JSON.parse(snapCal.data().data || '[]');
+      const localCal = load(KEY_CAL_EVENTS, []);
+      const calMap = new Map();
+      cloudCal.forEach(e => calMap.set((e.date||'')+'|'+(e.clientId||e.title||'')+'|'+(e.timeStart||''), e));
+      localCal.forEach(e => calMap.set((e.date||'')+'|'+(e.clientId||e.title||'')+'|'+(e.timeStart||''), e));
+      calEvents = Array.from(calMap.values()).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+      save(KEY_CAL_EVENTS, calEvents);
       updated = true;
     }
+
+    // ── storico: unisci per cliente e per data+trattamento ──
+    const snapSt = await window._fsGetDoc(window._fsDoc(window._db, 'users', window._currentUid, 'data', KEY_STORICO));
+    if (snapSt.exists()) {
+      const cloudSt = JSON.parse(snapSt.data().data || '{}');
+      const localSt = load(KEY_STORICO, {});
+      const stMerged = { ...localSt };
+      Object.keys(cloudSt).forEach(cid => {
+        if (cid.endsWith('_precauzioni')) {
+          if (!stMerged[cid]) stMerged[cid] = cloudSt[cid];
+          return;
+        }
+        const cloudArr = Array.isArray(cloudSt[cid]) ? cloudSt[cid] : [];
+        const localArr = Array.isArray(stMerged[cid]) ? stMerged[cid] : [];
+        const sMap = new Map();
+        cloudArr.forEach(s => sMap.set((s.data||'')+'|'+(s.trattamento||''), s));
+        localArr.forEach(s => sMap.set((s.data||'')+'|'+(s.trattamento||''), s));
+        stMerged[cid] = Array.from(sMap.values()).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+      });
+      storico = stMerged;
+      save(KEY_STORICO, storico);
+      updated = true;
+    }
+
+    // ── clients: prendi locali, aggiungi eventuali clienti cloud mancanti ──
+    const snapCl = await window._fsGetDoc(window._fsDoc(window._db, 'users', window._currentUid, 'data', KEY_CLIENTS));
+    if (snapCl.exists()) {
+      const cloudCl = JSON.parse(snapCl.data().data || '[]');
+      const localCl = load(KEY_CLIENTS, []);
+      const clMap = new Map();
+      cloudCl.forEach(c => clMap.set(c.id, c));
+      localCl.forEach(c => clMap.set(c.id, c)); // locali vincono
+      clients = Array.from(clMap.values());
+      save(KEY_CLIENTS, clients);
+      updated = true;
+    }
+
+    // ── reminders, templates, spese: aggiungi cloud solo se locale è vuoto ──
+    for (const key of [KEY_REMINDERS, KEY_TEMPLATES, KEY_SPESE]) {
+      const local = load(key, []);
+      if (local.length > 0) continue; // locale ha dati, non toccare
+      const snap = await window._fsGetDoc(window._fsDoc(window._db, 'users', window._currentUid, 'data', key));
+      if (!snap.exists()) continue;
+      const val = JSON.parse(snap.data().data || '[]');
+      if (key === KEY_REMINDERS) { reminders = val; save(KEY_REMINDERS, val); }
+      if (key === KEY_TEMPLATES) { templates = val.length ? val : DEFAULT_TEMPLATES; save(KEY_TEMPLATES, templates); }
+      if (key === KEY_SPESE)     { spese = val; save(KEY_SPESE, val); }
+      updated = true;
+    }
+
     if (updated) {
-      showToast('✅ Dati ripristinati dal cloud! Ricarico...');
-      setTimeout(() => location.reload(), 1200);
+      renderClients(); renderReminders(); renderTemplates(); renderClientSelect(); renderTemplateSelect();
+      renderCalendar(); renderSpese(); rescheduleAll();
+      showToast('✅ Dati uniti con il cloud!');
+    } else {
+      showToast('ℹ️ Nessun dato nuovo dal cloud');
     }
   } catch(e) { showToast('❌ Errore sync: ' + e.message); }
+}
+
+// ── Esporta backup JSON completo sul dispositivo ──
+function exportBackupJSON() {
+  try {
+    const backup = {
+      exportedAt: new Date().toISOString(),
+      version: 1,
+      data: {
+        [KEY_CAL_EVENTS]: calEvents,
+        [KEY_CLIENTS]:    clients,
+        [KEY_STORICO]:    storico,
+        [KEY_REMINDERS]:  reminders,
+        [KEY_SPESE]:      spese,
+        [KEY_TEMPLATES]:  templates,
+      }
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'chermisiart-backup-' + new Date().toISOString().slice(0,10) + '.json';
+    a.click();
+    showToast('✅ Backup scaricato!');
+  } catch(e) { showToast('❌ Errore export: ' + e.message); }
+}
+
+// ── Backup giornaliero automatico (una volta al giorno) ──
+function dailyAutoBackup() {
+  try {
+    const today = new Date().toISOString().slice(0,10);
+    const lastBk = localStorage.getItem('chermisi_daily_bk_date');
+    if (lastBk === today) return; // già fatto oggi
+    const CRITICAL_BK = [KEY_CAL_EVENTS, KEY_STORICO, KEY_CLIENTS, KEY_SPESE];
+    CRITICAL_BK.forEach(key => {
+      const raw = localStorage.getItem(_lsKey(key));
+      if (!raw) return;
+      const ts = localStorage.getItem(_lsKey(key) + '_ts') || '';
+      try { localStorage.setItem(_lsKey(key) + '_daily_' + today, JSON.stringify({ data: raw, ts })); } catch {}
+      // Mantieni solo gli ultimi 7 giorni
+      for (let i = 8; i <= 30; i++) {
+        const old = new Date(); old.setDate(old.getDate() - i);
+        const oldDate = old.toISOString().slice(0,10);
+        localStorage.removeItem(_lsKey(key) + '_daily_' + oldDate);
+      }
+    });
+    localStorage.setItem('chermisi_daily_bk_date', today);
+    console.log('✅ Backup giornaliero salvato:', today);
+  } catch(e) { console.warn('Daily backup error:', e); }
 }
 
 // Carica da Firestore quando Firebase è pronto
@@ -1798,7 +1905,9 @@ document.addEventListener('userSignedIn', async (e) => {
   document.getElementById('signin-overlay').style.display = 'none';
   // Migra eventuali dati vecchi al nuovo percorso sicuro
   await migrateOldFirestoreData(user.uid);
-  // Carica dati dal cloud
+  // Backup giornaliero automatico
+  setTimeout(dailyAutoBackup, 2000);
+  // Carica dati dal cloud (solo se dati locali assenti)
   setTimeout(fsLoadAll, 600);
 });
 
