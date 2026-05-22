@@ -1289,9 +1289,8 @@ async function fsForceLoadAll() {
       updated = true;
     }
     if (updated) {
-      renderClients(); renderReminders(); renderTemplates(); renderClientSelect(); renderTemplateSelect();
-      renderCalendar(); renderSpese(); rescheduleAll();
-      showToast('✅ Dati ripristinati dal cloud!');
+      showToast('✅ Dati ripristinati dal cloud! Ricarico...');
+      setTimeout(() => location.reload(), 1200);
     }
   } catch(e) { showToast('❌ Errore sync: ' + e.message); }
 }
