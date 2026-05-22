@@ -745,6 +745,22 @@
   <div id="panel-spese" class="panel">
     <!-- Riepilogo -->
     <div id="spese-summary" style="margin-bottom:16px"></div>
+
+    <!-- Card Entrata extra -->
+    <div class="card" id="card-new-entrata">
+      <div class="card-title" onclick="toggleCard('card-new-entrata')" style="color:#50c8a0">💼 Entrata extra <span class="card-toggle">▾</span></div>
+      <div class="row">
+        <div class="field"><label>Importo (€)</label><input id="en-importo" type="number" step="0.01" min="0" placeholder="0.00"></div>
+        <div class="field"><label>Data</label><input id="en-data" type="date"></div>
+      </div>
+      <div class="field"><label>Fonte</label><input id="en-fonte" type="text" placeholder="Es. Centro estetico, Evento privato…"></div>
+      <div class="field"><label>Nota <span style="opacity:.5">(opzionale)</span></label><input id="en-nota" type="text" placeholder="Es. paga maggio, evento sabato…"></div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button id="en-save-btn" class="btn btn-primary" style="flex:1;background:rgba(80,200,160,0.15);border:1.5px solid #50c8a0;color:#50c8a0" onclick="saveEntrata()">Aggiungi entrata</button>
+        <button id="en-cancel-edit" class="btn btn-ghost" style="display:none" onclick="resetEntrataForm()">Annulla</button>
+      </div>
+    </div>
+
     <div class="card" id="card-new-spesa">
       <div class="card-title" onclick="toggleCard('card-new-spesa')">✦ Nuova spesa <span class="card-toggle">▾</span></div>
       <div class="row">
@@ -1365,6 +1381,74 @@ function resetSpeseForm() {
   document.getElementById('sp-cancel-edit')?.style && (document.getElementById('sp-cancel-edit').style.display = 'none');
 }
 
+// ── ENTRATE EXTRA ───────────────────────────────────
+function resetEntrataForm() {
+  const t = new Date();
+  const today = t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+  document.getElementById('en-importo').value = '';
+  document.getElementById('en-data').value = today;
+  document.getElementById('en-fonte').value = '';
+  document.getElementById('en-nota').value = '';
+  const btn = document.getElementById('en-save-btn');
+  if (btn) { btn.textContent = 'Aggiungi entrata'; btn.onclick = saveEntrata; }
+  const cancel = document.getElementById('en-cancel-edit');
+  if (cancel) cancel.style.display = 'none';
+  document.getElementById('card-new-entrata')?.classList.add('collapsed');
+}
+
+function saveEntrata() {
+  const importo = parseFloat(document.getElementById('en-importo').value);
+  const data    = document.getElementById('en-data').value;
+  const fonte   = document.getElementById('en-fonte').value.trim();
+  const nota    = document.getElementById('en-nota').value.trim();
+  if (!importo || importo <= 0) { showToast('⚠️ Inserisci un importo'); return; }
+  if (!data)   { showToast('⚠️ Inserisci la data'); return; }
+  if (!fonte)  { showToast('⚠️ Inserisci la fonte (es. Centro estetico)'); return; }
+  spese.push({ id: uid(), tipo: 'entrata', importo, data, fonte, nota, createdAt: new Date().toISOString() });
+  save(KEY_SPESE, spese);
+  resetEntrataForm();
+  initSpeseFilters();
+  renderSpese();
+  showToast('✅ Entrata aggiunta!');
+}
+
+function editEntrata(id) {
+  const s = spese.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('en-importo').value = s.importo;
+  document.getElementById('en-data').value    = s.data;
+  document.getElementById('en-fonte').value   = s.fonte || '';
+  document.getElementById('en-nota').value    = s.nota  || '';
+  const btn = document.getElementById('en-save-btn');
+  btn.textContent = 'Salva modifiche';
+  btn.onclick = () => {
+    const importo = parseFloat(document.getElementById('en-importo').value);
+    const data    = document.getElementById('en-data').value;
+    const fonte   = document.getElementById('en-fonte').value.trim();
+    const nota    = document.getElementById('en-nota').value.trim();
+    if (!importo || importo <= 0) { showToast('⚠️ Inserisci un importo'); return; }
+    if (!data)  { showToast('⚠️ Inserisci la data'); return; }
+    if (!fonte) { showToast('⚠️ Inserisci la fonte'); return; }
+    const idx = spese.findIndex(x => x.id === id);
+    if (idx !== -1) spese[idx] = { ...spese[idx], importo, data, fonte, nota };
+    save(KEY_SPESE, spese);
+    resetEntrataForm();
+    renderSpese();
+    showToast('✅ Entrata modificata!');
+  };
+  document.getElementById('en-cancel-edit').style.display = '';
+  document.getElementById('card-new-entrata').classList.remove('collapsed');
+  document.getElementById('card-new-entrata').scrollIntoView({ behavior: 'smooth' });
+}
+
+function deleteEntrata(id) {
+  if (!confirm('Eliminare questa entrata?')) return;
+  spese = spese.filter(s => s.id !== id);
+  save(KEY_SPESE, spese);
+  renderSpese();
+}
+
+// ────────────────────────────────────────────────────
 function saveSpesa() {
   const importo = parseFloat(document.getElementById('sp-importo').value);
   const data    = document.getElementById('sp-data').value;
@@ -1431,15 +1515,19 @@ function renderSpese() {
   const filtered = spese.filter(s => s.data && s.data.startsWith(prefix));
   const sorted = [...filtered].sort((a,b) => b.data.localeCompare(a.data));
 
-  // Entrate dallo storico per lo stesso periodo
-  let entrate = 0;
+  const usciteFiltrate  = filtered.filter(s => s.tipo !== 'entrata');
+  const entrateFiltrate = filtered.filter(s => s.tipo === 'entrata');
+
+  // Entrate: appuntamenti storico + entrate extra
+  let entrateStorico = 0;
   Object.values(storico).forEach(sedute => {
     (Array.isArray(sedute) ? sedute : []).forEach(s => {
-      if (s.data && s.data.startsWith(prefix)) entrate += parseFloat(s.importo || 0);
+      if (s.data && s.data.startsWith(prefix)) entrateStorico += parseFloat(s.importo || 0);
     });
   });
-
-  const uscite  = filtered.reduce((t, s) => t + parseFloat(s.importo || 0), 0);
+  const entrateExtra = entrateFiltrate.reduce((t, s) => t + parseFloat(s.importo || 0), 0);
+  const entrate = entrateStorico + entrateExtra;
+  const uscite  = usciteFiltrate.reduce((t, s) => t + parseFloat(s.importo || 0), 0);
   const margine = entrate - uscite;
   const fmt = v => v.toLocaleString('it-IT', { minimumFractionDigits:2, maximumFractionDigits:2 });
 
@@ -1450,21 +1538,31 @@ function renderSpese() {
   </div>`;
 
   if (!sorted.length) {
-    listEl.innerHTML = '<div class="empty" style="padding:20px 0">Nessuna spesa registrata</div>';
+    listEl.innerHTML = '<div class="empty" style="padding:20px 0">Nessuna voce registrata</div>';
     return;
   }
   listEl.innerHTML = sorted.map(s => {
-    const icon = SPESE_CAT_ICONS[s.categoria] || '➕';
+    const isEntrata = s.tipo === 'entrata';
+    const icon = isEntrata ? '💼' : (SPESE_CAT_ICONS[s.categoria] || '➕');
     const dataFmt = s.data ? new Date(s.data+'T12:00').toLocaleDateString('it-IT',{day:'numeric',month:'long',year:'numeric'}) : '';
-    return `<div class="spesa-item">
+    const nome = isEntrata
+      ? escHtml(s.fonte || 'Entrata') + (s.nota ? ' · <span style="opacity:.7;font-size:12px">'+escHtml(s.nota)+'</span>' : '')
+      : escHtml(s.categoria) + (s.nota ? ' · <span style="opacity:.7;font-size:12px">'+escHtml(s.nota)+'</span>' : '');
+    const importoStr = parseFloat(s.importo).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const importoEl = isEntrata
+      ? `<div class="spesa-importo" style="color:#50c8a0">+ € ${importoStr}</div>`
+      : `<div class="spesa-importo">− € ${importoStr}</div>`;
+    const editFn  = isEntrata ? `editEntrata('${s.id}')` : `editSpesa('${s.id}')`;
+    const delFn   = isEntrata ? `deleteEntrata('${s.id}')` : `deleteSpesa('${s.id}')`;
+    return `<div class="spesa-item"${isEntrata ? ' style="border-color:rgba(80,200,160,0.25)"' : ''}>
       <div class="spesa-cat">${icon}</div>
       <div class="spesa-info">
-        <div class="spesa-nome">${escHtml(s.categoria)}${s.nota ? ' · <span style="opacity:.7;font-size:12px">'+escHtml(s.nota)+'</span>' : ''}</div>
+        <div class="spesa-nome">${nome}</div>
         <div class="spesa-data">${dataFmt}</div>
       </div>
-      <div class="spesa-importo">− € ${parseFloat(s.importo).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-      <button onclick="editSpesa('${s.id}')" style="background:transparent;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0 3px;line-height:1" title="Modifica">✏️</button>
-      <button onclick="deleteSpesa('${s.id}')" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 2px;line-height:1" title="Elimina">✕</button>
+      ${importoEl}
+      <button onclick="${editFn}" style="background:transparent;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0 3px;line-height:1" title="Modifica">✏️</button>
+      <button onclick="${delFn}" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 2px;line-height:1" title="Elimina">✕</button>
     </div>`;
   }).join('');
 }
@@ -3481,7 +3579,12 @@ function openStatsMonth(year, month) {
     });
   });
   sedute.sort((a,b) => a.data.localeCompare(b.data));
-  const totale = sedute.reduce((t,s) => t + (parseFloat(s.importo)||0), 0);
+  const totaleAppuntamenti = sedute.reduce((t,s) => t + (parseFloat(s.importo)||0), 0);
+  // Entrate extra per questo mese
+  const entrateExtraMese = spese.filter(s => s.tipo === 'entrata' && s.data && s.data.startsWith(prefix));
+  entrateExtraMese.sort((a,b) => a.data.localeCompare(b.data));
+  const totaleExtra = entrateExtraMese.reduce((t,s) => t + (parseFloat(s.importo)||0), 0);
+  const totale = totaleAppuntamenti + totaleExtra;
   const light = document.body.classList.contains('light-mode');
   const bg = light ? '#f0faf9' : '#0d1f1f';
   const border = light ? 'rgba(26,138,138,0.28)' : 'rgba(78,205,196,0.28)';
@@ -3515,7 +3618,25 @@ function openStatsMonth(year, month) {
             <div style="font-size:18px;color:var(--text);font-family:'Cormorant Garamond',serif">${sedute.length}</div>
           </div>
         </div>
-        <div style="overflow-y:auto;flex:1">${rows || '<div style="padding:20px;text-align:center;color:var(--muted)">Nessuna seduta</div>'}</div>
+        <div style="overflow-y:auto;flex:1">
+          ${rows || '<div style="padding:20px 0;text-align:center;color:var(--muted)">Nessuna seduta</div>'}
+          ${entrateExtraMese.length ? `
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid ${border}">
+              <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#50c8a0;margin-bottom:8px">💼 Entrate extra</div>
+              ${entrateExtraMese.map(s => {
+                const dataFmt = new Date(s.data+'T12:00').toLocaleDateString('it-IT',{day:'numeric',month:'short'});
+                const imp = parseFloat(s.importo)||0;
+                return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid ${border}">
+                  <div style="font-size:11px;color:var(--muted);min-width:38px">${dataFmt}</div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:13px;color:var(--text)">${escHtml(s.fonte||'Entrata extra')}</div>
+                    ${s.nota ? `<div style="font-size:11px;color:var(--muted)">${escHtml(s.nota)}</div>` : ''}
+                  </div>
+                  <div style="font-size:14px;color:#50c8a0;font-weight:500">+ € ${imp.toFixed(2)}</div>
+                </div>`;
+              }).join('')}
+            </div>` : ''}
+        </div>
       </div>
     </div>`);
 }
@@ -3578,7 +3699,21 @@ function renderStats() {
     });
   });
 
-  const avg = sessions > 0 ? total/sessions : 0;
+  // Aggiungi entrate extra al totale e al grafico mensile
+  let entrateExtraTotal = 0;
+  spese.filter(s => s.tipo === 'entrata' && s.data).forEach(s => {
+    const d = new Date(s.data+'T12:00:00');
+    if (filterYear !== null && d.getFullYear() !== filterYear) return;
+    const imp = parseFloat(s.importo)||0;
+    total += imp;
+    entrateExtraTotal += imp;
+    byMonth[d.getMonth()] += imp;
+    const yr = d.getFullYear();
+    if (!byYear[yr]) byYear[yr] = 0;
+    byYear[yr] += imp;
+  });
+
+  const avg = sessions > 0 ? (total - entrateExtraTotal)/sessions : 0;
 
   // Colori adattivi al tema
   const light = document.body.classList.contains('light-mode');
@@ -3713,6 +3848,7 @@ initContactPicker();
 renderClientSelect(); renderTemplateSelect(); renderReminders(); renderClients(); renderTemplates();
 // Spese: reset form con data di oggi
 resetSpeseForm();
+resetEntrataForm();
 rescheduleAll();
 migrateImportoFromNote();
 initCardStates();
