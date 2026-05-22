@@ -43,11 +43,27 @@
 <h2>🔍 Recupero Dati ChèrmisiArt</h2>
 <p style="color:#aaa;font-size:13px">Ricostruisce gli appuntamenti dai promemoria e dallo storico salvati in Firestore.</p>
 
+<!-- ══ SEZIONE BACKUP LOCALI — PRIORITÀ ASSOLUTA ══ -->
+<div style="background:#1a0a0a;border:2px solid #e06060;border-radius:14px;padding:16px;margin-bottom:16px">
+  <div style="color:#e06060;font-weight:700;font-size:16px;margin-bottom:8px">🆘 Ripristino da backup locale</div>
+  <p style="color:#ccc;font-size:13px;margin-bottom:12px">
+    Prima di fare qualsiasi altra cosa, controlla se nel tuo browser ci sono backup automatici salvati dall'app.
+    Questi backup vengono creati ad ogni salvataggio e <b>non sono stati toccati</b> dall'operazione precedente.
+    <br>Usa questo strumento <b>nello stesso browser/dispositivo</b> dove usi l'app.
+  </p>
+  <div style="display:flex;flex-wrap:wrap;gap:8px">
+    <button style="background:#e06060;color:#fff" onclick="scanLocalBackups()">🔍 Scansiona backup nel browser</button>
+    <button style="background:#e06060;color:#fff;display:none" id="btn-restore-bk1" onclick="restoreFromBackup(1)">↩️ Ripristina Backup 1 (più recente)</button>
+    <button style="background:#c04040;color:#fff;display:none" id="btn-restore-bk2" onclick="restoreFromBackup(2)">↩️ Ripristina Backup 2</button>
+    <button style="background:#a03030;color:#fff;display:none" id="btn-restore-bk3" onclick="restoreFromBackup(3)">↩️ Ripristina Backup 3 (più vecchio)</button>
+  </div>
+  <div id="backup-scan-result" style="margin-top:10px;font-size:13px;color:#ccc"></div>
+</div>
+
 <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
-  <button onclick="startRecovery()">🔐 Accedi con Google</button>
+  <button onclick="startRecovery()">🔐 Accedi con Google (per dati Firestore)</button>
   <button class="warn" onclick="exportAll()" id="btn-export" style="display:none">💾 Backup JSON completo</button>
   <button class="danger" onclick="restoreCalEvents()" id="btn-restore-cal" style="display:none">♻️ Ripristina appuntamenti ricostruiti in Firestore</button>
-  <button style="background:#9b59b6;color:#fff" onclick="restoreToLocalStorage()" id="btn-restore-ls" style="display:none">📲 Ripristina nel browser e apri app</button>
 </div>
 
 <div id="status">In attesa di accesso...</div>
@@ -343,6 +359,142 @@ window.restoreCalEvents = async function() {
   } catch(e) {
     log('❌ Errore: ' + e.message);
   }
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BACKUP LOCALI — scansiona _bk1 / _bk2 / _bk3 salvati dall'app nel browser
+// ══════════════════════════════════════════════════════════════════════════════
+
+const CRITICAL_KEYS = ['chermisi_cal_events','chermisi_storico','chermisi_clients','chermisi_spese'];
+let _bkData = { 1: {}, 2: {}, 3: {} }; // conterrà i dati di ogni backup
+
+function findUidSuffix() {
+  // Cerca automaticamente il suffisso UID nelle chiavi localStorage
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('chermisi_cal_events__u')) {
+      const suffix = k.replace('chermisi_cal_events','');
+      // verifica che sia il suffisso base (non _bk1 ecc.)
+      if (!suffix.includes('_bk') && !suffix.includes('_ts')) return suffix;
+    }
+  }
+  return null;
+}
+
+window.scanLocalBackups = function() {
+  const resultEl = document.getElementById('backup-scan-result');
+  const uidSuffix = findUidSuffix();
+
+  if (!uidSuffix) {
+    resultEl.innerHTML = '<span style="color:#e06060">❌ Nessun dato dell\'app trovato in questo browser. Assicurati di aprire questa pagina nello stesso browser/dispositivo dove usi l\'app ChèrmisiArt Studio.</span>';
+    return;
+  }
+
+  resultEl.innerHTML = `<div style="color:#50c8a0;margin-bottom:8px">✅ Trovato profilo utente (${uidSuffix})</div>`;
+  let html = '';
+
+  for (let bkN = 1; bkN <= 3; bkN++) {
+    html += `<div style="margin-bottom:12px;padding:10px;background:#0e0e0e;border-radius:8px;border:1px solid #333">`;
+    html += `<div style="color:#c8a96e;font-weight:700;margin-bottom:6px">Backup ${bkN} ${bkN===1?'(più recente)':bkN===3?'(più vecchio)':''}</div>`;
+    let hasAny = false;
+    _bkData[bkN] = {};
+
+    for (const key of CRITICAL_KEYS) {
+      const raw = localStorage.getItem(key + uidSuffix + '_bk' + bkN);
+      if (!raw) {
+        html += `<div style="color:#666;font-size:12px">${key}: non trovato</div>`;
+        continue;
+      }
+      try {
+        const bkObj = JSON.parse(raw);
+        const data  = JSON.parse(bkObj.data || (key.includes('storico') ? '{}' : '[]'));
+        const ts    = bkObj.ts ? new Date(bkObj.ts).toLocaleString('it-IT') : '—';
+        _bkData[bkN][key] = data;
+        hasAny = true;
+
+        let countStr = '';
+        if (Array.isArray(data)) {
+          countStr = `${data.length} elementi`;
+          if (key === 'chermisi_cal_events' && data.length) {
+            const dates = data.map(e=>e.date).filter(Boolean).sort();
+            countStr += ` · dal ${dates[0]} al ${dates[dates.length-1]}`;
+          }
+        } else if (typeof data === 'object') {
+          const clientCount = Object.keys(data).filter(k=>!k.endsWith('_precauzioni')).length;
+          countStr = `${clientCount} clienti con storico`;
+        }
+        html += `<div style="color:#eee;font-size:12px;margin-bottom:2px">✅ <b>${key}</b>: ${countStr} <span style="color:#666">(salvato ${ts})</span></div>`;
+      } catch(e) {
+        html += `<div style="color:#e06060;font-size:12px">⚠️ ${key}: errore lettura</div>`;
+      }
+    }
+
+    if (hasAny) {
+      document.getElementById('btn-restore-bk' + bkN).style.display = '';
+    }
+    html += `</div>`;
+  }
+
+  resultEl.innerHTML += html;
+  resultEl.innerHTML += `<p style="color:#c8a96e;font-size:13px;margin-top:8px">⬆️ Scegli il backup più recente con i dati corretti e clicca "Ripristina". I dati verranno scritti nel browser e l'app si aprirà.</p>`;
+};
+
+window.restoreFromBackup = async function(bkN) {
+  const uidSuffix = findUidSuffix();
+  if (!uidSuffix) { alert('Suffisso UID non trovato. Esegui prima la scansione.'); return; }
+  const data = _bkData[bkN];
+  if (!data || !Object.keys(data).length) { alert('Backup ' + bkN + ' non disponibile. Esegui prima la scansione.'); return; }
+
+  const now = new Date().toISOString();
+  const APP_URL = 'https://chermisiart.github.io/promemoria-chermisiart/';
+
+  // Prima salva una copia di emergenza di quello che c'è ora
+  const logEl = document.getElementById('restore-log');
+  logEl.style.display = 'block';
+
+  for (const key of CRITICAL_KEYS) {
+    const current = localStorage.getItem(key + uidSuffix);
+    if (current) {
+      try {
+        localStorage.setItem(key + uidSuffix + '_emergency', current);
+        logEl.innerHTML += `💾 Salvata copia emergenza di ${key}<br>`;
+      } catch(e) {}
+    }
+  }
+
+  // Ora scrivi il backup scelto
+  let written = 0;
+  for (const key of CRITICAL_KEYS) {
+    if (data[key] === undefined) { logEl.innerHTML += `⚠️ ${key}: non presente in questo backup, saltato<br>`; continue; }
+    try {
+      localStorage.setItem(key + uidSuffix, JSON.stringify(data[key]));
+      localStorage.setItem(key + uidSuffix + '_ts', now);
+      const count = Array.isArray(data[key]) ? data[key].length : Object.keys(data[key]).length;
+      logEl.innerHTML += `✅ ${key}: ${count} elementi ripristinati<br>`;
+      written++;
+    } catch(e) { logEl.innerHTML += `❌ ${key}: ${e.message}<br>`; }
+  }
+
+  if (written === 0) { logEl.innerHTML += '❌ Nessun dato scritto.<br>'; return; }
+
+  // Carica anche in Firestore se l'utente è loggato
+  if (_uid && window._db !== undefined) {
+    logEl.innerHTML += '<br>☁️ Carico anche in Firestore...<br>';
+    for (const key of CRITICAL_KEYS) {
+      if (data[key] === undefined) continue;
+      try {
+        await setDoc(doc(db, 'users', _uid, 'data', key), {
+          data: JSON.stringify(data[key]),
+          updatedAt: now
+        });
+        logEl.innerHTML += `✅ Firestore ${key} aggiornato<br>`;
+      } catch(e) { logEl.innerHTML += `⚠️ Firestore ${key}: ${e.message}<br>`; }
+    }
+  }
+
+  logEl.innerHTML += `<br><b style="color:#50c8a0">✅ Ripristino completato! Apro l'app tra 3 secondi…</b><br>`;
+  document.getElementById('status').textContent = '✅ Backup ripristinato! Apertura app…';
+  setTimeout(() => { window.location.href = APP_URL; }, 3000);
 };
 </script>
 </body>
