@@ -46,7 +46,8 @@
 <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
   <button onclick="startRecovery()">🔐 Accedi con Google</button>
   <button class="warn" onclick="exportAll()" id="btn-export" style="display:none">💾 Backup JSON completo</button>
-  <button class="danger" onclick="restoreCalEvents()" id="btn-restore-cal" style="display:none">♻️ Ripristina appuntamenti ricostruiti</button>
+  <button class="danger" onclick="restoreCalEvents()" id="btn-restore-cal" style="display:none">♻️ Ripristina appuntamenti ricostruiti in Firestore</button>
+  <button style="background:#9b59b6;color:#fff" onclick="restoreToLocalStorage()" id="btn-restore-ls" style="display:none">📲 Ripristina nel browser e apri app</button>
 </div>
 
 <div id="status">In attesa di accesso...</div>
@@ -102,6 +103,7 @@ async function loadAll() {
   reconstruct();
   renderAll();
   document.getElementById('btn-export').style.display = '';
+  document.getElementById('btn-restore-ls').style.display = '';
   setStatus('✅ Dati caricati — vedi ricostruzione sotto');
 }
 
@@ -252,6 +254,48 @@ window.exportAll = function() {
   const blob = new Blob([JSON.stringify(_allData, null, 2)], {type:'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = 'chermisiart-backup-' + new Date().toISOString().slice(0,10) + '.json'; a.click();
+};
+
+// ── Ripristino diretto nel localStorage del browser ──────────────────────────
+// Scrive tutti i dati Firestore nel localStorage usando le stesse chiavi dell'app
+// (key + '__u' + uid.slice(-10)), poi reindirizza all'app.
+window.restoreToLocalStorage = async function() {
+  if (!_uid || !Object.keys(_allData).length) {
+    alert('Prima effettua l\'accesso con Google (pulsante 🔐).'); return;
+  }
+  const uidSuffix = '__u' + _uid.slice(-10);
+  const APP_URL   = 'https://chermisiart.github.io/promemoria-chermisiart/';
+  const now       = new Date().toISOString();
+
+  const keyMap = {
+    'chermisi_cal_events' : 'chermisi_cal_events',
+    'chermisi_clients'    : 'chermisi_clients',
+    'chermisi_reminders'  : 'chermisi_reminders',
+    'chermisi_storico'    : 'chermisi_storico',
+    'chermisi_spese'      : 'chermisi_spese',
+  };
+
+  let written = 0;
+  for (const [fsKey, appKey] of Object.entries(keyMap)) {
+    const val = _allData[fsKey];
+    if (val === undefined || val === null) { log('⚠️ Chiave assente: ' + fsKey); continue; }
+    const lsKey = appKey + uidSuffix;
+    try {
+      localStorage.setItem(lsKey, JSON.stringify(val));
+      localStorage.setItem(lsKey + '_ts', now);
+      const count = Array.isArray(val) ? val.length : Object.keys(val).length;
+      log(`✅ ${fsKey}: ${count} elementi → localStorage["${lsKey}"]`);
+      written++;
+    } catch(e) { log('❌ ' + fsKey + ': ' + e.message); }
+  }
+
+  if (written === 0) { log('❌ Nessun dato scritto — controlla il log sopra'); return; }
+
+  log('');
+  log(`✅ Scritti ${written} dataset nel localStorage.`);
+  log('🚀 Apro l\'app tra 2 secondi…');
+  setStatus('✅ Dati scritti nel browser! Apertura app…');
+  setTimeout(() => { window.location.href = APP_URL; }, 2000);
 };
 
 window.restoreCalEvents = async function() {
