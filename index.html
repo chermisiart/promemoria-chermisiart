@@ -3737,10 +3737,7 @@ function openStatsMonth(year, month) {
   sedute.sort((a,b) => a.data.localeCompare(b.data));
   const totaleAppuntamenti = sedute.reduce((t,s) => t + (parseFloat(s.importo)||0), 0);
   // Entrate extra per questo mese
-  const entrateExtraMese = spese.filter(s => s.tipo === 'entrata' && s.data && s.data.startsWith(prefix));
-  entrateExtraMese.sort((a,b) => a.data.localeCompare(b.data));
-  const totaleExtra = entrateExtraMese.reduce((t,s) => t + (parseFloat(s.importo)||0), 0);
-  const totale = totaleAppuntamenti + totaleExtra;
+  const totale = totaleAppuntamenti;
   const light = document.body.classList.contains('light-mode');
   const bg = light ? '#f0faf9' : '#0d1f1f';
   const border = light ? 'rgba(26,138,138,0.28)' : 'rgba(78,205,196,0.28)';
@@ -3776,22 +3773,6 @@ function openStatsMonth(year, month) {
         </div>
         <div style="overflow-y:auto;flex:1">
           ${rows || '<div style="padding:20px 0;text-align:center;color:var(--muted)">Nessuna seduta</div>'}
-          ${entrateExtraMese.length ? `
-            <div style="margin-top:14px;padding-top:12px;border-top:1px solid ${border}">
-              <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#50c8a0;margin-bottom:8px">💼 Entrate extra</div>
-              ${entrateExtraMese.map(s => {
-                const dataFmt = new Date(s.data+'T12:00').toLocaleDateString('it-IT',{day:'numeric',month:'short'});
-                const imp = parseFloat(s.importo)||0;
-                return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid ${border}">
-                  <div style="font-size:11px;color:var(--muted);min-width:38px">${dataFmt}</div>
-                  <div style="flex:1;min-width:0">
-                    <div style="font-size:13px;color:var(--text)">${escHtml(s.fonte||'Entrata extra')}</div>
-                    ${s.nota ? `<div style="font-size:11px;color:var(--muted)">${escHtml(s.nota)}</div>` : ''}
-                  </div>
-                  <div style="font-size:14px;color:#50c8a0;font-weight:500">+ € ${imp.toFixed(2)}</div>
-                </div>`;
-              }).join('')}
-            </div>` : ''}
         </div>
       </div>
     </div>`);
@@ -3855,21 +3836,9 @@ function renderStats() {
     });
   });
 
-  // Aggiungi entrate extra al totale e al grafico mensile
-  let entrateExtraTotal = 0;
-  spese.filter(s => s.tipo === 'entrata' && s.data).forEach(s => {
-    const d = new Date(s.data+'T12:00:00');
-    if (filterYear !== null && d.getFullYear() !== filterYear) return;
-    const imp = parseFloat(s.importo)||0;
-    total += imp;
-    entrateExtraTotal += imp;
-    byMonth[d.getMonth()] += imp;
-    const yr = d.getFullYear();
-    if (!byYear[yr]) byYear[yr] = 0;
-    byYear[yr] += imp;
-  });
-
-  const avg = sessions > 0 ? (total - entrateExtraTotal)/sessions : 0;
+  // Le entrate extra (centro estetico ecc.) NON compaiono nelle statistiche,
+  // sono visibili solo nella sezione Spese.
+  const avg = sessions > 0 ? total/sessions : 0;
 
   // Colori adattivi al tema
   const light = document.body.classList.contains('light-mode');
