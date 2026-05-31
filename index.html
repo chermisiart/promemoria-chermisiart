@@ -3807,7 +3807,7 @@ function openStatsTreatment(catId, filterYear) {
     arr.forEach(s => {
       if (!s.data) return;
       if (filterYear !== null && new Date(s.data+'T12:00').getFullYear() !== filterYear) return;
-      if (detectCategory(s.trattamento) !== catId) return;
+      if ((s.categoria || detectCategory(s.trattamento)) !== catId) return;
       sedute.push({ ...s, clientName });
     });
   });
