@@ -3791,6 +3791,70 @@ function openStatsMonth(year, month) {
     </div>`);
 }
 
+function openStatsTreatment(catId, filterYear) {
+  const label = catLabel(catId);
+  const color = catColor(catId);
+  const light = document.body.classList.contains('light-mode');
+  const bg     = light ? '#f0faf9' : '#0d1f1f';
+  const border = light ? 'rgba(26,138,138,0.28)' : 'rgba(78,205,196,0.28)';
+
+  // Raccoglie tutte le sedute di questa categoria, filtrate per anno
+  const sedute = [];
+  Object.entries(storico).forEach(([clientId, arr]) => {
+    if (clientId.endsWith('_precauzioni') || !Array.isArray(arr)) return;
+    const client = clients.find(c => c.id === clientId);
+    const clientName = client?.name || arr.find(s=>s.clientName)?.clientName || '(profilo eliminato)';
+    arr.forEach(s => {
+      if (!s.data) return;
+      if (filterYear !== null && new Date(s.data+'T12:00').getFullYear() !== filterYear) return;
+      if (detectCategory(s.trattamento) !== catId) return;
+      sedute.push({ ...s, clientName });
+    });
+  });
+  sedute.sort((a,b) => b.data.localeCompare(a.data));
+  const totale = sedute.reduce((t,s) => t + (parseFloat(s.importo)||0), 0);
+
+  const rows = sedute.map(s => {
+    const dataFmt = new Date(s.data+'T12:00').toLocaleDateString('it-IT',{day:'numeric',month:'short',year:'numeric'});
+    const imp = parseFloat(s.importo)||0;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid ${border}">
+      <div style="font-size:11px;color:rgba(168,230,224,0.6);min-width:72px">${dataFmt}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;color:#edf7f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(s.clientName)}</div>
+        ${s.trattamento ? `<div style="font-size:11px;color:rgba(168,230,224,0.6);margin-top:1px">${escHtml(s.trattamento)}</div>` : ''}
+      </div>
+      <div style="font-size:14px;color:${color};font-weight:500;white-space:nowrap">${imp>0?'€ '+imp.toFixed(2):'—'}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('stats-treatment-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="stats-treatment-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)this.remove()">
+      <div style="background:${bg};border:1.5px solid ${border};border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:80vh;display:flex;flex-direction:column;padding:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="width:12px;height:12px;border-radius:50%;background:${color};display:inline-block;box-shadow:0 0 8px ${color}"></span>
+            <span style="font-family:'Cormorant Garamond',serif;font-size:20px;color:#edf7f6">${escHtml(label)}${filterYear ? ' · '+filterYear : ''}</span>
+          </div>
+          <button onclick="document.getElementById('stats-treatment-modal').remove()" style="background:transparent;border:none;color:rgba(237,247,246,0.6);font-size:22px;cursor:pointer;line-height:1">✕</button>
+        </div>
+        <div style="display:flex;gap:16px;margin-bottom:16px">
+          <div style="flex:1;background:rgba(78,205,196,0.08);border:1px solid ${border};border-radius:10px;padding:10px;text-align:center">
+            <div style="font-size:9px;color:rgba(168,230,224,0.6);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:4px">Totale</div>
+            <div style="font-size:18px;color:${color};font-family:'Cormorant Garamond',serif">€ ${totale.toFixed(2)}</div>
+          </div>
+          <div style="flex:1;background:rgba(78,205,196,0.08);border:1px solid ${border};border-radius:10px;padding:10px;text-align:center">
+            <div style="font-size:9px;color:rgba(168,230,224,0.6);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:4px">Sedute</div>
+            <div style="font-size:18px;color:#edf7f6;font-family:'Cormorant Garamond',serif">${sedute.length}</div>
+          </div>
+        </div>
+        <div style="overflow-y:auto;flex:1">
+          ${rows || '<div style="padding:20px 0;text-align:center;color:rgba(168,230,224,0.6)">Nessuna seduta</div>'}
+        </div>
+      </div>
+    </div>`);
+}
+
 function initStatsYearSelect() {
   const sel = document.getElementById('stats-year');
   if (!sel) return;
@@ -3843,7 +3907,7 @@ function renderStats() {
       byClient[clientId].total += imp;
       byClient[clientId].sessions++;
       const catId = s.categoria || detectCategory(s.trattamento);
-      if (!byTreatment[catId]) byTreatment[catId] = { total:0, sessions:0, label: catLabel(catId), color: catColor(catId) };
+      if (!byTreatment[catId]) byTreatment[catId] = { catId, total:0, sessions:0, label: catLabel(catId), color: catColor(catId) };
       byTreatment[catId].total += imp;
       byTreatment[catId].sessions++;
     });
@@ -3960,7 +4024,7 @@ function renderStats() {
     if (!sorted.length) { trattEl.innerHTML = '<div class="empty" style="padding:20px">Nessun dato disponibile</div>'; }
     else {
       const maxT = sorted[0].total || 1;
-      trattEl.innerHTML = sorted.map(t => `<div style="background:${TC.cardBg};border:1.5px solid ${TC.cardBorder};border-radius:10px;padding:12px 14px;margin-bottom:8px">
+      trattEl.innerHTML = sorted.map(t => `<div onclick="openStatsTreatment('${t.catId}',${filterYear})" style="background:${TC.cardBg};border:1.5px solid ${TC.cardBorder};border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .2s" onmouseover="this.style.borderColor='${t.color}'" onmouseout="this.style.borderColor='${TC.cardBorder}'">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <span style="display:flex;align-items:center;gap:8px">
             <span style="width:9px;height:9px;border-radius:50%;background:${t.color};display:inline-block;flex-shrink:0;box-shadow:0 0 6px ${t.color}"></span>
