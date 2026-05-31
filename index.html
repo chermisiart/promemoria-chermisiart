@@ -3736,8 +3736,10 @@ function openStatsMonth(year, month) {
   });
   sedute.sort((a,b) => a.data.localeCompare(b.data));
   const totaleAppuntamenti = sedute.reduce((t,s) => t + (parseFloat(s.importo)||0), 0);
-  // Entrate extra per questo mese
-  const totale = totaleAppuntamenti;
+  // Entrate extra Glam Studio per questo mese
+  const glamEntrate = spese.filter(s => s.tipo === 'entrata' && s.data && s.data.startsWith(prefix) && (s.fonte||'').toLowerCase().includes('glam'));
+  const totaleGlam = glamEntrate.reduce((t,s) => t + (parseFloat(s.importo)||0), 0);
+  const totale = totaleAppuntamenti + totaleGlam;
   const light = document.body.classList.contains('light-mode');
   const bg = light ? '#f0faf9' : '#0d1f1f';
   const border = light ? 'rgba(26,138,138,0.28)' : 'rgba(78,205,196,0.28)';
@@ -3751,6 +3753,17 @@ function openStatsMonth(year, month) {
         ${s.trattamento ? `<div style="font-size:11px;color:var(--muted);margin-top:1px">${escHtml(s.trattamento)}</div>` : ''}
       </div>
       <div style="font-size:14px;color:var(--accent);font-weight:500;white-space:nowrap">${imp>0?'€ '+imp.toFixed(2):'—'}</div>
+    </div>`;
+  }).join('') + glamEntrate.map(s => {
+    const dataFmt = new Date(s.data+'T12:00').toLocaleDateString('it-IT',{day:'numeric',month:'short'});
+    const imp = parseFloat(s.importo)||0;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid ${border}">
+      <div style="font-size:11px;color:var(--muted);min-width:38px">${dataFmt}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;color:#50c8a0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">💼 ${escHtml(s.fonte)}</div>
+        ${s.nota ? `<div style="font-size:11px;color:var(--muted);margin-top:1px">${escHtml(s.nota)}</div>` : ''}
+      </div>
+      <div style="font-size:14px;color:#50c8a0;font-weight:500;white-space:nowrap">${imp>0?'€ '+imp.toFixed(2):'—'}</div>
     </div>`;
   }).join('');
   document.getElementById('stats-month-modal')?.remove();
