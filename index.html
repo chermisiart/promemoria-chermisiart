@@ -3836,9 +3836,21 @@ function renderStats() {
     });
   });
 
-  // Le entrate extra (centro estetico ecc.) NON compaiono nelle statistiche,
-  // sono visibili solo nella sezione Spese.
-  const avg = sessions > 0 ? total/sessions : 0;
+  // Entrate extra Glam Studio: compaiono nelle statistiche come voce separata
+  let glamTotal = 0;
+  spese.filter(s => s.tipo === 'entrata' && s.data && (s.fonte||'').toLowerCase().includes('glam')).forEach(s => {
+    const d = new Date(s.data+'T12:00:00');
+    if (filterYear !== null && d.getFullYear() !== filterYear) return;
+    const imp = parseFloat(s.importo)||0;
+    glamTotal += imp;
+    total += imp;
+    byMonth[d.getMonth()] += imp;
+    const yr = d.getFullYear();
+    if (!byYear[yr]) byYear[yr] = 0;
+    byYear[yr] += imp;
+  });
+
+  const avg = sessions > 0 ? (total - glamTotal) / sessions : 0;
 
   // Colori adattivi al tema
   const light = document.body.classList.contains('light-mode');
