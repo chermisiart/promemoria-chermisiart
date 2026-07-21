@@ -528,6 +528,8 @@
     <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;padding-top:4px">
       <button id="theme-toggle" onclick="toggleTheme()" title="Cambia tema">☀️</button>
       <button onclick="fsForceLoadAll()" title="Unisci dati cloud + locali (sicuro)" style="background:transparent;border:1px solid rgba(78,205,196,0.35);border-radius:10px;padding:6px 9px;font-size:15px;cursor:pointer;color:var(--accent)">🔄</button>
+      <button onclick="exportBackupJSON()" title="Scarica backup dati" style="background:transparent;border:1px solid rgba(80,200,160,0.35);border-radius:10px;padding:6px 9px;font-size:15px;cursor:pointer;color:#50c8a0">💾</button>
+      <button onclick="reRegisterNotif()" title="Ri-registra notifiche push" style="background:transparent;border:1px solid rgba(78,205,196,0.35);border-radius:10px;padding:6px 9px;font-size:15px;cursor:pointer;color:var(--accent)">🔔</button>
       <div id="auth-area"></div>
     </div>
   </div>
@@ -559,26 +561,6 @@
       </div>
     </div>
 
-    <div class="perm-box" style="background:rgba(80,200,160,0.06);border-color:rgba(80,200,160,0.3)">
-      <div class="perm-icon">💾</div>
-      <div>
-        <div class="perm-text" style="color:#50c8a0">Backup dati</div>
-        <div class="perm-text" style="font-size:12px;margin-top:2px;color:rgba(237,247,246,0.6)">Scarica una copia di tutti i tuoi dati sul dispositivo. Fallo regolarmente!</div>
-        <button class="btn btn-ghost btn-sm" style="margin-top:8px;border-color:#50c8a0;color:#50c8a0" onclick="exportBackupJSON()">⬇️ Scarica backup JSON</button>
-      </div>
-    </div>
-
-    <div class="perm-box" style="background:rgba(78,205,196,0.06);border-color:rgba(78,205,196,0.3)">
-      <div class="perm-icon">🔔</div>
-      <div>
-        <div class="perm-text">Notifiche push</div>
-        <div class="perm-text" id="notif-reregister-text" style="font-size:12px;margin-top:2px;color:rgba(237,247,246,0.6)">Se le notifiche non arrivano, ri-registra il token.</div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
-          <button class="btn btn-ghost btn-sm" onclick="reRegisterNotif()">🔄 Ri-registra notifiche</button>
-          <button class="btn btn-ghost btn-sm" onclick="checkNotifStatus()">ℹ️ Stato</button>
-        </div>
-      </div>
-    </div>
 
     <div id="pwa-install-box" class="perm-box" style="display:none;background:#1a2810;border-color:#3a5020">
       <div class="perm-icon">📲</div>
