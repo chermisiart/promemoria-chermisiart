@@ -568,6 +568,18 @@
       </div>
     </div>
 
+    <div class="perm-box" style="background:rgba(78,205,196,0.06);border-color:rgba(78,205,196,0.3)">
+      <div class="perm-icon">🔔</div>
+      <div>
+        <div class="perm-text">Notifiche push</div>
+        <div class="perm-text" id="notif-reregister-text" style="font-size:12px;margin-top:2px;color:rgba(237,247,246,0.6)">Se le notifiche non arrivano, ri-registra il token.</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+          <button class="btn btn-ghost btn-sm" onclick="reRegisterNotif()">🔄 Ri-registra notifiche</button>
+          <button class="btn btn-ghost btn-sm" onclick="checkNotifStatus()">ℹ️ Stato</button>
+        </div>
+      </div>
+    </div>
+
     <div id="pwa-install-box" class="perm-box" style="display:none;background:#1a2810;border-color:#3a5020">
       <div class="perm-icon">📲</div>
       <div>
@@ -1829,6 +1841,37 @@ async function forceSaveToken() {
     showToast('❌ ' + e.message.slice(0,50));
     console.error('forceSaveToken error:', e);
   }
+}
+
+async function reRegisterNotif() {
+  const txt = document.getElementById('notif-reregister-text');
+  if (typeof Notification === 'undefined') {
+    if (txt) txt.textContent = '❌ Notifiche non supportate su questo browser.'; return;
+  }
+  if (Notification.permission !== 'granted') {
+    if (txt) txt.textContent = '⏳ Richiedo permesso...';
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { if (txt) txt.textContent = '❌ Permesso negato. Abilitale nelle impostazioni del browser.'; return; }
+  }
+  // Cancella token vecchio e ri-registra
+  localStorage.removeItem(KEY_FCM);
+  if (txt) txt.textContent = '⏳ Ri-registro il token...';
+  try {
+    await forceSaveToken();
+    if (txt) txt.textContent = '✅ Notifiche ri-registrate! Arriveranno di nuovo.';
+  } catch(e) {
+    if (txt) txt.textContent = '❌ Errore: ' + e.message;
+  }
+}
+
+function checkNotifStatus() {
+  const txt = document.getElementById('notif-reregister-text');
+  if (typeof Notification === 'undefined') { if (txt) txt.textContent = 'Browser non supportato.'; return; }
+  const perm = Notification.permission;
+  const token = localStorage.getItem(KEY_FCM);
+  const stato = perm === 'granted' ? '✅ Permesso concesso' : perm === 'denied' ? '❌ Permesso negato' : '⚠️ Non ancora richiesto';
+  const tok = token ? '✅ Token presente (...' + token.slice(-8) + ')' : '❌ Token assente';
+  if (txt) txt.textContent = stato + ' · ' + tok;
 }
 
 function checkNotifUI() {
