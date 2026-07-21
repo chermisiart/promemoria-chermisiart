@@ -525,13 +525,11 @@
       <div class="header-title">Chèrmisi<span>Art</span> Studio</div>
       <div class="header-sub">Gestionale clienti</div>
     </div>
-    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;padding-top:2px">
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+      <div id="auth-area"></div>
       <div style="display:flex;align-items:center;gap:8px">
         <button id="theme-toggle" onclick="toggleTheme()" title="Cambia tema">☀️</button>
         <button onclick="fsForceLoadAll()" title="Unisci dati cloud + locali (sicuro)" style="background:transparent;border:1px solid rgba(78,205,196,0.35);border-radius:10px;padding:6px 9px;font-size:15px;cursor:pointer;color:var(--accent)">🔄</button>
-        <div id="auth-area"></div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px">
         <button onclick="exportBackupJSON()" title="Scarica backup dati" style="background:transparent;border:1px solid rgba(80,200,160,0.35);border-radius:10px;padding:6px 9px;font-size:15px;cursor:pointer;color:#50c8a0">💾</button>
         <button onclick="reRegisterNotif()" title="Ri-registra notifiche push" style="background:transparent;border:1px solid rgba(78,205,196,0.35);border-radius:10px;padding:6px 9px;font-size:15px;cursor:pointer;color:var(--accent)">🔔</button>
       </div>
