@@ -199,6 +199,7 @@
   .dot-cycle     { background:#e6b050; box-shadow:0 0 6px #e6b050; }
   .dot-followup  { background:#e06060; box-shadow:0 0 6px #e06060; }
   .dot-birthday  { background:#e094c4; box-shadow:0 0 6px #e094c4; }
+  .dot-recupero  { background:#e0a050; box-shadow:0 0 6px #e0a050; }
   .dot-sent      { background:var(--muted); opacity:0.4; }
   .dot-custom    { background:var(--accent2); }
   .r-info { flex:1; min-width:0; }
@@ -215,6 +216,7 @@
   .badge-cycle       { background:rgba(230,176,80,0.12);  color:#e6b050;        border:1px solid rgba(230,176,80,0.2); }
   .badge-followup    { background:rgba(220,80,80,0.1);    color:#e08080;        border:1px solid rgba(220,80,80,0.2); }
   .badge-birthday    { background:rgba(224,148,196,0.12); color:#e094c4;        border:1px solid rgba(224,148,196,0.25); }
+  .badge-recupero    { background:rgba(224,160,80,0.12);  color:#e0a050;        border:1px solid rgba(224,160,80,0.25); }
   .badge-sent        { background:rgba(237,247,246,0.05); color:var(--muted);   border:1px solid rgba(237,247,246,0.1); }
   .badge-pending     { background:rgba(230,176,80,0.12);  color:#e6b050;        border:1px solid rgba(230,176,80,0.2); }
   .badge-custom      { background:rgba(168,230,224,0.1);  color:var(--accent2); border:1px solid rgba(168,230,224,0.2); }
@@ -823,6 +825,7 @@
             <option value="cycle">Promemoria seduta (ciclo)</option>
             <option value="followup">Follow-up riprenota</option>
             <option value="birthday">Compleanno</option>
+            <option value="recupero">Da recuperare</option>
             <option value="custom">Personalizzato / Altro</option>
           </select>
         </div>
@@ -1229,6 +1232,8 @@ const DEFAULT_TEMPLATES = [
     text: 'Ciao {nome}! Ti invio un promemoria per ricordarti che è il momento di riprogrammare il tuo appuntamento per {trattamento} — settimana prossima sarebbe il momento giusto per mantenere i risultati al meglio 😊 Fammi sapere quando sei disponibile. A presto!' },
   { id: 't5', name: 'Auguri di compleanno', type: 'birthday',
     text: 'Tanti auguri di buon compleanno {nome}! 🎉🌸 Ti auguro una giornata bellissima, a presto!' },
+  { id: 't6', name: 'Richiamo clienti da recuperare', type: 'recupero',
+    text: "Ciao {nome}, ho visto che è passato un po' di tempo dalla tua ultima {trattamento}. Se vuoi riprenotare, scrivimi pure quando preferisci 😊" },
 ];
 
 // ── Storage: localStorage + Firestore sync ──
@@ -1471,6 +1476,19 @@ document.addEventListener('firebaseReady', () => {
 let clients   = load(KEY_CLIENTS, []);
 let reminders = load(KEY_REMINDERS, []);
 let templates = load(KEY_TEMPLATES, DEFAULT_TEMPLATES);
+// Aggiunge i template di default introdotti dopo la prima configurazione, se mancano
+// (non tocca né sovrascrive template esistenti, anche se modificati a mano)
+(function seedMissingDefaultTemplates() {
+  let changed = false;
+  DEFAULT_TEMPLATES.forEach(dt => {
+    if (!templates.some(t => t.type === dt.type)) { templates.push({ ...dt }); changed = true; }
+  });
+  // Rete di sicurezza: rimuove eventuali doppioni con lo stesso id (mai legittimi, un id è unico per template)
+  const seenIds = new Set();
+  const deduped = templates.filter(t => { if (seenIds.has(t.id)) return false; seenIds.add(t.id); return true; });
+  if (deduped.length !== templates.length) { templates = deduped; changed = true; }
+  if (changed) save(KEY_TEMPLATES, templates);
+})();
 let calEvents = load(KEY_CAL_EVENTS, []);
 let spese     = load(KEY_SPESE, []);
 let followupRules = load(KEY_FOLLOWUP_RULES, DEFAULT_FOLLOWUP_RULES);
@@ -2391,9 +2409,9 @@ function formatDateIT(dateStr) {
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function escJs(s) { return String(s).replace(/'/g,"\\'").replace(/\n/g,' '); }
 
-const TYPE_LABELS = { confirm:'Conferma', appointment:'Promemoria', cycle:'Seduta', followup:'Follow-up', birthday:'Compleanno', custom:'Personalizzato' };
-const TYPE_DOT    = { confirm:'dot-confirm', appointment:'dot-appointment', cycle:'dot-cycle', followup:'dot-followup', birthday:'dot-birthday', custom:'dot-custom' };
-const TYPE_BADGE  = { confirm:'badge-confirm', appointment:'badge-appointment', cycle:'badge-cycle', followup:'badge-followup', birthday:'badge-birthday', custom:'badge-custom' };
+const TYPE_LABELS = { confirm:'Conferma', appointment:'Promemoria', cycle:'Seduta', followup:'Follow-up', birthday:'Compleanno', recupero:'Da recuperare', custom:'Personalizzato' };
+const TYPE_DOT    = { confirm:'dot-confirm', appointment:'dot-appointment', cycle:'dot-cycle', followup:'dot-followup', birthday:'dot-birthday', recupero:'dot-recupero', custom:'dot-custom' };
+const TYPE_BADGE  = { confirm:'badge-confirm', appointment:'badge-appointment', cycle:'badge-cycle', followup:'badge-followup', birthday:'badge-birthday', recupero:'badge-recupero', custom:'badge-custom' };
 
 // ── Form logic ──
 function onTypeChange() {
@@ -4425,7 +4443,10 @@ function openClientiDaRecuperare() {
   const border = light ? 'rgba(26,138,138,0.28)' : 'rgba(78,205,196,0.28)';
   const rows = lista.map(({ client, trattList, dettaglio }) => {
     const firstName = (client.name || '').split(' ')[0];
-    const msg = `Ciao ${firstName}! Ho visto che è passato un po' di tempo da quando hai fatto ${trattList}. Ci tengo a vederti in ordine 🙂 Fammi sapere se vuoi riprenotare. Ti aspetto!`;
+    const tpl = templates.find(t => t.type === 'recupero');
+    const msg = tpl
+      ? fillTemplate(tpl.text, { nome: firstName, trattamento: trattList })
+      : `Ciao ${firstName}! Ho visto che è passato un po' di tempo da quando hai fatto ${trattList}. Ci tengo a vederti in ordine 🙂 Fammi sapere se vuoi riprenotare. Ti aspetto!`;
     const link = waLink(client.phone, msg);
     return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid ${border}">
       <div style="flex:1;min-width:0;cursor:pointer" onclick="document.getElementById('stats-recuperare-modal').remove();openStorico('${client.id}', returnToStatsRecuperare, 'Statistiche')">
