@@ -1,3 +1,4 @@
+// redeploy 2026-07-22: forza ricreazione job Cloud Scheduler dopo riattivazione piano Blaze
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");

@@ -1211,8 +1211,8 @@ const KEY_FOLLOWUP_RULES = 'chermisi_followup_rules';
 // Regole per i promemoria di follow-up automatici (indipendenti dalle categorie statistiche,
 // così ogni trattamento può avere la propria cadenza anche se rientra nella stessa categoria stats)
 const DEFAULT_FOLLOWUP_RULES = [
-  { id:'mani',        nome:'Manicure',           keywords:['mani','manicure','unghie','gel','semipermanente','semiper','smalto','ricostruzione','nail'], cadenzaGiorni:30,  anticipoGiorni:7, sogliaGiorni:7 },
-  { id:'piedi',       nome:'Pedicure',           keywords:['piedi','pedicure','pedi','callosità'], cadenzaGiorni:30,  anticipoGiorni:7, sogliaGiorni:7 },
+  { id:'mani',        nome:'Manicure',           keywords:['manicure','unghie','semipermanente','semiper','smalto','ricostruzione unghie','nail'], cadenzaGiorni:30,  anticipoGiorni:7, sogliaGiorni:7 },
+  { id:'piedi',       nome:'Pedicure',           keywords:['pedicure','callosità'], cadenzaGiorni:30,  anticipoGiorni:7, sogliaGiorni:7 },
   { id:'ceretta',     nome:'Ceretta',            keywords:['ceretta','cera','ceratura','depilaz'], cadenzaGiorni:21,  anticipoGiorni:7, sogliaGiorni:7 },
   { id:'pmu',         nome:'Dermopigmentazione', keywords:['pmu','microblading','micropigment','dermopigment','trucco permanente','trucco semipermanente','sopracciglia','ombré','powder'], cadenzaGiorni:240, anticipoGiorni:30, sogliaGiorni:30 },
   { id:'laminazione', nome:'Laminazione ciglia', keywords:['laminazione'], cadenzaGiorni:30, anticipoGiorni:7, sogliaGiorni:7 },
@@ -2221,12 +2221,12 @@ function renderGcalEvents() {
   }).join('');
 }
 
-async function createCalendarEvent(summary, description, dateISO, startTime, endTime, silent) {
+async function createCalendarEvent(summary, description, dateISO, startTime, endTime, silent, colorId) {
   if (!gcalToken || !dateISO || !startTime || !endTime) return null;
   const event = {
     summary,
     description: description || '',
-    colorId: '8',
+    colorId: colorId || '8',
     start: { dateTime: dateISO + 'T' + startTime + ':00', timeZone: 'Europe/Rome' },
     end:   { dateTime: dateISO + 'T' + endTime   + ':00', timeZone: 'Europe/Rome' },
   };
@@ -2248,23 +2248,27 @@ async function createCalendarEvent(summary, description, dateISO, startTime, end
   } catch (e) { console.error('createCalendarEvent:', e); if (!silent) showToast('❌ Errore connessione a Calendar'); return null; }
 }
 
-// ── Esporta in blocco tutti gli appuntamenti clienti futuri su Google Calendar ──
+// ── Esporta in blocco tutti gli eventi futuri (clienti + personali) su Google Calendar ──
+// Mantiene i colori: ogni colore dell'app corrisponde a un colorId nativo di Google Calendar.
 // Salva l'id evento restituito da Google su ogni calEvent (gcalEventId), così un secondo
 // export non li duplica: esporta solo chi non è già stato mandato.
 async function exportFutureToGCal() {
   if (!gcalToken) { showToast('❌ Connetti prima Google Calendar'); return; }
   const todayStr = dateToYMD(new Date());
-  const tutti = calEvents.filter(ev => ev.type === 'client' && ev.date >= todayStr);
+  const tutti = calEvents.filter(ev => ev.date >= todayStr);
   const daEsportare = tutti.filter(ev => !ev.gcalEventId && ev.timeStart);
   const senzaOrario = tutti.filter(ev => !ev.gcalEventId && !ev.timeStart).length;
-  if (!daEsportare.length) { showToast(tutti.length ? '✅ Già tutti esportati' : 'ℹ️ Nessun appuntamento futuro'); return; }
-  if (!confirm(`Esportare ${daEsportare.length} appuntamenti futuri su Google Calendar?`)) return;
-  showToast(`⏳ Esportazione di ${daEsportare.length} appuntamenti…`);
+  if (!daEsportare.length) { showToast(tutti.length ? '✅ Già tutti esportati' : 'ℹ️ Nessun evento futuro'); return; }
+  if (!confirm(`Esportare ${daEsportare.length} eventi futuri su Google Calendar?`)) return;
+  showToast(`⏳ Esportazione di ${daEsportare.length} eventi…`);
   let ok = 0, fail = 0;
   for (const ev of daEsportare) {
-    const summary = (clients.find(c => c.id === ev.clientId)?.name || 'Appuntamento') + (ev.trattamento ? ' — ' + ev.trattamento : '');
+    const summary = ev.type === 'client'
+      ? ((clients.find(c => c.id === ev.clientId)?.name || 'Appuntamento') + (ev.trattamento ? ' — ' + ev.trattamento : ''))
+      : (ev.title || 'Evento');
     const endTime = ev.timeEnd || addMinutesToTime(ev.timeStart, 60);
-    const id = await createCalendarEvent(summary, '', ev.date, ev.timeStart, endTime, true);
+    const colorId = gcalColorIdFor(ev.color);
+    const id = await createCalendarEvent(summary, '', ev.date, ev.timeStart, endTime, true, colorId);
     if (id) { ev.gcalEventId = id; ok++; } else { fail++; }
   }
   save(KEY_CAL_EVENTS, calEvents);
@@ -2962,7 +2966,9 @@ function confirmClock() {
 let storico = load(KEY_STORICO, {}); // { clientId: [{id, data, trattamento, note}] }
 
 let _storicoOpen = false;
-function openStorico(clientId) {
+let _storicoReturnAction = null;
+let _storicoReturnLabel = 'Clienti';
+function openStorico(clientId, returnAction, returnLabel) {
   const client = clients.find(c => c.id === clientId);
   if (!client) return;
   const sedute = (storico[clientId] || []).sort((a,b) => new Date(b.data) - new Date(a.data));
@@ -2970,6 +2976,8 @@ function openStorico(clientId) {
   document.querySelectorAll('.storico-overlay').forEach(e => e.remove());
   // Aggiunge voce nella cronologia solo la prima volta (non sui reload interni)
   if (!_storicoOpen) {
+    _storicoReturnAction = returnAction || null;
+    _storicoReturnLabel = returnLabel || 'Clienti';
     history.pushState({ modal: 'storico' }, '');
     _storicoOpen = true;
   }
@@ -2978,7 +2986,7 @@ function openStorico(clientId) {
   overlay.innerHTML = `
     <div class="storico-modal" onclick="event.stopPropagation()">
       <div class="storico-header">
-        <button class="cal-nav-btn" style="font-size:13px;padding:6px 10px" onclick="closeStorico()">‹ Clienti</button>
+        <button class="cal-nav-btn" style="font-size:13px;padding:6px 10px" onclick="closeStorico()">‹ ${_storicoReturnLabel}</button>
         <div class="storico-title" style="font-size:17px">📋 ${escHtml(client.name)}</div>
         <button class="storico-close" onclick="closeStorico()">✕</button>
       </div>
@@ -3116,7 +3124,13 @@ function saveSeduta(clientId, sedutaId) {
 function _doCloseStorico() {
   document.querySelectorAll('.storico-overlay').forEach(e => e.remove());
   _storicoOpen = false;
-  // Torna alla tab Clienti se non è già attiva
+  if (_storicoReturnAction) {
+    const action = _storicoReturnAction;
+    _storicoReturnAction = null;
+    action();
+    return;
+  }
+  // Torna alla tab Clienti se non è già attiva (comportamento di default)
   const clientTab = document.querySelector('.tab[onclick*="\'clients\'"]');
   if (clientTab && !document.getElementById('panel-clients')?.classList.contains('active')) {
     switchTab('clients', clientTab);
@@ -3176,6 +3190,19 @@ const CAL_COLORS = [
   { hex: '#e91e63', label: 'Rosa' },
 ];
 const CAL_CLIENT_COLOR = '#9e9e9e';
+// Mappa i colori dell'app al colorId nativo di Google Calendar (stessa palette, quasi 1:1)
+const GCAL_COLOR_ID_MAP = {
+  '#9e9e9e': '8',  // Grigio    → Graphite
+  '#e53935': '11', // Rosso     → Tomato
+  '#f4511e': '6',  // Arancione → Tangerine
+  '#f6bf26': '5',  // Giallo    → Banana
+  '#33b679': '2',  // Verde     → Sage
+  '#039be5': '7',  // Azzurro   → Peacock
+  '#7986cb': '1',  // Lavanda   → Lavender
+  '#8d24aa': '3',  // Viola     → Grape
+  '#e91e63': '4',  // Rosa      → Flamingo
+};
+function gcalColorIdFor(hex) { return GCAL_COLOR_ID_MAP[hex] || '8'; }
 const CAL_DAYS = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
 const CAL_MONTHS = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 let _calYear = new Date().getFullYear();
@@ -3302,6 +3329,8 @@ function openProssimiAppuntamenti() {
   const futuri = calEvents
     .filter(ev => ev.type === 'client' && ev.date >= todayStr)
     .sort((a,b) => a.date.localeCompare(b.date) || (a.timeStart||'').localeCompare(b.timeStart||''));
+  // Conteggio per il pulsante export: TUTTI gli eventi futuri (clienti + personali), non solo quelli mostrati in questa lista
+  const tuttiFuturiCount = calEvents.filter(ev => ev.date >= todayStr).length;
 
   const light = document.body.classList.contains('light-mode');
   const bg = light ? '#f0faf9' : '#0d1f1f';
@@ -3343,7 +3372,7 @@ function openProssimiAppuntamenti() {
         <div style="font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--text)">📋 Prossimi appuntamenti</div>
         <button onclick="document.getElementById('prossimi-overlay').remove()" style="background:transparent;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1">✕</button>
       </div>
-      ${gcalToken && futuri.length ? `<button class="btn-gcal" style="width:100%;justify-content:center;margin-bottom:12px" onclick="exportFutureToGCal()">📅 Esporta tutti su Google Calendar</button>` : ''}
+      ${gcalToken && tuttiFuturiCount ? `<button class="btn-gcal" style="width:100%;justify-content:center;margin-bottom:12px" onclick="exportFutureToGCal()">📅 Esporta tutti su Google Calendar (clienti + personali)</button>` : ''}
       <div style="position:relative;margin-bottom:12px">
         <input id="prossimi-search" type="text" placeholder="🔍 Cerca cliente..." style="width:100%;padding:8px 36px 8px 12px;background:rgba(78,205,196,0.08);border:1px solid ${border};border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px" oninput="filterProssimi(this.value);document.getElementById('prossimi-search-clear').style.display=this.value?'flex':'none'">
         <button id="prossimi-search-clear" onclick="document.getElementById('prossimi-search').value='';filterProssimi('');this.style.display='none'" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;padding:0">✕</button>
@@ -3792,7 +3821,7 @@ function saveCalEvent() {
       ? ((clients.find(c => c.id === ev.clientId)?.name || 'Appuntamento') + (ev.trattamento ? ' — ' + ev.trattamento : ''))
       : (ev.title || 'Evento');
     const endTime = ev.timeEnd || addMinutesToTime(ev.timeStart, 60);
-    createCalendarEvent(summary, '', ev.date, ev.timeStart, endTime).then(id => {
+    createCalendarEvent(summary, '', ev.date, ev.timeStart, endTime, false, gcalColorIdFor(ev.color)).then(id => {
       if (!id) return;
       const idx2 = calEvents.findIndex(e => e.id === ev.id);
       if (idx2 !== -1) { calEvents[idx2].gcalEventId = id; save(KEY_CAL_EVENTS, calEvents); }
@@ -3994,6 +4023,7 @@ function scheduleFollowupForSeduta(clientId, trattamento, dataStr) {
   if (!cats.length || !dataStr) return;
   const client = clients.find(c => c.id === clientId);
   const sessionDate = new Date(dataStr + 'T00:00:00');
+  const catIds = cats.map(c => c.id);
   let best = null;
   cats.forEach(cat => {
     // Se la cliente ha una cadenza personalizzata, ha sempre la precedenza sulla regola standard
@@ -4007,12 +4037,15 @@ function scheduleFollowupForSeduta(clientId, trattamento, dataStr) {
   const trattList = joinItalian(cats.map(c => c.nome.toLowerCase()));
   const whenPhrase = best.anticipoGiorni <= 10 ? 'la settimana prossima' : 'il mese prossimo';
   const msg = `Ciao ${firstName}! Ti invio un promemoria per ricordarti che è il momento di riprogrammare il tuo appuntamento per ${trattList} — ${whenPhrase} sarebbe il momento giusto per mantenere i risultati al meglio 😊 Fammi sapere quando sei disponibile. A presto!`;
-  const pad = n => String(n).padStart(2,'0');
   const sendAt = dateToYMD(best.send) + 'T10:00';
-  // Rimuove eventuali follow-up automatici ancora in sospeso per lo stesso cliente (evita doppioni)
-  reminders = reminders.filter(r => !(r.clientId === clientId && r.type === 'followup' && r.status === 'pending' && r.autoGenerated));
+  // Sostituisce SOLO i follow-up automatici pendenti che riguardano almeno uno degli stessi trattamenti:
+  // così una ceretta non cancella un promemoria di microblading in sospeso per mesi, e viceversa.
+  reminders = reminders.filter(r => !(
+    r.clientId === clientId && r.type === 'followup' && r.status === 'pending' && r.autoGenerated &&
+    Array.isArray(r.categorieIds) && r.categorieIds.some(id => catIds.includes(id))
+  ));
   reminders.push({ id:uid(), clientId, type:'followup', templateId:'', sendAt, message:msg,
-    trattamento: trattList, status:'pending', autoGenerated:true, createdAt:new Date().toISOString() });
+    trattamento: trattList, categorieIds: catIds, status:'pending', autoGenerated:true, createdAt:new Date().toISOString() });
   save(KEY_REMINDERS, reminders);
 }
 function autoCategoria() {
@@ -4342,6 +4375,8 @@ function renderStats() {
 }
 
 // ── Clienti da recuperare (trattamenti scaduti da almeno 7gg, senza appuntamento futuro) ──
+// Oltre questo ritardo una cliente si considera persa, non più "da recuperare" attivamente
+const MAX_RITARDO_RECUPERO = 90;
 function getClientiDaRecuperare() {
   const oggi = new Date(); oggi.setHours(0,0,0,0);
   const todayStr = dateToYMD(oggi);
@@ -4364,10 +4399,12 @@ function getClientiDaRecuperare() {
       const due = addDays(new Date(data + 'T00:00:00'), cadenza);
       const ritardoGiorni = Math.floor((oggi - due) / 86400000);
       return { ritardoGiorni, nome: cat.nome.toLowerCase(), soglia: cat.sogliaGiorni ?? 7 };
-    }).filter(x => x.ritardoGiorni >= x.soglia);
+    }).filter(x => x.ritardoGiorni >= x.soglia && x.ritardoGiorni <= MAX_RITARDO_RECUPERO);
     if (!scaduti.length) return;
     scaduti.sort((a,b) => b.ritardoGiorni - a.ritardoGiorni);
-    risultati.push({ client, ritardoGiorni: scaduti[0].ritardoGiorni, trattList: joinItalian(scaduti.map(s => s.nome)) });
+    // Ogni trattamento mostra il proprio ritardo (possono essere molto diversi tra loro)
+    const dettaglio = scaduti.map(s => `${s.nome} (${s.ritardoGiorni}gg)`).join(', ');
+    risultati.push({ client, ritardoGiorni: scaduti[0].ritardoGiorni, trattList: joinItalian(scaduti.map(s => s.nome)), dettaglio });
   });
   risultati.sort((a,b) => b.ritardoGiorni - a.ritardoGiorni);
   return risultati;
@@ -4386,14 +4423,14 @@ function openClientiDaRecuperare() {
   const light = document.body.classList.contains('light-mode');
   const bg     = light ? '#f0faf9' : '#0d1f1f';
   const border = light ? 'rgba(26,138,138,0.28)' : 'rgba(78,205,196,0.28)';
-  const rows = lista.map(({ client, ritardoGiorni, trattList }) => {
+  const rows = lista.map(({ client, trattList, dettaglio }) => {
     const firstName = (client.name || '').split(' ')[0];
     const msg = `Ciao ${firstName}! Ho visto che è passato un po' di tempo da quando hai fatto ${trattList}. Ci tengo a vederti in ordine 🙂 Fammi sapere se vuoi riprenotare. Ti aspetto!`;
     const link = waLink(client.phone, msg);
     return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid ${border}">
-      <div style="flex:1;min-width:0;cursor:pointer" onclick="document.getElementById('stats-recuperare-modal').remove();openStorico('${client.id}')">
+      <div style="flex:1;min-width:0;cursor:pointer" onclick="document.getElementById('stats-recuperare-modal').remove();openStorico('${client.id}', returnToStatsRecuperare, 'Statistiche')">
         <div style="font-size:13px;color:#edf7f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(client.name)}</div>
-        <div style="font-size:11px;color:rgba(168,230,224,0.6);margin-top:1px">${escHtml(trattList)} · in ritardo di ${ritardoGiorni}gg</div>
+        <div style="font-size:11px;color:rgba(168,230,224,0.6);margin-top:1px">${escHtml(dettaglio)}</div>
       </div>
       ${link ? `<a href="${link}" target="_blank" onclick="event.stopPropagation()" style="background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.35);border-radius:8px;padding:6px 12px;color:#25d366;font-size:12px;white-space:nowrap;text-decoration:none;flex-shrink:0">💬 WhatsApp</a>` : ''}
     </div>`;
@@ -4411,6 +4448,11 @@ function openClientiDaRecuperare() {
         </div>
       </div>
     </div>`);
+}
+function returnToStatsRecuperare() {
+  const statsTab = document.querySelector('.tab[onclick*="\'stats\'"]');
+  if (statsTab) switchTab('stats', statsTab);
+  openClientiDaRecuperare();
 }
 
 // ── Dark / Light theme ──
