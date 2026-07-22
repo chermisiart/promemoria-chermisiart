@@ -200,6 +200,7 @@
   .dot-followup  { background:#e06060; box-shadow:0 0 6px #e06060; }
   .dot-birthday  { background:#e094c4; box-shadow:0 0 6px #e094c4; }
   .dot-recupero  { background:#e0a050; box-shadow:0 0 6px #e0a050; }
+  .dot-sollecito { background:#a0c860; box-shadow:0 0 6px #a0c860; }
   .dot-sent      { background:var(--muted); opacity:0.4; }
   .dot-custom    { background:var(--accent2); }
   .r-info { flex:1; min-width:0; }
@@ -217,6 +218,7 @@
   .badge-followup    { background:rgba(220,80,80,0.1);    color:#e08080;        border:1px solid rgba(220,80,80,0.2); }
   .badge-birthday    { background:rgba(224,148,196,0.12); color:#e094c4;        border:1px solid rgba(224,148,196,0.25); }
   .badge-recupero    { background:rgba(224,160,80,0.12);  color:#e0a050;        border:1px solid rgba(224,160,80,0.25); }
+  .badge-sollecito   { background:rgba(160,200,96,0.12);  color:#a0c860;        border:1px solid rgba(160,200,96,0.25); }
   .badge-sent        { background:rgba(237,247,246,0.05); color:var(--muted);   border:1px solid rgba(237,247,246,0.1); }
   .badge-pending     { background:rgba(230,176,80,0.12);  color:#e6b050;        border:1px solid rgba(230,176,80,0.2); }
   .badge-custom      { background:rgba(168,230,224,0.1);  color:var(--accent2); border:1px solid rgba(168,230,224,0.2); }
@@ -826,6 +828,7 @@
             <option value="followup">Follow-up riprenota</option>
             <option value="birthday">Compleanno</option>
             <option value="recupero">Da recuperare</option>
+            <option value="sollecito">Sollecito</option>
             <option value="custom">Personalizzato / Altro</option>
           </select>
         </div>
@@ -1234,6 +1237,8 @@ const DEFAULT_TEMPLATES = [
     text: 'Tanti auguri di buon compleanno {nome}! 🎉🌸 Ti auguro una giornata bellissima, a presto!' },
   { id: 't6', name: 'Richiamo clienti da recuperare', type: 'recupero',
     text: "Ciao {nome}, ho visto che è passato un po' di tempo dalla tua ultima {trattamento}. Se vuoi riprenotare, scrivimi pure quando preferisci 😊" },
+  { id: 't7', name: 'Sollecito (2° messaggio automatico)', type: 'sollecito',
+    text: "Ciao {nome}! Ti ricordi il messaggio che ti ho mandato qualche giorno fa? Fammi sapere quando hai un attimo per riprenotare 😊" },
 ];
 
 // ── Storage: localStorage + Firestore sync ──
@@ -2409,9 +2414,9 @@ function formatDateIT(dateStr) {
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function escJs(s) { return String(s).replace(/'/g,"\\'").replace(/\n/g,' '); }
 
-const TYPE_LABELS = { confirm:'Conferma', appointment:'Promemoria', cycle:'Seduta', followup:'Follow-up', birthday:'Compleanno', recupero:'Da recuperare', custom:'Personalizzato' };
-const TYPE_DOT    = { confirm:'dot-confirm', appointment:'dot-appointment', cycle:'dot-cycle', followup:'dot-followup', birthday:'dot-birthday', recupero:'dot-recupero', custom:'dot-custom' };
-const TYPE_BADGE  = { confirm:'badge-confirm', appointment:'badge-appointment', cycle:'badge-cycle', followup:'badge-followup', birthday:'badge-birthday', recupero:'badge-recupero', custom:'badge-custom' };
+const TYPE_LABELS = { confirm:'Conferma', appointment:'Promemoria', cycle:'Seduta', followup:'Follow-up', birthday:'Compleanno', recupero:'Da recuperare', sollecito:'Sollecito', custom:'Personalizzato' };
+const TYPE_DOT    = { confirm:'dot-confirm', appointment:'dot-appointment', cycle:'dot-cycle', followup:'dot-followup', birthday:'dot-birthday', recupero:'dot-recupero', sollecito:'dot-sollecito', custom:'dot-custom' };
+const TYPE_BADGE  = { confirm:'badge-confirm', appointment:'badge-appointment', cycle:'badge-cycle', followup:'badge-followup', birthday:'badge-birthday', recupero:'badge-recupero', sollecito:'badge-sollecito', custom:'badge-custom' };
 
 // ── Form logic ──
 function onTypeChange() {
@@ -4037,6 +4042,12 @@ function scheduleBirthdayReminders() {
 // messaggio consolidato invece di uno per categoria, e sostituisce eventuali follow-up
 // automatici già in sospeso per lo stesso cliente (mai due promemoria attivi insieme).
 function scheduleFollowupForSeduta(clientId, trattamento, dataStr) {
+  // La cliente è tornata per una seduta: azzera il conteggio dei richiami "da recuperare" in sospeso
+  const clientIdx = clients.findIndex(c => c.id === clientId);
+  if (clientIdx !== -1 && (clients[clientIdx].richiamoCount || clients[clientIdx].richiamoLastSentAt)) {
+    clients[clientIdx] = { ...clients[clientIdx], richiamoCount: 0, richiamoLastSentAt: null };
+    save(KEY_CLIENTS, clients);
+  }
   const cats = detectFollowupCategories(trattamento);
   if (!cats.length || !dataStr) return;
   const client = clients.find(c => c.id === clientId);
@@ -4056,7 +4067,7 @@ function scheduleFollowupForSeduta(clientId, trattamento, dataStr) {
   const whenPhrase = best.anticipoGiorni <= 10 ? 'la settimana prossima' : 'il mese prossimo';
   const msg = `Ciao ${firstName}! Ti invio un promemoria per ricordarti che è il momento di riprogrammare il tuo appuntamento per ${trattList} — ${whenPhrase} sarebbe il momento giusto per mantenere i risultati al meglio 😊 Fammi sapere quando sei disponibile. A presto!`;
   const sendAt = dateToYMD(best.send) + 'T10:00';
-  // Sostituisce SOLO i follow-up automatici pendenti che riguardano almeno uno degli stessi trattamenti:
+  // Sostituisce SOLO i follow-up (stage 1) pendenti che riguardano almeno uno degli stessi trattamenti:
   // così una ceretta non cancella un promemoria di microblading in sospeso per mesi, e viceversa.
   reminders = reminders.filter(r => !(
     r.clientId === clientId && r.type === 'followup' && r.status === 'pending' && r.autoGenerated &&
@@ -4065,6 +4076,15 @@ function scheduleFollowupForSeduta(clientId, trattamento, dataStr) {
   reminders.push({ id:uid(), clientId, type:'followup', templateId:'', sendAt, message:msg,
     trattamento: trattList, categorieIds: catIds, status:'pending', autoGenerated:true, createdAt:new Date().toISOString() });
   save(KEY_REMINDERS, reminders);
+  // Spegne anche eventuali "sveglie" invisibili (stage 2/3, gestite dalla Cloud Function)
+  // per gli stessi trattamenti: la cliente è tornata, la sequenza di richiami riparte da zero.
+  if (clientIdx !== -1 && Array.isArray(clients[clientIdx].recallPipelines) && clients[clientIdx].recallPipelines.length) {
+    const filtered = clients[clientIdx].recallPipelines.filter(p => !(Array.isArray(p.categorieIds) && p.categorieIds.some(id => catIds.includes(id))));
+    if (filtered.length !== clients[clientIdx].recallPipelines.length) {
+      clients[clientIdx] = { ...clients[clientIdx], recallPipelines: filtered };
+      save(KEY_CLIENTS, clients);
+    }
+  }
 }
 function autoCategoria() {
   const tratt = document.getElementById('ns-tratt')?.value || '';
@@ -4395,6 +4415,10 @@ function renderStats() {
 // ── Clienti da recuperare (trattamenti scaduti da almeno 7gg, senza appuntamento futuro) ──
 // Oltre questo ritardo una cliente si considera persa, non più "da recuperare" attivamente
 const MAX_RITARDO_RECUPERO = 90;
+// Dopo un richiamo, non ripresentare la cliente prima di un mese (tempo per farla rispondere)
+const RICHIAMO_COOLDOWN_GIORNI = 30;
+// Dopo 2 richiami senza risposta, si lascia andare: non compare più nella lista
+const RICHIAMO_MAX_TENTATIVI = 2;
 function getClientiDaRecuperare() {
   const oggi = new Date(); oggi.setHours(0,0,0,0);
   const todayStr = dateToYMD(oggi);
@@ -4402,6 +4426,11 @@ function getClientiDaRecuperare() {
   clients.forEach(client => {
     const sedute = storico[client.id];
     if (!Array.isArray(sedute) || !sedute.length) return;
+    if ((client.richiamoCount || 0) >= RICHIAMO_MAX_TENTATIVI) return; // già richiamata 2 volte, si lascia andare
+    if (client.richiamoLastSentAt) {
+      const giorniDaRichiamo = Math.floor((oggi - new Date(client.richiamoLastSentAt + 'T00:00:00')) / 86400000);
+      if (giorniDaRichiamo < RICHIAMO_COOLDOWN_GIORNI) return; // richiamata di recente, aspetta il mese prima del prossimo
+    }
     const perCategoria = {};
     sedute.forEach(s => {
       if (!s.data) return;
@@ -4412,12 +4441,18 @@ function getClientiDaRecuperare() {
     if (!Object.keys(perCategoria).length) return;
     const haFuturo = calEvents.some(ev => ev.type === 'client' && ev.clientId === client.id && ev.date >= todayStr);
     if (haFuturo) return;
+    // Una categoria è "gestita in automatico" (dalla Cloud Function) se ha un follow-up ancora
+    // in attesa di partire, oppure una "sveglia" invisibile per il sollecito/richiamo già accesa:
+    // in quel caso non va mostrata qui, per non farla contattare due volte.
+    const gestitaAutomaticamente = catId =>
+      reminders.some(r => r.clientId === client.id && r.type === 'followup' && r.status === 'pending' && r.autoGenerated && r.categorieIds?.includes(catId)) ||
+      (Array.isArray(client.recallPipelines) && client.recallPipelines.some(p => Array.isArray(p.categorieIds) && p.categorieIds.includes(catId)));
     const scaduti = Object.values(perCategoria).map(({ data, cat }) => {
       const cadenza = client.cadenzaCustomGiorni || cat.cadenzaGiorni;
       const due = addDays(new Date(data + 'T00:00:00'), cadenza);
       const ritardoGiorni = Math.floor((oggi - due) / 86400000);
-      return { ritardoGiorni, nome: cat.nome.toLowerCase(), soglia: cat.sogliaGiorni ?? 7 };
-    }).filter(x => x.ritardoGiorni >= x.soglia && x.ritardoGiorni <= MAX_RITARDO_RECUPERO);
+      return { ritardoGiorni, nome: cat.nome.toLowerCase(), soglia: cat.sogliaGiorni ?? 7, catId: cat.id };
+    }).filter(x => x.ritardoGiorni >= x.soglia && x.ritardoGiorni <= MAX_RITARDO_RECUPERO && !gestitaAutomaticamente(x.catId));
     if (!scaduti.length) return;
     scaduti.sort((a,b) => b.ritardoGiorni - a.ritardoGiorni);
     // Ogni trattamento mostra il proprio ritardo (possono essere molto diversi tra loro)
@@ -4448,12 +4483,13 @@ function openClientiDaRecuperare() {
       ? fillTemplate(tpl.text, { nome: firstName, trattamento: trattList })
       : `Ciao ${firstName}! Ho visto che è passato un po' di tempo da quando hai fatto ${trattList}. Ci tengo a vederti in ordine 🙂 Fammi sapere se vuoi riprenotare. Ti aspetto!`;
     const link = waLink(client.phone, msg);
+    const giaRichiamata = (client.richiamoCount || 0) >= 1;
     return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid ${border}">
       <div style="flex:1;min-width:0;cursor:pointer" onclick="document.getElementById('stats-recuperare-modal').remove();openStorico('${client.id}', returnToStatsRecuperare, 'Statistiche')">
-        <div style="font-size:13px;color:#edf7f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(client.name)}</div>
+        <div style="font-size:13px;color:#edf7f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(client.name)}${giaRichiamata ? ' <span style="font-size:10px;color:#e0a050">· 2° richiamo</span>' : ''}</div>
         <div style="font-size:11px;color:rgba(168,230,224,0.6);margin-top:1px">${escHtml(dettaglio)}</div>
       </div>
-      ${link ? `<a href="${link}" target="_blank" onclick="event.stopPropagation()" style="background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.35);border-radius:8px;padding:6px 12px;color:#25d366;font-size:12px;white-space:nowrap;text-decoration:none;flex-shrink:0">💬 WhatsApp</a>` : ''}
+      ${link ? `<button onclick="event.stopPropagation();inviaRichiamoRecupero('${client.id}','${escJs(link)}')" style="background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.35);border-radius:8px;padding:6px 12px;color:#25d366;font-size:12px;white-space:nowrap;cursor:pointer;flex-shrink:0">💬 WhatsApp</button>` : ''}
     </div>`;
   }).join('');
   document.getElementById('stats-recuperare-modal')?.remove();
@@ -4469,6 +4505,18 @@ function openClientiDaRecuperare() {
         </div>
       </div>
     </div>`);
+}
+// Registra l'invio del richiamo e aggiorna subito la lista: la cliente contattata
+// sparisce fino al prossimo ciclo (cooldown) o per sempre dopo RICHIAMO_MAX_TENTATIVI.
+function inviaRichiamoRecupero(clientId, link) {
+  if (link) window.open(link, '_blank');
+  const idx = clients.findIndex(c => c.id === clientId);
+  if (idx !== -1) {
+    clients[idx] = { ...clients[idx], richiamoCount: (clients[idx].richiamoCount || 0) + 1, richiamoLastSentAt: dateToYMD(new Date()) };
+    save(KEY_CLIENTS, clients);
+  }
+  renderClientiDaRecuperareCard();
+  openClientiDaRecuperare();
 }
 function returnToStatsRecuperare() {
   const statsTab = document.querySelector('.tab[onclick*="\'stats\'"]');
