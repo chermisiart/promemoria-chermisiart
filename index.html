@@ -1212,6 +1212,7 @@ const KEY_FCM       = 'chermisi_fcm_token';
 const KEY_STORICO   = 'chermisi_storico';
 const KEY_CAL_EVENTS = 'chermisi_cal_events';
 const KEY_SPESE      = 'chermisi_spese';
+const KEY_RICHIESTE  = 'chermisi_richieste_prenotazione';
 const KEY_FOLLOWUP_RULES = 'chermisi_followup_rules';
 
 // Regole per i promemoria di follow-up automatici (indipendenti dalle categorie statistiche,
@@ -1497,6 +1498,7 @@ let templates = load(KEY_TEMPLATES, DEFAULT_TEMPLATES);
 let calEvents = load(KEY_CAL_EVENTS, []);
 let spese     = load(KEY_SPESE, []);
 let followupRules = load(KEY_FOLLOWUP_RULES, DEFAULT_FOLLOWUP_RULES);
+let richieste = []; // richieste di prenotazione dal sito pubblico: sempre lette fresche da Firestore, mai da localStorage al primo avvio
 let gcalToken = localStorage.getItem(KEY_TOKEN) || null;
 let gcalAllEvents = [];
 let gcalColorFilter = '';
@@ -1554,10 +1556,13 @@ let toastTimer; // dichiarato qui per evitare TDZ quando handleWaParam chiama re
 let tokenClient = null;
 let userInfo = load('chermisi_userinfo', null);
 
-// Resetta i template predefiniti (t1-t4) alla versione dal codice sorgente,
-// preservando i messaggi personalizzati aggiunti dall'utente
+// Resetta i template predefiniti alla versione dal codice sorgente,
+// preservando i messaggi personalizzati aggiunti dall'utente.
+// "Personalizzato" = qualsiasi id che NON corrisponde a un id di default attuale
+// (calcolato dinamicamente, così non duplica i default aggiunti in futuro — es. t5/t6/t7).
 if (localStorage.getItem('chermisi_tpl_reset') !== '3') {
-  const custom = templates.filter(t => !['t1','t2','t3','t4'].includes(t.id));
+  const defaultIds = DEFAULT_TEMPLATES.map(t => t.id);
+  const custom = templates.filter(t => !defaultIds.includes(t.id));
   templates = [...DEFAULT_TEMPLATES, ...custom];
   save(KEY_TEMPLATES, templates);
   localStorage.setItem('chermisi_tpl_reset', '3');
@@ -3277,7 +3282,86 @@ function autoSyncCalToStorico() {
   }
 }
 
-function initCalendar() { autoSyncCalToStorico(); renderCalendar(); }
+function initCalendar() { autoSyncCalToStorico(); renderCalendar(); fsLoadRichieste(); }
+
+// ── Richieste di prenotazione dal sito pubblico ──
+async function fsLoadRichieste() {
+  if (!window._db || !window._currentUid) return;
+  try {
+    const snap = await window._fsGetDoc(window._fsDoc(window._db, 'users', window._currentUid, 'data', KEY_RICHIESTE));
+    richieste = snap.exists() ? JSON.parse(snap.data().data || '[]') : [];
+  } catch (e) { console.warn('Errore caricamento richieste:', e); }
+  renderRichiesteBadge();
+}
+function renderRichiesteBadge() {
+  const btn = document.getElementById('cal-richieste-btn');
+  if (!btn) return;
+  const n = richieste.filter(r => r.status === 'pending').length;
+  btn.style.display = n ? '' : 'none';
+  const badge = document.getElementById('cal-richieste-count');
+  if (badge) badge.textContent = n;
+}
+
+let _approvingRichiestaId = null;
+
+function openRichieste() {
+  const light = document.body.classList.contains('light-mode');
+  const bg = light ? '#f0faf9' : '#0d1f1f';
+  const border = light ? 'rgba(26,138,138,0.28)' : 'rgba(78,205,196,0.28)';
+  const pending = richieste.filter(r => r.status === 'pending').sort((a,b) => (a.data+a.ora).localeCompare(b.data+b.ora));
+
+  const rows = pending.map(r => {
+    const dataFmt = new Date(r.data + 'T12:00').toLocaleDateString('it-IT', { weekday:'short', day:'numeric', month:'short' });
+    return `<div style="background:rgba(78,205,196,0.06);border:1px solid ${border};border-radius:10px;padding:12px 14px;margin-bottom:8px">
+      <div style="font-size:13px;color:var(--text);font-weight:500">${escHtml(r.nome)}</div>
+      <div style="font-size:11px;color:var(--muted);margin:2px 0 8px">📞 ${escHtml(r.telefono)} · ${dataFmt} ore ${r.ora}</div>
+      <div style="font-size:12px;color:var(--text);background:var(--card2);border-radius:8px;padding:8px 10px;margin-bottom:10px">${escHtml(r.trattamento)}</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" style="flex:1" onclick="approvaRichiesta('${r.id}')">✅ Approva</button>
+        <button class="btn btn-danger btn-sm" onclick="rifiutaRichiesta('${r.id}')">✕ Rifiuta</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('richieste-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="richieste-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)this.remove()">
+      <div style="background:${bg};border:1.5px solid ${border};border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:85vh;display:flex;flex-direction:column;padding:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <span style="font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--text)">📥 Richieste di prenotazione</span>
+          <button onclick="document.getElementById('richieste-modal').remove()" style="background:transparent;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1">✕</button>
+        </div>
+        <div style="overflow-y:auto;flex:1">
+          ${rows || '<div style="padding:20px 0;text-align:center;color:var(--muted)">Nessuna richiesta in sospeso</div>'}
+        </div>
+      </div>
+    </div>`);
+}
+
+function approvaRichiesta(id) {
+  const r = richieste.find(x => x.id === id);
+  if (!r) return;
+  // Cerca una cliente esistente con lo stesso numero, altrimenti la crea
+  const cleanPhone = (r.telefono || '').replace(/\D/g, '');
+  let client = clients.find(c => (c.phone || '').replace(/\D/g, '').endsWith(cleanPhone.slice(-9)) && cleanPhone.length >= 6);
+  if (!client) {
+    client = { id: uid(), name: r.nome, phone: r.telefono, notes: '', createdAt: new Date().toISOString() };
+    clients.push(client);
+    save(KEY_CLIENTS, clients);
+    renderClientSelect();
+  }
+  _approvingRichiestaId = id;
+  document.getElementById('richieste-modal')?.remove();
+  openCalModal(r.data, { clientId: client.id, trattamento: r.trattamento, color: CAL_CLIENT_COLOR, date: r.data }, r.ora, null);
+}
+
+function rifiutaRichiesta(id) {
+  if (!confirm('Rifiutare questa richiesta? La cliente non riceverà nulla in automatico — se vuoi avvisarla, scrivile tu direttamente.')) return;
+  richieste = richieste.filter(x => x.id !== id);
+  save(KEY_RICHIESTE, richieste);
+  renderRichiesteBadge();
+  openRichieste();
+}
 function refreshCalendar(dateStr) {
   const wrap = document.getElementById('cal-wrap');
   const inDayView = wrap && wrap.querySelector('.cal-day-header');
@@ -3335,6 +3419,7 @@ function renderCalendar() {
         <button class="cal-nav-btn cal-today-btn" onclick="calGoToday()">Oggi</button>
       </div>
       <button class="cal-nav-btn cal-today-btn" onclick="openProssimiAppuntamenti()" title="Prossimi appuntamenti">📋</button>
+      <button class="cal-nav-btn cal-today-btn" id="cal-richieste-btn" onclick="openRichieste()" title="Richieste di prenotazione" style="display:none;position:relative">📥<span id="cal-richieste-count" style="position:absolute;top:-4px;right:-4px;background:#e05050;color:#fff;font-size:9px;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px">0</span></button>
       <button class="cal-nav-btn" onclick="calNext()">›</button>
     </div>
     <table class="cal-grid"><thead><tr>${CAL_DAYS.map(d=>`<th>${d}</th>`).join('')}</tr></thead>
@@ -3725,6 +3810,7 @@ function selectCalColor(hex) {
 
 function closeCalModal() {
   document.getElementById('cal-modal-overlay')?.remove();
+  _approvingRichiestaId = null;
 }
 
 function saveCalEvent() {
@@ -3851,9 +3937,19 @@ function saveCalEvent() {
     });
   }
 
+  // Se l'evento nasce dall'approvazione di una richiesta di prenotazione, la rimuove dalla coda
+  // (catturato PRIMA di chiudere il modal, che azzera _approvingRichiestaId se annullato)
+  const approvedRichiestaId = _approvingRichiestaId;
+
   refreshCalendar(ev.date);
   closeCalModal();
   showToast(isClient ? '✅ Appuntamento e promemoria creati!' : '✅ Evento salvato!');
+
+  if (approvedRichiestaId) {
+    richieste = richieste.filter(r => r.id !== approvedRichiestaId);
+    save(KEY_RICHIESTE, richieste);
+    renderRichiesteBadge();
+  }
 }
 function addMinutesToTime(timeStr, minutes) {
   const [h, m] = timeStr.split(':').map(Number);

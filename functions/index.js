@@ -1,4 +1,5 @@
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onRequest } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
@@ -7,6 +8,20 @@ initializeApp();
 
 const APP_URL = "https://chermisiart.github.io/promemoria-chermisiart/";
 const ICON    = APP_URL + "icon-192.png";
+// Origine del sito pubblico di prenotazione: unica autorizzata a chiamare le funzioni pubbliche sotto.
+const BOOKING_SITE_ORIGIN = "https://chermisiartlory.netlify.app";
+
+function setCors(res) {
+  res.set("Access-Control-Allow-Origin", BOOKING_SITE_ORIGIN);
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+}
+
+async function getOwnerUid(db) {
+  const configSnap = await db.collection("chermisiart").doc("config").get();
+  if (!configSnap.exists) return null;
+  return configSnap.data().ownerUid || null;
+}
 
 // Sequenza automatica dei richiami: dopo lo stage 1 (follow-up) inviato, se la cliente non
 // riprenota entro N giorni si genera e invia SUBITO lo stage successivo (mai in anticipo,
@@ -180,3 +195,83 @@ exports.sendReminderNotifications = onSchedule(
     if (clientsChanged)   await cliRef.set({ data: JSON.stringify(clients),   updatedAt: new Date().toISOString() });
   }
 );
+
+// ── Pagina pubblica di prenotazione: disponibilità (sola lettura, mai nomi/trattamenti) ──
+// GET ?from=YYYY-MM-DD&to=YYYY-MM-DD  →  { "2026-08-24": { busy:[{start,end}] }, ... }
+exports.getAvailability = onRequest(async (req, res) => {
+  setCors(res);
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (req.method !== "GET") { res.status(405).json({ error: "Metodo non permesso" }); return; }
+
+  const from = String(req.query.from || "");
+  const to   = String(req.query.to || from);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+    res.status(400).json({ error: "Parametri from/to non validi (formato YYYY-MM-DD)" });
+    return;
+  }
+
+  try {
+    const db = getFirestore();
+    const ownerUid = await getOwnerUid(db);
+    if (!ownerUid) { res.status(503).json({ error: "Servizio non configurato" }); return; }
+
+    const calSnap = await db.doc(`users/${ownerUid}/data/chermisi_cal_events`).get();
+    const calEvents = calSnap.exists ? JSON.parse(calSnap.data().data || "[]") : [];
+
+    const byDate = {};
+    calEvents.forEach(ev => {
+      if (!ev.date || !ev.timeStart || ev.date < from || ev.date > to) return;
+      if (!byDate[ev.date]) byDate[ev.date] = { busy: [] };
+      byDate[ev.date].busy.push({ start: ev.timeStart, end: ev.timeEnd || ev.timeStart });
+    });
+    Object.values(byDate).forEach(d => d.busy.sort((a, b) => a.start.localeCompare(b.start)));
+
+    res.status(200).json(byDate);
+  } catch (e) {
+    console.error("Errore getAvailability:", e);
+    res.status(500).json({ error: "Errore interno" });
+  }
+});
+
+// ── Pagina pubblica di prenotazione: invio richiesta (finisce in coda di approvazione nell'app) ──
+// POST { nome, telefono, trattamento, data, ora }
+exports.submitBookingRequest = onRequest(async (req, res) => {
+  setCors(res);
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (req.method !== "POST") { res.status(405).json({ error: "Metodo non permesso" }); return; }
+
+  const { nome, telefono, trattamento, data, ora } = req.body || {};
+  const errors = [];
+  if (!nome || !String(nome).trim()) errors.push("nome");
+  if (!telefono || !String(telefono).trim()) errors.push("telefono");
+  if (!trattamento || !String(trattamento).trim()) errors.push("trattamento");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data || "")) errors.push("data");
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(ora || "")) errors.push("ora");
+  if (errors.length) { res.status(400).json({ error: "Campi mancanti o non validi: " + errors.join(", ") }); return; }
+
+  try {
+    const db = getFirestore();
+    const ownerUid = await getOwnerUid(db);
+    if (!ownerUid) { res.status(503).json({ error: "Servizio non configurato" }); return; }
+
+    const reqRef = db.doc(`users/${ownerUid}/data/chermisi_richieste_prenotazione`);
+    const snap = await reqRef.get();
+    const richieste = snap.exists ? JSON.parse(snap.data().data || "[]") : [];
+
+    richieste.push({
+      id: "req_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7),
+      nome: String(nome).trim().slice(0, 100),
+      telefono: String(telefono).trim().slice(0, 30),
+      trattamento: String(trattamento).trim().slice(0, 500),
+      data, ora,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    });
+
+    await reqRef.set({ data: JSON.stringify(richieste), updatedAt: new Date().toISOString() });
+    res.status(200).json({ success: true });
+  } catch (e) {
+    console.error("Errore submitBookingRequest:", e);
+    res.status(500).json({ error: "Errore interno" });
+  }
+});
