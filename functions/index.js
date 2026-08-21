@@ -258,7 +258,7 @@ exports.submitBookingRequest = onRequest(async (req, res) => {
     const snap = await reqRef.get();
     const richieste = snap.exists ? JSON.parse(snap.data().data || "[]") : [];
 
-    richieste.push({
+    const nuovaRichiesta = {
       id: "req_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7),
       nome: String(nome).trim().slice(0, 100),
       telefono: String(telefono).trim().slice(0, 30),
@@ -266,9 +266,26 @@ exports.submitBookingRequest = onRequest(async (req, res) => {
       data, ora,
       status: "pending",
       createdAt: new Date().toISOString(),
-    });
+    };
+    richieste.push(nuovaRichiesta);
 
     await reqRef.set({ data: JSON.stringify(richieste), updatedAt: new Date().toISOString() });
+
+    // Notifica push: se fallisce non blocca la richiesta, che resta comunque salvata
+    try {
+      const tokenSnap = await db.doc(`users/${ownerUid}/config/fcm_token`).get();
+      const token = tokenSnap.exists ? tokenSnap.data().token : null;
+      if (token) {
+        const messaging = getMessaging();
+        const dataFmt = new Date(data + "T12:00:00").toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+        const testo = `Ciao ${nuovaRichiesta.nome.split(" ")[0]}! Ho ricevuto la tua richiesta per ${nuovaRichiesta.trattamento} — ${dataFmt} alle ${ora}. Ti confermo a breve!`;
+        const message = buildPushMessage({ token, nome: nuovaRichiesta.nome, phone: nuovaRichiesta.telefono, testo, tag: "richiesta_" + nuovaRichiesta.id });
+        await messaging.send(message);
+      }
+    } catch (e) {
+      console.warn("Notifica nuova richiesta non inviata (non bloccante):", e);
+    }
+
     res.status(200).json({ success: true });
   } catch (e) {
     console.error("Errore submitBookingRequest:", e);

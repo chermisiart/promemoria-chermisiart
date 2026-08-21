@@ -2030,6 +2030,8 @@ document.addEventListener('userSignedIn', async (e) => {
   setTimeout(dailyAutoBackup, 2000);
   // Carica dati dal cloud (solo se dati locali assenti)
   setTimeout(fsLoadAll, 600);
+  // Aggiorna subito il badge delle richieste di prenotazione, non solo quando si apre Calendario
+  setTimeout(fsLoadRichieste, 800);
 });
 
 document.addEventListener('userSignedOut', () => {
@@ -4652,6 +4654,8 @@ try { initCalendar(); } catch(e) {
   const w = document.getElementById('cal-wrap');
   if (w) w.innerHTML = '<p style="color:#e06060;padding:20px;font-size:13px">Errore calendario: ' + e.message + '</p>';
 }
+// Controlla periodicamente nuove richieste di prenotazione, anche se l'app resta aperta senza ricaricare
+setInterval(fsLoadRichieste, 2 * 60 * 1000);
 </script>
 </body>
 </html>
