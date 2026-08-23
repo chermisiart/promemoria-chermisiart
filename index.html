@@ -3262,6 +3262,12 @@ const GCAL_COLOR_ID_MAP = {
   '#e91e63': '4',  // Rosa      → Flamingo
 };
 function gcalColorIdFor(hex) { return GCAL_COLOR_ID_MAP[hex] || '8'; }
+// Testo scuro sugli sfondi molto chiari (es. verde lime), bianco su tutti gli altri
+function calTextColorFor(hex) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  const yiq = (r*299 + g*587 + b*114) / 1000;
+  return yiq >= 200 ? '#1a1a1a' : '#fff';
+}
 const CAL_DAYS = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
 const CAL_MONTHS = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 let _calYear = new Date().getFullYear();
@@ -3452,7 +3458,7 @@ function renderCalendar() {
       const evs = (evMap[dateStr] || []).slice().sort((a,b) => (a.ev.timeStart||'00:00').localeCompare(b.ev.timeStart||'00:00'));
       const MAX = 3;
       const evHTML = evs.slice(0, MAX).map(e =>
-        `<div class="cal-ev" style="background:${e.color}">${e.dotClass ? `<span class="cal-status-dot ${e.dotClass}"></span>` : ''}${e.label}</div>`
+        `<div class="cal-ev" style="background:${e.color};color:${calTextColorFor(e.color)}">${e.dotClass ? `<span class="cal-status-dot ${e.dotClass}"></span>` : ''}${e.label}</div>`
       ).join('') + (evs.length > MAX ? `<div class="cal-ev-more">+${evs.length - MAX}</div>` : '');
       cells += `<td class="${other?'other-month':''}${isToday?' today':''}" onclick="openCalDay('${dateStr}')">
         <div class="cal-day-num">${d}</div>${evHTML}</td>`;
@@ -3673,7 +3679,7 @@ function openCalDay(dateStr) {
     const colW = 100 / e._span;
     const colL = e._col * colW;
     const gap = 2;
-    timedBlocks += `<div class="cal-timed-ev" style="top:${top}px;height:${height}px;background:${e.color};left:calc(${colL}% + ${gap}px);width:calc(${colW}% - ${gap*2}px);right:auto" onclick="event.stopPropagation();calClickEvent('${key}')" oncontextmenu="event.preventDefault()" ontouchstart="calPeekStart(event,'${key}')" ontouchend="calPeekEnd()" ontouchcancel="calPeekEnd()">
+    timedBlocks += `<div class="cal-timed-ev" style="top:${top}px;height:${height}px;background:${e.color};color:${calTextColorFor(e.color)};left:calc(${colL}% + ${gap}px);width:calc(${colW}% - ${gap*2}px);right:auto" onclick="event.stopPropagation();calClickEvent('${key}')" oncontextmenu="event.preventDefault()" ontouchstart="calPeekStart(event,'${key}')" ontouchend="calPeekEnd()" ontouchcancel="calPeekEnd()">
       ${e.dotClass ? `<div class="cal-timed-ev-dot ${e.dotClass}"></div>` : ''}
       <div class="cal-timed-ev-title">${e.label}</div>
       <div class="cal-timed-ev-time">${timeLabel}</div>
@@ -3685,7 +3691,7 @@ function openCalDay(dateStr) {
   allDayEvs.forEach((e, i) => {
     const key = dateStr + '_a_' + i;
     _calClickRegistry[key] = e;
-    allDayHTML += `<div class="cal-day-allday-ev" style="background:${e.color}" onclick="calClickEvent('${key}')">${e.label}</div>`;
+    allDayHTML += `<div class="cal-day-allday-ev" style="background:${e.color};color:${calTextColorFor(e.color)}" onclick="calClickEvent('${key}')">${e.label}</div>`;
   });
 
   wrap.innerHTML = `
