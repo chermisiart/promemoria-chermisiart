@@ -3079,7 +3079,7 @@ function openStorico(clientId, returnAction, returnLabel) {
               </div>
             </div>
             <div class="seduta-trattamento" id="tratt-${s.id}">${escHtml(s.trattamento)}</div>
-            ${Number(s.importo) > 0 ? `<div style="font-size:12px;color:var(--lilla);font-weight:500;margin-top:2px">€ ${Number(s.importo).toFixed(2)}</div>` : ''}
+            ${Number(s.importo) > 0 ? `<div style="font-size:12px;color:var(--lilla);font-weight:500;margin-top:2px">€ ${Number(s.importo).toFixed(2)}${s.esterno ? ` <span style="color:var(--muted);font-weight:400">(80% di €${Number(s.importoLordo||0).toFixed(2)} · 🏢 Centro estetico)</span>` : ''}</div>` : ''}
             ${s.note ? `<div class="seduta-note" id="note-${s.id}">${escHtml(s.note)}</div>` : `<div class="seduta-note" id="note-${s.id}" style="display:none"></div>`}
           </div>`).join('') : '<div class="empty" style="padding:20px">Nessuna seduta registrata</div>'}
       </div>
@@ -3209,7 +3209,8 @@ function deleteSeduta(clientId, sedutaId) {
 
 // ── CALENDARIO INTERNO ──
 const CAL_COLORS = [
-  { hex: '#9e9e9e', label: 'Grigio — Appuntamento cliente' },
+  { hex: '#9e9e9e', label: 'Grigio — Appuntamento cliente (studio)' },
+  { hex: '#c4f041', label: 'Verde lime — Appuntamento centro estetico (80%)' },
   { hex: '#e53935', label: 'Rosso' },
   { hex: '#f4511e', label: 'Arancione' },
   { hex: '#f6bf26', label: 'Giallo' },
@@ -3220,9 +3221,18 @@ const CAL_COLORS = [
   { hex: '#e91e63', label: 'Rosa' },
 ];
 const CAL_CLIENT_COLOR = '#9e9e9e';
+const CAL_ESTETICO_COLOR = '#c4f041';
+const CAL_ESTETICO_QUOTA = 0.8; // percentuale trattenuta sui clienti del centro estetico
+function isClientColor(hex) { return hex === CAL_CLIENT_COLOR || hex === CAL_ESTETICO_COLOR; }
+function calTypeHint(hex) {
+  if (hex === CAL_CLIENT_COLOR) return '🩶 Appuntamento cliente — nel tuo studio. Verranno creati i promemoria automaticamente';
+  if (hex === CAL_ESTETICO_COLOR) return '🏢 Appuntamento centro estetico — promemoria automatici, contabilizzato all\'80% del prezzo segnato';
+  return '🎨 Evento personale';
+}
 // Mappa i colori dell'app al colorId nativo di Google Calendar (stessa palette, quasi 1:1)
 const GCAL_COLOR_ID_MAP = {
-  '#9e9e9e': '8',  // Grigio    → Graphite
+  '#9e9e9e': '8',  // Grigio      → Graphite
+  '#c4f041': '10', // Verde lime  → Basil
   '#e53935': '11', // Rosso     → Tomato
   '#f4511e': '6',  // Arancione → Tangerine
   '#f6bf26': '5',  // Giallo    → Banana
@@ -3246,7 +3256,7 @@ function buildCalEventsMap() {
   calEvents.forEach(ev => {
     const client = clients.find(c => c.id === ev.clientId);
     const label = ev.type === 'client'
-      ? ((client?.name || '') + (ev.trattamento ? ' · ' + ev.trattamento : ''))
+      ? ((ev.esterno ? '🏢 ' : '') + (client?.name || '') + (ev.trattamento ? ' · ' + ev.trattamento : ''))
       : (ev.title || 'Evento');
     const hasRem = ev.type === 'client' && ev.reminderIds?.length > 0;
     // Stato contabilizzazione: solo per appuntamenti cliente
@@ -3268,11 +3278,15 @@ function autoSyncCalToStorico() {
     // Aggiungi allo storico
     const client = clients.find(c => c.id === ev.clientId);
     if (!storico[ev.clientId]) storico[ev.clientId] = [];
+    const importoLordo = ev.importo || 0;
+    const importoNetto = ev.esterno ? Math.round(importoLordo * CAL_ESTETICO_QUOTA * 100) / 100 : importoLordo;
     storico[ev.clientId].push({
       id: uid(), data: ev.date, trattamento: ev.trattamento || '',
-      note: '', importo: ev.importo || 0,
+      note: '', importo: importoNetto,
       categoria: detectCategory(ev.trattamento || ''),
-      clientName: client?.name || ''
+      clientName: client?.name || '',
+      esterno: !!ev.esterno,
+      importoLordo: ev.esterno ? importoLordo : undefined
     });
     ev.storicoPushed = true;
     changed = true;
@@ -3451,7 +3465,7 @@ function openProssimiAppuntamenti() {
     let lastDate = '';
     return list.map(ev => {
       const client = clients.find(c => c.id === ev.clientId);
-      const nome = client?.name || '—';
+      const nome = (ev.esterno ? '🏢 ' : '') + (client?.name || '—');
       const dataFmt = new Date(ev.date+'T12:00').toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'});
       let header = '';
       if (ev.date !== lastDate) {
@@ -3503,7 +3517,7 @@ function calPeekStart(event, key) {
     const e = _calClickRegistry[key];
     if (!e) return;
     const client = e.ev?.clientId ? clients.find(c => c.id === e.ev.clientId) : null;
-    const nome = client?.name || e.label || '';
+    const nome = (e.ev?.esterno ? '🏢 ' : '') + (client?.name || e.label || '');
     const tratt = e.ev?.trattamento || '';
     const time = e.ev?.timeStart ? (e.ev.timeStart + (e.ev.timeEnd ? ' – ' + e.ev.timeEnd : '')) : '';
     const importo = e.ev?.importo ? '€ ' + parseFloat(e.ev.importo).toFixed(2) : '';
@@ -3725,7 +3739,7 @@ function openCalModal(dateStr, existingEvent, prefillStart, prefillEnd) {
     `<div class="color-swatch${c.hex === _calSelectedColor ? ' selected' : ''}" style="background:${c.hex}" title="${c.label}" onclick="selectCalColor('${c.hex}')"></div>`
   ).join('');
 
-  const isClient = _calSelectedColor === CAL_CLIENT_COLOR;
+  const isClient = isClientColor(_calSelectedColor);
   const ev = existingEvent || {};
   const sortedClients = [...clients].sort((a, b) => a.name.localeCompare(b.name, 'it'));
   const clientOptions = sortedClients.map(c =>
@@ -3741,7 +3755,7 @@ function openCalModal(dateStr, existingEvent, prefillStart, prefillEnd) {
       </div>
       <div class="field"><label>Colore</label>
         <div class="color-swatches" id="cal-swatches">${swatches}</div>
-        <div id="cal-type-hint" class="cal-type-label">${isClient ? '🩶 Appuntamento cliente — verranno creati i promemoria automaticamente' : '🎨 Evento personale'}</div>
+        <div id="cal-type-hint" class="cal-type-label">${calTypeHint(_calSelectedColor)}</div>
       </div>
       <div id="cal-form-client" style="${isClient ? '' : 'display:none'}">
         <div class="field"><label>Cliente</label>
@@ -3802,10 +3816,8 @@ function selectCalColor(hex) {
   document.querySelectorAll('#cal-swatches .color-swatch').forEach(s => {
     s.classList.toggle('selected', s.style.backgroundColor === hex);
   });
-  const isClient = hex === CAL_CLIENT_COLOR;
-  document.getElementById('cal-type-hint').textContent = isClient
-    ? '🩶 Appuntamento cliente — verranno creati i promemoria automaticamente'
-    : '🎨 Evento personale';
+  const isClient = isClientColor(hex);
+  document.getElementById('cal-type-hint').textContent = calTypeHint(hex);
   document.getElementById('cal-form-client').style.display = isClient ? '' : 'none';
   document.getElementById('cal-form-personal').style.display = isClient ? 'none' : '';
 }
@@ -3816,7 +3828,7 @@ function closeCalModal() {
 }
 
 function saveCalEvent() {
-  const isClient = _calSelectedColor === CAL_CLIENT_COLOR;
+  const isClient = isClientColor(_calSelectedColor);
   let ev;
   if (isClient) {
     const clientId = document.getElementById('cal-client')?.value;
@@ -3826,7 +3838,7 @@ function saveCalEvent() {
     const timeEnd = document.getElementById('cal-time-end')?.value;
     const importo = parseFloat(document.getElementById('cal-importo')?.value || '0') || 0;
     if (!clientId || !date || !timeStart) { showToast('⚠️ Compila cliente, data e ora inizio'); return; }
-    ev = { type: 'client', color: CAL_CLIENT_COLOR, clientId, trattamento, date, timeStart, timeEnd, importo };
+    ev = { type: 'client', color: _calSelectedColor, clientId, trattamento, date, timeStart, timeEnd, importo, esterno: _calSelectedColor === CAL_ESTETICO_COLOR };
   } else {
     const title = (document.getElementById('cal-title')?.value || '').trim();
     const date = document.getElementById('cal-date-p')?.value;
