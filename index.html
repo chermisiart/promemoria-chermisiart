@@ -1214,6 +1214,7 @@ const KEY_CAL_EVENTS = 'chermisi_cal_events';
 const KEY_SPESE      = 'chermisi_spese';
 const KEY_RICHIESTE  = 'chermisi_richieste_prenotazione';
 const KEY_FOLLOWUP_RULES = 'chermisi_followup_rules';
+const KEY_SEDUTE_ANONIME = 'chermisi_sedute_anonime'; // sedute con importo ma senza cliente collegato (contano nelle statistiche, non nello storico)
 
 // Regole per i promemoria di follow-up automatici (indipendenti dalle categorie statistiche,
 // così ogni trattamento può avere la propria cadenza anche se rientra nella stessa categoria stats)
@@ -1594,6 +1595,7 @@ function initSpeseFilters() {
   Object.values(storico).forEach(arr => {
     (Array.isArray(arr) ? arr : []).forEach(s => { if (s.data) years.add(parseInt(s.data.slice(0,4))); });
   });
+  seduteAnonime.forEach(s => { if (s.data) years.add(parseInt(s.data.slice(0,4))); });
   const selY = document.getElementById('sp-filter-year');
   if (selY) {
     const prev = selY.value;
@@ -1746,6 +1748,10 @@ function deleteSpesa(id) {
   renderSpese();
 }
 
+let _speseExpanded = false;
+let _speseLastFilterKey = '';
+function toggleSpeseExpanded() { _speseExpanded = !_speseExpanded; renderSpese(); }
+
 function renderSpese() {
   const listEl = document.getElementById('spese-list');
   const summEl = document.getElementById('spese-summary');
@@ -1755,18 +1761,24 @@ function renderSpese() {
   const month = document.getElementById('sp-filter-month')?.value || 'all';
   const prefix = month === 'all' ? String(year) : `${year}-${month}`;
 
+  const filterKey = year + '|' + month;
+  if (filterKey !== _speseLastFilterKey) { _speseExpanded = false; _speseLastFilterKey = filterKey; }
+
   const filtered = spese.filter(s => s.data && s.data.startsWith(prefix));
   const sorted = [...filtered].sort((a,b) => b.data.localeCompare(a.data));
 
   const usciteFiltrate  = filtered.filter(s => s.tipo !== 'entrata');
   const entrateFiltrate = filtered.filter(s => s.tipo === 'entrata');
 
-  // Entrate: appuntamenti storico + entrate extra
+  // Entrate: appuntamenti storico + sedute senza cliente + entrate extra
   let entrateStorico = 0;
   Object.values(storico).forEach(sedute => {
     (Array.isArray(sedute) ? sedute : []).forEach(s => {
       if (s.data && s.data.startsWith(prefix)) entrateStorico += parseFloat(s.importo || 0);
     });
+  });
+  seduteAnonime.forEach(s => {
+    if (s.data && s.data.startsWith(prefix)) entrateStorico += parseFloat(s.importo || 0);
   });
   const entrateExtra = entrateFiltrate.reduce((t, s) => t + parseFloat(s.importo || 0), 0);
   const entrate = entrateStorico + entrateExtra;
@@ -1784,7 +1796,12 @@ function renderSpese() {
     listEl.innerHTML = '<div class="empty" style="padding:20px 0">Nessuna voce registrata</div>';
     return;
   }
-  listEl.innerHTML = sorted.map(s => {
+  const VISIBLE_COUNT = 10;
+  const toShow = _speseExpanded ? sorted : sorted.slice(0, VISIBLE_COUNT);
+  const toggleBtn = sorted.length > VISIBLE_COUNT
+    ? `<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:4px" onclick="toggleSpeseExpanded()">${_speseExpanded ? '▲ Mostra solo le ultime 10' : `▼ Mostra tutte (${sorted.length})`}</button>`
+    : '';
+  listEl.innerHTML = toShow.map(s => {
     const isEntrata = s.tipo === 'entrata';
     const icon = isEntrata ? '💼' : (SPESE_CAT_ICONS[s.categoria] || '➕');
     const dataFmt = s.data ? new Date(s.data+'T12:00').toLocaleDateString('it-IT',{day:'numeric',month:'long',year:'numeric'}) : '';
@@ -1807,7 +1824,7 @@ function renderSpese() {
       <button onclick="${editFn}" style="background:transparent;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0 3px;line-height:1" title="Modifica">✏️</button>
       <button onclick="${delFn}" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 2px;line-height:1" title="Elimina">✕</button>
     </div>`;
-  }).join('');
+  }).join('') + toggleBtn;
 }
 // ────────────────────────────────────────────────────
 
@@ -2004,6 +2021,7 @@ document.addEventListener('userSignedIn', async (e) => {
     reminders = load(KEY_REMINDERS, []);
     templates = load(KEY_TEMPLATES, DEFAULT_TEMPLATES);
     storico   = load(KEY_STORICO, []);
+    seduteAnonime = load(KEY_SEDUTE_ANONIME, []);
     followupRules = load(KEY_FOLLOWUP_RULES, DEFAULT_FOLLOWUP_RULES);
     renderClients(); renderReminders(); renderTemplates(); renderClientSelect(); renderTemplateSelect(); renderFollowupRules();
   }
@@ -2994,6 +3012,7 @@ function confirmClock() {
 // ── Storico Trattamenti ──
 // KEY_STORICO già definito sopra
 let storico = load(KEY_STORICO, {}); // { clientId: [{id, data, trattamento, note}] }
+let seduteAnonime = load(KEY_SEDUTE_ANONIME, []); // sedute senza cliente collegato: [{id, data, trattamento, note, importo, categoria, clientName, esterno, importoLordo}]
 
 let _storicoOpen = false;
 let _storicoReturnAction = null;
@@ -3256,7 +3275,7 @@ function buildCalEventsMap() {
   calEvents.forEach(ev => {
     const client = clients.find(c => c.id === ev.clientId);
     const label = ev.type === 'client'
-      ? ((ev.esterno ? '🏢 ' : '') + (client?.name || '') + (ev.trattamento ? ' · ' + ev.trattamento : ''))
+      ? ((ev.esterno ? '🏢 ' : '') + (client?.name || ev.clientNameFree || (ev.trattamento ? '' : 'Cliente') ) + (ev.trattamento ? ' · ' + ev.trattamento : ''))
       : (ev.title || 'Evento');
     const hasRem = ev.type === 'client' && ev.reminderIds?.length > 0;
     // Stato contabilizzazione: solo per appuntamenti cliente
@@ -3270,30 +3289,45 @@ function autoSyncCalToStorico() {
   // Sposta automaticamente nello storico i calEvents di tipo 'client'
   // il giorno DOPO l'appuntamento (date < oggi), se non già sincronizzati
   const today = new Date(); today.setHours(0,0,0,0);
-  let changed = false;
+  let changed = false, changedStorico = false, changedAnonime = false;
   calEvents.forEach(ev => {
     if (ev.type !== 'client' || ev.storicoPushed) return;
     const apptDate = new Date(ev.date + 'T00:00:00');
     if (apptDate >= today) return; // appuntamento non ancora avvenuto
-    // Aggiungi allo storico
-    const client = clients.find(c => c.id === ev.clientId);
-    if (!storico[ev.clientId]) storico[ev.clientId] = [];
     const importoLordo = ev.importo || 0;
     const importoNetto = ev.esterno ? Math.round(importoLordo * CAL_ESTETICO_QUOTA * 100) / 100 : importoLordo;
-    storico[ev.clientId].push({
-      id: uid(), data: ev.date, trattamento: ev.trattamento || '',
-      note: '', importo: importoNetto,
-      categoria: detectCategory(ev.trattamento || ''),
-      clientName: client?.name || '',
-      esterno: !!ev.esterno,
-      importoLordo: ev.esterno ? importoLordo : undefined
-    });
+    if (ev.clientId) {
+      // Cliente reale: entra nello storico della cliente
+      const client = clients.find(c => c.id === ev.clientId);
+      if (!storico[ev.clientId]) storico[ev.clientId] = [];
+      storico[ev.clientId].push({
+        id: uid(), data: ev.date, trattamento: ev.trattamento || '',
+        note: '', importo: importoNetto,
+        categoria: detectCategory(ev.trattamento || ''),
+        clientName: client?.name || '',
+        esterno: !!ev.esterno,
+        importoLordo: ev.esterno ? importoLordo : undefined
+      });
+      changedStorico = true;
+      scheduleFollowupForSeduta(ev.clientId, ev.trattamento || '', ev.date);
+    } else {
+      // Nessun cliente collegato: conta nelle statistiche/incassi, ma non nello storico di nessuna cliente
+      seduteAnonime.push({
+        id: uid(), data: ev.date, trattamento: ev.trattamento || '',
+        note: '', importo: importoNetto,
+        categoria: detectCategory(ev.trattamento || ''),
+        clientName: ev.clientNameFree || 'Cliente sconosciuto',
+        esterno: !!ev.esterno,
+        importoLordo: ev.esterno ? importoLordo : undefined
+      });
+      changedAnonime = true;
+    }
     ev.storicoPushed = true;
     changed = true;
-    scheduleFollowupForSeduta(ev.clientId, ev.trattamento || '', ev.date);
   });
   if (changed) {
-    save(KEY_STORICO, storico);
+    if (changedStorico) save(KEY_STORICO, storico);
+    if (changedAnonime) save(KEY_SEDUTE_ANONIME, seduteAnonime);
     save(KEY_CAL_EVENTS, calEvents);
   }
 }
@@ -3465,7 +3499,7 @@ function openProssimiAppuntamenti() {
     let lastDate = '';
     return list.map(ev => {
       const client = clients.find(c => c.id === ev.clientId);
-      const nome = (ev.esterno ? '🏢 ' : '') + (client?.name || '—');
+      const nome = (ev.esterno ? '🏢 ' : '') + (client?.name || ev.clientNameFree || ev.trattamento || '—');
       const dataFmt = new Date(ev.date+'T12:00').toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'});
       let header = '';
       if (ev.date !== lastDate) {
@@ -3517,7 +3551,7 @@ function calPeekStart(event, key) {
     const e = _calClickRegistry[key];
     if (!e) return;
     const client = e.ev?.clientId ? clients.find(c => c.id === e.ev.clientId) : null;
-    const nome = (e.ev?.esterno ? '🏢 ' : '') + (client?.name || e.label || '');
+    const nome = (e.ev?.esterno ? '🏢 ' : '') + (client?.name || e.ev?.clientNameFree || e.label || '');
     const tratt = e.ev?.trattamento || '';
     const time = e.ev?.timeStart ? (e.ev.timeStart + (e.ev.timeEnd ? ' – ' + e.ev.timeEnd : '')) : '';
     const importo = e.ev?.importo ? '€ ' + parseFloat(e.ev.importo).toFixed(2) : '';
@@ -3742,9 +3776,10 @@ function openCalModal(dateStr, existingEvent, prefillStart, prefillEnd) {
   const isClient = isClientColor(_calSelectedColor);
   const ev = existingEvent || {};
   const sortedClients = [...clients].sort((a, b) => a.name.localeCompare(b.name, 'it'));
-  const clientOptions = sortedClients.map(c =>
-    `<option value="${c.id}"${ev.clientId === c.id ? ' selected' : ''}>${c.name}</option>`
-  ).join('');
+  const clientOptions = `<option value=""${!ev.clientId ? ' selected' : ''}>— Nessun cliente / non lo so ancora —</option>` +
+    sortedClients.map(c =>
+      `<option value="${c.id}"${ev.clientId === c.id ? ' selected' : ''}>${c.name}</option>`
+    ).join('');
 
   const html = `
   <div class="cal-modal-overlay" id="cal-modal-overlay" onclick="if(event.target===this)closeCalModal()">
@@ -3764,6 +3799,9 @@ function openCalModal(dateStr, existingEvent, prefillStart, prefillEnd) {
             ${hasContactPicker() ? `<button class="btn-contact" onclick="pickContact('calendar')" title="Scegli dalla rubrica" style="flex-shrink:0">📒</button>` : ''}
           </div>
           <select id="cal-client" size="4" style="height:auto">${clientOptions}</select>
+        </div>
+        <div class="field"><label>Nome provvisorio <span style="font-size:10px;opacity:0.7">(se non conosci ancora il cliente — opzionale)</span></label>
+          <input id="cal-client-freename" type="text" placeholder="es. Signora del centro estetico, o lascia vuoto" value="${ev.clientNameFree || ''}">
         </div>
         <div class="field"><label>Trattamento</label>
           <input id="cal-trattamento" type="text" placeholder="es. Massaggio, Tatuaggio, Ceretta…" value="${ev.trattamento || ''}">
@@ -3831,14 +3869,16 @@ function saveCalEvent() {
   const isClient = isClientColor(_calSelectedColor);
   let ev;
   if (isClient) {
-    const clientId = document.getElementById('cal-client')?.value;
+    const clientId = document.getElementById('cal-client')?.value || '';
+    const clientNameFree = (document.getElementById('cal-client-freename')?.value || '').trim();
     const trattamento = (document.getElementById('cal-trattamento')?.value || '').trim();
     const date = document.getElementById('cal-date')?.value;
     const timeStart = document.getElementById('cal-time-start')?.value;
     const timeEnd = document.getElementById('cal-time-end')?.value;
     const importo = parseFloat(document.getElementById('cal-importo')?.value || '0') || 0;
-    if (!clientId || !date || !timeStart) { showToast('⚠️ Compila cliente, data e ora inizio'); return; }
-    ev = { type: 'client', color: _calSelectedColor, clientId, trattamento, date, timeStart, timeEnd, importo, esterno: _calSelectedColor === CAL_ESTETICO_COLOR };
+    if (!date || !timeStart) { showToast('⚠️ Compila data e ora inizio'); return; }
+    if (!clientId && !clientNameFree && !trattamento) { showToast('⚠️ Inserisci almeno il cliente, un nome provvisorio o il trattamento'); return; }
+    ev = { type: 'client', color: _calSelectedColor, clientId: clientId || null, clientNameFree: clientId ? '' : clientNameFree, trattamento, date, timeStart, timeEnd, importo, esterno: _calSelectedColor === CAL_ESTETICO_COLOR };
   } else {
     const title = (document.getElementById('cal-title')?.value || '').trim();
     const date = document.getElementById('cal-date-p')?.value;
@@ -3856,7 +3896,7 @@ function saveCalEvent() {
       ev.createdAt = old.createdAt;
       ev.storicoPushed = old.storicoPushed; // preserva stato contabilizzazione
 
-      if (isClient) {
+      if (isClient && ev.clientId) {
         // Cancella i vecchi promemoria pending legati a questo evento
         const oldIds = old.reminderIds || [];
         reminders = reminders.filter(r => !oldIds.includes(r.id) || r.status !== 'pending');
@@ -3891,6 +3931,12 @@ function saveCalEvent() {
         save(KEY_REMINDERS, reminders);
         renderReminders();
       } else {
+        // Nessun cliente collegato (o evento personale): niente promemoria, cancella eventuali pending residui
+        const oldIds = old.reminderIds || [];
+        if (oldIds.length) {
+          reminders = reminders.filter(r => !oldIds.includes(r.id) || r.status !== 'pending');
+          save(KEY_REMINDERS, reminders);
+        }
         ev.reminderIds = [];
       }
 
@@ -3900,7 +3946,7 @@ function saveCalEvent() {
     ev.id = 'ce_' + Date.now();
     ev.createdAt = new Date().toISOString();
     ev.reminderIds = [];
-    if (isClient) {
+    if (isClient && ev.clientId) {
       const client = clients.find(c => c.id === ev.clientId);
       const tplConfirm = templates.find(t => t.type === 'confirm') || templates[0];
       const tplAppt = templates.find(t => t.type === 'appointment') || templates[1];
@@ -3941,7 +3987,7 @@ function saveCalEvent() {
   const gcalChecked = document.getElementById('cal-gcal-check')?.checked === true;
   if (gcalChecked && gcalToken && ev.date && ev.timeStart) {
     const summary = isClient
-      ? ((clients.find(c => c.id === ev.clientId)?.name || 'Appuntamento') + (ev.trattamento ? ' — ' + ev.trattamento : ''))
+      ? ((clients.find(c => c.id === ev.clientId)?.name || ev.clientNameFree || ev.trattamento || 'Appuntamento') + (ev.trattamento ? ' — ' + ev.trattamento : ''))
       : (ev.title || 'Evento');
     const endTime = ev.timeEnd || addMinutesToTime(ev.timeStart, 60);
     createCalendarEvent(summary, '', ev.date, ev.timeStart, endTime, false, gcalColorIdFor(ev.color)).then(id => {
@@ -3957,7 +4003,7 @@ function saveCalEvent() {
 
   refreshCalendar(ev.date);
   closeCalModal();
-  showToast(isClient ? '✅ Appuntamento e promemoria creati!' : '✅ Evento salvato!');
+  showToast(isClient ? (ev.clientId ? '✅ Appuntamento e promemoria creati!' : '✅ Appuntamento salvato (nessun promemoria: cliente non collegato)') : '✅ Evento salvato!');
 
   if (approvedRichiestaId) {
     richieste = richieste.filter(r => r.id !== approvedRichiestaId);
@@ -4214,6 +4260,10 @@ function openStatsMonth(year, month) {
       sedute.push({ ...s, clientName: client?.name || s.clientName || '(profilo eliminato)' });
     });
   });
+  seduteAnonime.forEach(s => {
+    if (!s.data || !s.data.startsWith(prefix)) return;
+    sedute.push({ ...s });
+  });
   sedute.sort((a,b) => a.data.localeCompare(b.data));
   const totaleAppuntamenti = sedute.reduce((t,s) => t + (parseFloat(s.importo)||0), 0);
   // Entrate extra Glam Studio per questo mese
@@ -4291,6 +4341,12 @@ function openStatsTreatment(catId, filterYear) {
       sedute.push({ ...s, clientName });
     });
   });
+  seduteAnonime.forEach(s => {
+    if (!s.data) return;
+    if (filterYear !== null && new Date(s.data+'T12:00').getFullYear() !== filterYear) return;
+    if ((s.categoria || detectCategory(s.trattamento)) !== catId) return;
+    sedute.push({ ...s });
+  });
   sedute.sort((a,b) => b.data.localeCompare(a.data));
   const totale = sedute.reduce((t,s) => t + (parseFloat(s.importo)||0), 0);
 
@@ -4345,6 +4401,7 @@ function initStatsYearSelect() {
     if (key.endsWith('_precauzioni') || !Array.isArray(sedute)) return;
     sedute.forEach(s => { if (s.data) years.add(new Date(s.data+'T12:00:00').getFullYear()); });
   });
+  seduteAnonime.forEach(s => { if (s.data) years.add(new Date(s.data+'T12:00:00').getFullYear()); });
   const sorted = [...years].sort((a,b) => b-a);
   const prev = sel.value;
   sel.innerHTML = `<option value="tutti">Tutti gli anni</option>` +
@@ -4391,6 +4448,27 @@ function renderStats() {
       byTreatment[catId].total += imp;
       byTreatment[catId].sessions++;
     });
+  });
+
+  // Sedute senza cliente collegato: contano nei totali/mesi/trattamenti, raggruppate a parte nei "Top clienti"
+  seduteAnonime.forEach(s => {
+    if (!s.data) return;
+    const d = new Date(s.data+'T12:00:00');
+    if (filterYear !== null && d.getFullYear() !== filterYear) return;
+    const imp = parseFloat(s.importo)||0;
+    total += imp;
+    sessions++;
+    byMonth[d.getMonth()] += imp;
+    const yr = d.getFullYear();
+    if (!byYear[yr]) byYear[yr] = 0;
+    byYear[yr] += imp;
+    if (!byClient['__anon__']) byClient['__anon__'] = { total:0, sessions:0, name: '❓ Senza nome' };
+    byClient['__anon__'].total += imp;
+    byClient['__anon__'].sessions++;
+    const catId = s.categoria || detectCategory(s.trattamento);
+    if (!byTreatment[catId]) byTreatment[catId] = { catId, total:0, sessions:0, label: catLabel(catId), color: catColor(catId) };
+    byTreatment[catId].total += imp;
+    byTreatment[catId].sessions++;
   });
 
   // Entrate extra Glam Studio: compaiono nelle statistiche come voce separata
