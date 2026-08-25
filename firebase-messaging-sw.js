@@ -20,21 +20,28 @@ self.addEventListener('activate', () => self.clients.claim());
 const ICON = APP_URL + 'icon-192.png';
 
 // ── Cache API: persiste l'azione WhatsApp anche se il SW viene killato ──
-const PENDING_CACHE = 'chermisi-pending-v1';
-const PENDING_KEY   = '/pending-wa';
+// Chiave per-reminder (non un'unica chiave condivisa): se due notifiche vengono
+// toccate a poca distanza, la seconda non deve sovrascrivere/perdere la prima.
+const PENDING_CACHE  = 'chermisi-pending-v1';
+const PENDING_PREFIX = '/pending-wa/';
 
 async function savePendingWa(data) {
   const cache = await caches.open(PENDING_CACHE);
-  await cache.put(PENDING_KEY, new Response(JSON.stringify(data)));
+  const key = PENDING_PREFIX + (data.reminderId || ('anon-' + Date.now() + '-' + Math.random().toString(36).slice(2)));
+  await cache.put(key, new Response(JSON.stringify(data)));
 }
-async function getPendingWa() {
+// Legge e rimuove TUTTE le azioni WhatsApp in sospeso (possono essere più di una).
+async function getAndClearAllPendingWa() {
   const cache = await caches.open(PENDING_CACHE);
-  const res   = await cache.match(PENDING_KEY);
-  return res ? res.json() : null;
-}
-async function clearPendingWa() {
-  const cache = await caches.open(PENDING_CACHE);
-  await cache.delete(PENDING_KEY);
+  const requests = await cache.keys();
+  const items = [];
+  for (const req of requests) {
+    if (!req.url.includes(PENDING_PREFIX)) continue;
+    const res = await cache.match(req);
+    if (res) { try { items.push(await res.json()); } catch (e) {} }
+    await cache.delete(req);
+  }
+  return items;
 }
 
 messaging.onBackgroundMessage(async (payload) => {
@@ -98,20 +105,15 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// L'app manda 'appReady' dopo che Firebase è inizializzato.
-// Se c'è un'azione WhatsApp salvata in cache, la inviamo all'app.
+// L'app manda 'appReady' dopo che Firebase è inizializzato (può arrivare più di una
+// volta: il fallback lato app lo rimanda finché non trova un controller attivo).
+// Se ci sono azioni WhatsApp salvate in cache, le inviamo tutte insieme all'app.
 self.addEventListener('message', async (event) => {
   if (event.data?.type === 'appReady') {
-    const pending = await getPendingWa();
-    if (pending?.waUrl) {
-      await clearPendingWa();
-      if (event.source) {
-        event.source.postMessage({
-          type:       'openWhatsApp',
-          waUrl:      pending.waUrl,
-          reminderId: pending.reminderId || '',
-        });
-      }
+    const pending = await getAndClearAllPendingWa();
+    const items = pending.filter(p => p?.waUrl);
+    if (items.length && event.source) {
+      event.source.postMessage({ type: 'openWhatsAppBatch', items });
     }
   }
 });

@@ -1154,8 +1154,19 @@ onMessage(messaging, (payload) => {
 window._firebaseReady = true;
 document.dispatchEvent(new Event('firebaseReady'));
 // Notifica al SW che l'app è pronta: se c'è un'azione WhatsApp salvata (cold start), la riceveremo.
-if (navigator.serviceWorker?.controller) {
-  navigator.serviceWorker.controller.postMessage({ type: 'appReady' });
+// Quando l'app viene aperta da clients.openWindow() (tap su una notifica a app chiusa),
+// navigator.serviceWorker.controller non è sempre già valorizzato in questo preciso istante:
+// oltre al tentativo immediato, riascoltiamo 'controllerchange' e ritentiamo per qualche
+// secondo, altrimenti il messaggio "appReady" rischia di non partire mai e la notifica va persa.
+if ('serviceWorker' in navigator) {
+  const sendAppReady = () => { navigator.serviceWorker.controller?.postMessage({ type: 'appReady' }); };
+  sendAppReady();
+  navigator.serviceWorker.addEventListener('controllerchange', sendAppReady);
+  let _appReadyTries = 0;
+  const _appReadyTimer = setInterval(() => {
+    if (navigator.serviceWorker.controller) { sendAppReady(); clearInterval(_appReadyTimer); }
+    else if (++_appReadyTries >= 20) clearInterval(_appReadyTimer); // ~10s, poi rinuncia
+  }, 500);
 }
 </script>
 
@@ -1545,6 +1556,20 @@ if ('serviceWorker' in navigator) {
         renderReminders();
       }
       window.location.href = event.data.waUrl;
+    }
+    // Come sopra, ma può contenere più promemoria se più notifiche sono state
+    // toccate a poca distanza mentre l'app era chiusa. Si apre solo il primo
+    // (un secondo window.location.href non avrebbe comunque effetto): gli altri
+    // restano regolarmente nella lista Promemoria, pronti per l'invio manuale.
+    if (event.data?.type === 'openWhatsAppBatch' && Array.isArray(event.data.items) && event.data.items.length) {
+      const [first, ...rest] = event.data.items;
+      if (first.reminderId) {
+        reminders = reminders.filter(r => r.id !== first.reminderId);
+        save(KEY_REMINDERS, reminders);
+        renderReminders();
+      }
+      if (rest.length) showToast(`📱 Apro il primo di ${event.data.items.length} promemoria in sospeso — gli altri sono in "Promemoria"`);
+      window.location.href = first.waUrl;
     }
   });
 }
