@@ -158,6 +158,9 @@
   .color-swatch:hover { transform:scale(1.15); }
   .color-swatch.selected { border-color:#fff; transform:scale(1.15); }
   .cal-type-label { font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); margin-bottom:10px; }
+  .cal-client-tabs { display:flex; gap:6px; margin-bottom:10px; }
+  .cal-client-tab { flex:1; background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:7px 6px; font-size:11px; color:var(--muted); cursor:pointer; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cal-client-tab.active { background:rgba(78,205,196,0.18); border-color:var(--accent); color:var(--text); font-weight:600; }
   .cal-event-item { background:rgba(20,75,75,0.5); border:1px solid rgba(78,205,196,0.2); border-radius:12px; padding:12px 14px; margin-bottom:8px; display:flex; align-items:center; gap:10px; cursor:pointer; }
   .cal-event-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
   .cal-event-info { flex:1; min-width:0; }
@@ -3769,6 +3772,16 @@ function calClickEvent(key) {
 let _calModalDate = null;
 let _calModalEditId = null;
 let _calSelectedColor = CAL_CLIENT_COLOR;
+let _calClientMode = 'search'; // 'search' | 'new' | 'nickname'
+
+function setCalClientMode(mode) {
+  _calClientMode = mode;
+  document.querySelectorAll('.cal-client-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.mode === mode));
+  ['search', 'new', 'nickname'].forEach(m => {
+    const panel = document.getElementById('cal-client-panel-' + m);
+    if (panel) panel.style.display = (m === mode) ? '' : 'none';
+  });
+}
 
 function openCalModal(dateStr, existingEvent, prefillStart, prefillEnd) {
   _calModalDate = dateStr || (existingEvent ? existingEvent.date : null);
@@ -3781,8 +3794,11 @@ function openCalModal(dateStr, existingEvent, prefillStart, prefillEnd) {
 
   const isClient = isClientColor(_calSelectedColor);
   const ev = existingEvent || {};
+  _calClientMode = (existingEvent && existingEvent.type === 'client')
+    ? (existingEvent.clientId ? 'search' : (existingEvent.clientNameFree ? 'nickname' : 'search'))
+    : 'search';
   const sortedClients = [...clients].sort((a, b) => a.name.localeCompare(b.name, 'it'));
-  const clientOptions = `<option value=""${!ev.clientId ? ' selected' : ''}>— Nessun cliente / non lo so ancora —</option>` +
+  const clientOptions = `<option value=""${!ev.clientId ? ' selected' : ''}>— Seleziona una cliente —</option>` +
     sortedClients.map(c =>
       `<option value="${c.id}"${ev.clientId === c.id ? ' selected' : ''}>${c.name}</option>`
     ).join('');
@@ -3800,14 +3816,27 @@ function openCalModal(dateStr, existingEvent, prefillStart, prefillEnd) {
       </div>
       <div id="cal-form-client" style="${isClient ? '' : 'display:none'}">
         <div class="field"><label>Cliente</label>
-          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
-            <input id="cal-client-search" type="text" placeholder="Cerca cliente…" oninput="filterCalClients()" style="margin-bottom:0;flex:1">
-            ${hasContactPicker() ? `<button class="btn-contact" onclick="pickContact('calendar')" title="Scegli dalla rubrica" style="flex-shrink:0">📒</button>` : ''}
+          <div class="cal-client-tabs" id="cal-client-tabs">
+            <button type="button" class="cal-client-tab${_calClientMode==='search'?' active':''}" data-mode="search" onclick="setCalClientMode('search')">🔍 Cerca</button>
+            <button type="button" class="cal-client-tab${_calClientMode==='new'?' active':''}" data-mode="new" onclick="setCalClientMode('new')">➕ Nuova</button>
+            <button type="button" class="cal-client-tab${_calClientMode==='nickname'?' active':''}" data-mode="nickname" onclick="setCalClientMode('nickname')">🏷 Nickname</button>
           </div>
-          <select id="cal-client" size="4" style="height:auto">${clientOptions}</select>
-        </div>
-        <div class="field"><label>Nome provvisorio <span style="font-size:10px;opacity:0.7">(se non conosci ancora il cliente — opzionale)</span></label>
-          <input id="cal-client-freename" type="text" placeholder="es. Signora del centro estetico, o lascia vuoto" value="${ev.clientNameFree || ''}">
+          <div id="cal-client-panel-search" style="${_calClientMode==='search'?'':'display:none'}">
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+              <input id="cal-client-search" type="text" placeholder="Cerca cliente…" oninput="filterCalClients()" style="margin-bottom:0;flex:1">
+              ${hasContactPicker() ? `<button class="btn-contact" onclick="pickContact('calendar')" title="Scegli dalla rubrica" style="flex-shrink:0">📒</button>` : ''}
+            </div>
+            <select id="cal-client" size="4" style="height:auto">${clientOptions}</select>
+          </div>
+          <div id="cal-client-panel-new" style="${_calClientMode==='new'?'':'display:none'}">
+            <input id="cal-new-client-name" type="text" placeholder="Nome e cognome" style="margin-bottom:8px">
+            <input id="cal-new-client-phone" type="tel" placeholder="+39 333 1234567 (opzionale)">
+            <div style="font-size:10px;color:var(--muted);margin-top:4px">Viene aggiunta al tuo archivio clienti</div>
+          </div>
+          <div id="cal-client-panel-nickname" style="${_calClientMode==='nickname'?'':'display:none'}">
+            <input id="cal-client-freename" type="text" placeholder="es. Nuova cliente" value="${ev.clientNameFree || ''}">
+            <div style="font-size:10px;color:var(--muted);margin-top:4px">Per clienti che non gestisci direttamente tu — niente promemoria automatici</div>
+          </div>
         </div>
         <div class="field"><label>Trattamento</label>
           <input id="cal-trattamento" type="text" placeholder="es. Massaggio, Tatuaggio, Ceretta…" value="${ev.trattamento || ''}">
@@ -3875,16 +3904,32 @@ function saveCalEvent() {
   const isClient = isClientColor(_calSelectedColor);
   let ev;
   if (isClient) {
-    const clientId = document.getElementById('cal-client')?.value || '';
-    const clientNameFree = (document.getElementById('cal-client-freename')?.value || '').trim();
     const trattamento = (document.getElementById('cal-trattamento')?.value || '').trim();
     const date = document.getElementById('cal-date')?.value;
     const timeStart = document.getElementById('cal-time-start')?.value;
     const timeEnd = document.getElementById('cal-time-end')?.value;
     const importo = parseFloat(document.getElementById('cal-importo')?.value || '0') || 0;
     if (!date || !timeStart) { showToast('⚠️ Compila data e ora inizio'); return; }
-    if (!clientId && !clientNameFree && !trattamento) { showToast('⚠️ Inserisci almeno il cliente, un nome provvisorio o il trattamento'); return; }
-    ev = { type: 'client', color: _calSelectedColor, clientId: clientId || null, clientNameFree: clientId ? '' : clientNameFree, trattamento, date, timeStart, timeEnd, importo, esterno: _calSelectedColor === CAL_ESTETICO_COLOR };
+
+    let clientId = '', clientNameFree = '';
+    if (_calClientMode === 'new') {
+      const newName = (document.getElementById('cal-new-client-name')?.value || '').trim();
+      const newPhone = (document.getElementById('cal-new-client-phone')?.value || '').trim();
+      if (!newName) { showToast('⚠️ Inserisci nome e cognome della nuova cliente'); return; }
+      const newClient = { id: uid(), name: newName, phone: newPhone, notes: '', createdAt: new Date().toISOString() };
+      clients.push(newClient);
+      save(KEY_CLIENTS, clients);
+      renderClients(); renderClientSelect();
+      clientId = newClient.id;
+      showToast('✅ ' + newName + ' aggiunta all\'archivio!');
+    } else if (_calClientMode === 'nickname') {
+      clientNameFree = (document.getElementById('cal-client-freename')?.value || '').trim();
+      if (!clientNameFree && !trattamento) { showToast('⚠️ Inserisci un nickname o almeno il trattamento'); return; }
+    } else {
+      clientId = document.getElementById('cal-client')?.value || '';
+      if (!clientId && !trattamento) { showToast('⚠️ Seleziona una cliente o inserisci almeno il trattamento'); return; }
+    }
+    ev = { type: 'client', color: _calSelectedColor, clientId: clientId || null, clientNameFree, trattamento, date, timeStart, timeEnd, importo, esterno: _calSelectedColor === CAL_ESTETICO_COLOR };
   } else {
     const title = (document.getElementById('cal-title')?.value || '').trim();
     const date = document.getElementById('cal-date-p')?.value;
