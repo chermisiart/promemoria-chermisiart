@@ -1153,21 +1153,6 @@ onMessage(messaging, (payload) => {
 
 window._firebaseReady = true;
 document.dispatchEvent(new Event('firebaseReady'));
-// Notifica al SW che l'app è pronta: se c'è un'azione WhatsApp salvata (cold start), la riceveremo.
-// Quando l'app viene aperta da clients.openWindow() (tap su una notifica a app chiusa),
-// navigator.serviceWorker.controller non è sempre già valorizzato in questo preciso istante:
-// oltre al tentativo immediato, riascoltiamo 'controllerchange' e ritentiamo per qualche
-// secondo, altrimenti il messaggio "appReady" rischia di non partire mai e la notifica va persa.
-if ('serviceWorker' in navigator) {
-  const sendAppReady = () => { navigator.serviceWorker.controller?.postMessage({ type: 'appReady' }); };
-  sendAppReady();
-  navigator.serviceWorker.addEventListener('controllerchange', sendAppReady);
-  let _appReadyTries = 0;
-  const _appReadyTimer = setInterval(() => {
-    if (navigator.serviceWorker.controller) { sendAppReady(); clearInterval(_appReadyTimer); }
-    else if (++_appReadyTries >= 20) clearInterval(_appReadyTimer); // ~10s, poi rinuncia
-  }, 500);
-}
 </script>
 
 <script>
@@ -1557,30 +1542,37 @@ if ('serviceWorker' in navigator) {
       }
       window.location.href = event.data.waUrl;
     }
-    // Come sopra, ma può contenere più promemoria se più notifiche sono state
-    // toccate a poca distanza mentre l'app era chiusa. Si apre solo il primo
-    // (un secondo window.location.href non avrebbe comunque effetto): gli altri
-    // restano regolarmente nella lista Promemoria, pronti per l'invio manuale.
-    if (event.data?.type === 'openWhatsAppBatch' && Array.isArray(event.data.items) && event.data.items.length) {
-      const [first, ...rest] = event.data.items;
-      if (first.reminderId) {
-        reminders = reminders.filter(r => r.id !== first.reminderId);
-        save(KEY_REMINDERS, reminders);
-        renderReminders();
-      }
-      if (rest.length) showToast(`📱 Apro il primo di ${event.data.items.length} promemoria in sospeso — gli altri sono in "Promemoria"`);
-      window.location.href = first.waUrl;
-    }
   });
 }
 
 let toastTimer; // dichiarato qui per evitare TDZ quando handleWaParam chiama renderReminders
 
-// Gestisce il parametro ?del= (legacy, rimasto da vecchi URL con ?wa=).
+// Gestisce ?wa=/&rid= quando il service worker apre l'app da una notifica a tocco
+// (app chiusa): il link WhatsApp è già nell'URL, letto qui subito al caricamento,
+// senza aspettare Firebase o un giro di messaggi col service worker — quel giro,
+// con l'app chiusa, si è dimostrato inaffidabile e faceva sparire i promemoria.
+// Gestisce anche ?del= (legacy, rimasto da vecchi URL).
 (function handleWaParam() {
   const p   = new URLSearchParams(window.location.search);
+  const wa  = p.get('wa');
+  const rid = p.get('rid');
   const del = p.get('del');
-  if (del) { reminders = reminders.filter(r => r.id !== del); save(KEY_REMINDERS, reminders); renderReminders(); }
+  // Il bookkeeping (rimuovere il promemoria dalla lista, aggiornare la UI) è isolato
+  // in un try/catch: se qualcosa qui va storto (es. un riferimento a una variabile
+  // dichiarata più avanti nel file, non ancora inizializzata a questo punto dello
+  // script) NON deve mai poter bloccare il redirect verso WhatsApp qui sotto —
+  // è la parte che conta davvero per l'utente.
+  try {
+    if (del) { reminders = reminders.filter(r => r.id !== del); save(KEY_REMINDERS, reminders); renderReminders(); }
+    if (wa && rid) { reminders = reminders.filter(r => r.id !== rid); save(KEY_REMINDERS, reminders); renderReminders(); }
+  } catch (e) { console.warn('handleWaParam bookkeeping:', e); }
+  if (wa) {
+    history.replaceState({}, '', location.pathname);
+    // URLSearchParams.get() ha già decodificato una volta: 'wa' è già il link WhatsApp
+    // originale (col suo ?text=... ancora correttamente codificato). Un altro
+    // decodeURIComponent() qui lo romperebbe (spazi/&/? nel testo del messaggio).
+    window.location.href = wa;
+  }
 })();
 let tokenClient = null;
 let userInfo = load('chermisi_userinfo', null);
