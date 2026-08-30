@@ -1532,16 +1532,6 @@ if ('serviceWorker' in navigator) {
       save(KEY_REMINDERS, reminders);
       renderReminders();
     }
-    // Click sulla notifica: il SW chiede all'app di aprire WhatsApp.
-    // window.location.href non è bloccato dal popup-blocker (a differenza di window.open).
-    if (event.data?.type === 'openWhatsApp' && event.data?.waUrl) {
-      if (event.data.reminderId) {
-        reminders = reminders.filter(r => r.id !== event.data.reminderId);
-        save(KEY_REMINDERS, reminders);
-        renderReminders();
-      }
-      window.location.href = event.data.waUrl;
-    }
   });
 }
 

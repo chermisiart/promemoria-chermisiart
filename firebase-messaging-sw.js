@@ -53,29 +53,25 @@ self.addEventListener('notificationclick', (event) => {
   const waUrl      = nd.waUrl      || '';
   const reminderId = nd.reminderId || '';
 
+  if (waUrl) {
+    // Apri SEMPRE una finestra nuova con il link WhatsApp già dentro l'URL, anche se
+    // un'altra scheda dell'app risulta già presente tra i client. Prima si provava a
+    // riusare quella scheda con focus()+postMessage: su Android una scheda "già aperta"
+    // può essere congelata/scaricata dal sistema per risparmiare batteria, e in quel
+    // caso il postMessage non arriva mai — bug intermittente, senza pattern apparente,
+    // osservato in produzione. clients.openWindow() carica una pagina fresca che legge
+    // il link direttamente dall'URL, senza dipendere dallo stato di nessun'altra scheda.
+    // Va chiamato subito, prima di qualunque altra attesa, per non perdere l'attivazione
+    // utente del tap sulla notifica.
+    const target = APP_URL + '?wa=' + encodeURIComponent(waUrl) + (reminderId ? '&rid=' + encodeURIComponent(reminderId) : '');
+    event.waitUntil(clients.openWindow(target));
+    return;
+  }
+
+  // Nessun URL WhatsApp: cancella il promemoria (se aperta) e apri/focalizza l'app
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (list) => {
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       const appClients = list.filter(c => c.url.startsWith(APP_URL));
-
-      if (waUrl) {
-        if (appClients.length) {
-          // App già aperta: porta in primo piano e invia messaggio diretto
-          const client = await appClients[0].focus();
-          if (client) {
-            client.postMessage({ type: 'openWhatsApp', waUrl, reminderId });
-            return;
-          }
-        }
-        // App chiusa: il link WhatsApp va DIRETTAMENTE nell'URL della finestra che apriamo,
-        // così la pagina lo trova subito al caricamento senza dover aspettare un round-trip
-        // di messaggi col service worker (quel round-trip, con app chiusa, si è dimostrato
-        // inaffidabile: clients.openWindow() va chiamato il più vicino possibile al tap
-        // sulla notifica, prima di qualunque altra attesa, o rischia di non aprire nulla).
-        const target = APP_URL + '?wa=' + encodeURIComponent(waUrl) + (reminderId ? '&rid=' + encodeURIComponent(reminderId) : '');
-        return clients.openWindow(target);
-      }
-
-      // Nessun URL WhatsApp: cancella il promemoria (se aperta) e apri/focalizza l'app
       if (reminderId) appClients.forEach(c => c.postMessage({ type: 'deleteReminder', id: reminderId }));
       if (appClients.length) return appClients[0].focus();
       return clients.openWindow(APP_URL);
