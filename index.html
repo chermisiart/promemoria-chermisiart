@@ -884,8 +884,18 @@
   <div id="stats-summary" style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap"></div>
 
   <div class="card" style="margin-bottom:16px">
+    <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--text);margin-bottom:16px">Media per categoria</div>
+    <div id="stats-media-categorie"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
     <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--text);margin-bottom:16px">Incassi mensili</div>
     <div id="stats-chart" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px 6px"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--text);margin-bottom:16px">Andamento incassi</div>
+    <div id="stats-trend-chart"></div>
   </div>
 
   <div id="stats-recuperare-card" class="card" style="margin-bottom:16px;cursor:pointer;display:none" onclick="openClientiDaRecuperare()">
@@ -3569,7 +3579,10 @@ function openProssimiAppuntamenti() {
         <div style="font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--text)">📋 Prossimi appuntamenti</div>
         <button onclick="document.getElementById('prossimi-overlay').remove()" style="background:transparent;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1">✕</button>
       </div>
-      ${gcalToken && tuttiFuturiCount ? `<button class="btn-gcal" style="width:100%;justify-content:center;margin-bottom:12px" onclick="exportFutureToGCal()">📅 Esporta tutti su Google Calendar (clienti + personali)</button>` : ''}
+      ${tuttiFuturiCount ? (gcalToken
+        ? `<button class="btn-gcal" style="width:100%;justify-content:center;margin-bottom:12px" onclick="exportFutureToGCal()">📅 Esporta tutti su Google Calendar (clienti + personali)</button>`
+        : `<button class="btn-gcal" style="width:100%;justify-content:center;margin-bottom:12px" onclick="signIn()">📅 Connetti Google Calendar per esportare</button>`
+      ) : ''}
       <div style="position:relative;margin-bottom:12px">
         <input id="prossimi-search" type="text" placeholder="🔍 Cerca cliente..." style="width:100%;padding:8px 36px 8px 12px;background:rgba(78,205,196,0.08);border:1px solid ${border};border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px" oninput="filterProssimi(this.value);document.getElementById('prossimi-search-clear').style.display=this.value?'flex':'none'">
         <button id="prossimi-search-clear" onclick="document.getElementById('prossimi-search').value='';filterProssimi('');this.style.display='none'" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;padding:0">✕</button>
@@ -4600,6 +4613,35 @@ function renderStats() {
     statCard('Sedute', sessions) +
     statCard('Media/seduta', avg > 0 ? '€ '+avg.toFixed(2) : '—');
 
+  // Media per categoria: la media generale mescola trattamenti con prezzi molto
+  // diversi (es. ceretta ~20€ vs tatuaggio ~300€), quindi qui si spacca nei gruppi
+  // che contano davvero per l'utente.
+  const MACRO_GROUPS = [
+    { label: 'Estetica',           cats: ['viso','corpo','mani','piedi','ceretta','massaggi','altro'] },
+    { label: 'PMU',                cats: ['pmu'] },
+    { label: 'Tatuaggi artistici', cats: ['tatuaggi'] },
+    { label: 'Piercing',           cats: ['piercing'] },
+  ];
+  const mediaCatEl = document.getElementById('stats-media-categorie');
+  if (mediaCatEl) {
+    const rows = MACRO_GROUPS.map(g => {
+      let gTotal = 0, gSessions = 0;
+      g.cats.forEach(catId => { const t = byTreatment[catId]; if (t) { gTotal += t.total; gSessions += t.sessions; } });
+      return { label: g.label, sessions: gSessions, avg: gSessions > 0 ? gTotal / gSessions : 0 };
+    });
+    const anyData = rows.some(r => r.sessions > 0);
+    mediaCatEl.innerHTML = anyData ? rows.map(r => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid ${TC.cardBorder}">
+        <div style="font-size:13px;color:${TC.nameColor}">${r.label}</div>
+        <div style="text-align:right">
+          <div style="font-size:15px;color:${TC.valColor};font-weight:${TC.fw}">${r.sessions > 0 ? '€ ' + r.avg.toFixed(2) : '—'}</div>
+          <div style="font-size:10px;color:${TC.sedColor}">${r.sessions} sed.</div>
+        </div>
+      </div>`).join('') : '<div class="empty" style="padding:12px 0">Nessun dato disponibile</div>';
+  }
+
+  renderTrendChart(TC);
+
   // Grafico: mensile se anno specifico, per anno se "tutti"
   const chartEl = document.getElementById('stats-chart');
   if (chartEl) {
@@ -4679,6 +4721,122 @@ function renderStats() {
   }
 
   renderClientiDaRecuperareCard();
+}
+
+// ── Grafico andamento incassi (tutti i mesi, tutti gli anni con dati) ──
+function computeAllTimeMonthly() {
+  const byYM = {}; // 'YYYY-MM' → totale
+  const add = (data, imp) => {
+    if (!data) return;
+    const ym = data.slice(0, 7);
+    byYM[ym] = (byYM[ym] || 0) + imp;
+  };
+  Object.entries(storico).forEach(([key, sedute]) => {
+    if (key.endsWith('_precauzioni') || !Array.isArray(sedute)) return;
+    sedute.forEach(s => add(s.data, parseFloat(s.importo) || 0));
+  });
+  seduteAnonime.forEach(s => add(s.data, parseFloat(s.importo) || 0));
+  spese.filter(s => s.tipo === 'entrata' && (s.fonte || '').toLowerCase().includes('glam'))
+    .forEach(s => add(s.data, parseFloat(s.importo) || 0));
+  return Object.keys(byYM).sort().map(ym => ({ ym, total: byYM[ym] }));
+}
+
+function renderTrendChart(TC) {
+  const el = document.getElementById('stats-trend-chart');
+  if (!el) return;
+  const points = computeAllTimeMonthly();
+  if (points.length < 2) {
+    el.innerHTML = '<div class="empty" style="padding:12px 0">Servono almeno due mesi con incassi per il grafico</div>';
+    return;
+  }
+
+  const MONTHS_SHORT = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+  const labelFor = ym => {
+    const [y, m] = ym.split('-');
+    return MONTHS_SHORT[parseInt(m, 10) - 1] + (m === '01' ? ` '${y.slice(2)}` : '');
+  };
+
+  const n = points.length;
+  const W = 300, H = 150, L = 40, R = 10, T = 16, B = 24;
+  const plotW = W - L - R, plotH = H - T - B;
+  const maxVal = Math.max(...points.map(p => p.total), 1);
+  const xFor = i => L + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+  const yFor = v => T + plotH - (v / maxVal) * plotH;
+  const fmtCompact = v => v >= 1000 ? '€' + (v / 1000).toFixed(1).replace('.0', '') + 'k' : '€' + Math.round(v);
+
+  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(i).toFixed(1)} ${yFor(p.total).toFixed(1)}`).join(' ');
+  const areaPath = `${linePath} L ${xFor(n - 1).toFixed(1)} ${T + plotH} L ${xFor(0).toFixed(1)} ${T + plotH} Z`;
+
+  const labelEvery = Math.max(1, Math.ceil(n / 6));
+  const xLabels = points.map((p, i) => {
+    if (i % labelEvery !== 0 && i !== n - 1) return '';
+    return `<text x="${xFor(i).toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="9" fill="${TC.sedColor}">${labelFor(p.ym)}</text>`;
+  }).join('');
+
+  const gridLines = [0, 0.5, 1].map(f => {
+    const y = T + plotH - f * plotH;
+    return `<line x1="${L}" y1="${y}" x2="${W - R}" y2="${y}" stroke="${TC.cardBorder}" stroke-width="1"/>
+      <text x="${L - 6}" y="${y + 3}" text-anchor="end" font-size="9" fill="${TC.sedColor}">${fmtCompact(f * maxVal)}</text>`;
+  }).join('');
+
+  const last = points[n - 1];
+  const lastLabel = `<text x="${xFor(n-1).toFixed(1)}" y="${(yFor(last.total) - 10).toFixed(1)}" text-anchor="end" font-size="10" font-weight="600" fill="${TC.textPrimary}">${fmtCompact(last.total)}</text>`;
+
+  const dots = points.map((p, i) => `<circle class="trend-dot" data-i="${i}" cx="${xFor(i).toFixed(1)}" cy="${yFor(p.total).toFixed(1)}" r="3.5" fill="var(--accent)" stroke="${TC.cardBg}" stroke-width="2"/>`).join('');
+
+  el.innerHTML = `
+    <div style="position:relative">
+      <svg id="trend-svg" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;touch-action:pan-y">
+        ${gridLines}
+        <path d="${areaPath}" fill="var(--accent)" opacity="0.1" stroke="none"/>
+        <path d="${linePath}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        ${dots}
+        ${lastLabel}
+        ${xLabels}
+        <line id="trend-crosshair" x1="0" y1="${T}" x2="0" y2="${T+plotH}" stroke="${TC.sedColor}" stroke-width="1" style="display:none"/>
+      </svg>
+    </div>`;
+
+  // Interazione: tocco/hover trova il punto più vicino, mostra crosshair + tooltip (riusa lo stile del "peek" del calendario)
+  const svg = document.getElementById('trend-svg');
+  const showAt = clientX => {
+    const rect = svg.getBoundingClientRect();
+    const relX = ((clientX - rect.left) / rect.width) * W;
+    let nearest = 0, best = Infinity;
+    points.forEach((p, i) => { const d = Math.abs(xFor(i) - relX); if (d < best) { best = d; nearest = i; } });
+    const cx = xFor(nearest);
+    const cross = document.getElementById('trend-crosshair');
+    if (cross) { cross.setAttribute('x1', cx); cross.setAttribute('x2', cx); cross.style.display = ''; }
+    document.querySelectorAll('.trend-dot').forEach(d => d.setAttribute('r', d.dataset.i == nearest ? '5' : '3.5'));
+    document.getElementById('trend-peek')?.remove();
+    const p = points[nearest];
+    const [y, m] = p.ym.split('-');
+    const monthName = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'][parseInt(m,10)-1];
+    const peek = document.createElement('div');
+    peek.id = 'trend-peek';
+    peek.className = 'cal-peek';
+    peek.style.pointerEvents = 'none';
+    peek.innerHTML = `<div class="cal-peek-name">${monthName} ${y}</div><div class="cal-peek-importo">€ ${p.total.toFixed(2)}</div>`;
+    document.body.appendChild(peek);
+    const pw = peek.offsetWidth || 160, ph = peek.offsetHeight || 60;
+    const svgPointX = rect.left + (cx / W) * rect.width;
+    let left = svgPointX - pw / 2, top = rect.top - ph - 10;
+    left = Math.max(8, Math.min(window.innerWidth - pw - 8, left));
+    if (top < 8) top = rect.bottom + 10;
+    peek.style.left = left + 'px';
+    peek.style.top = top + 'px';
+  };
+  const hide = () => {
+    document.getElementById('trend-peek')?.remove();
+    const cross = document.getElementById('trend-crosshair');
+    if (cross) cross.style.display = 'none';
+    document.querySelectorAll('.trend-dot').forEach(d => d.setAttribute('r', '3.5'));
+  };
+  if (svg) {
+    svg.addEventListener('pointerdown', e => showAt(e.clientX));
+    svg.addEventListener('pointermove', e => { if (e.pressure > 0 || e.pointerType === 'mouse') showAt(e.clientX); });
+    svg.addEventListener('pointerleave', hide);
+  }
 }
 
 // ── Clienti da recuperare (trattamenti scaduti da almeno 7gg, senza appuntamento futuro) ──
