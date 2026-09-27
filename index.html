@@ -323,6 +323,11 @@
   .add-seduta-title::after { content:'▾'; font-size:12px; transition:transform 0.2s; }
   .add-seduta-box.collapsed .add-seduta-title::after { transform:rotate(-90deg); }
   .add-seduta-box.collapsed > *:not(.add-seduta-title) { display:none !important; }
+  .collapsible-title { cursor:pointer; user-select:none; display:flex; align-items:center; justify-content:space-between; }
+  .collapsible-title::after { content:'▾'; font-size:12px; transition:transform 0.2s; margin-left:8px; }
+  .collapsible.collapsed .collapsible-title::after { transform:rotate(-90deg); }
+  .collapsible.collapsed .collapsible-title { margin-bottom:0 !important; }
+  .collapsible.collapsed > *:not(.collapsible-title) { display:none !important; }
 
   /* ── Responsive ── */
   @media (max-width:360px) { .tab-label { font-size:9px; } .tab-icon { font-size:16px; } }
@@ -884,18 +889,18 @@
   <div id="stats-summary" style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap"></div>
 
   <div class="card" style="margin-bottom:16px">
-    <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--text);margin-bottom:16px">Media per categoria</div>
-    <div id="stats-media-categorie"></div>
-  </div>
-
-  <div class="card" style="margin-bottom:16px">
     <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--text);margin-bottom:16px">Incassi mensili</div>
     <div id="stats-chart" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px 6px"></div>
   </div>
 
   <div class="card" style="margin-bottom:16px">
-    <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--text);margin-bottom:16px">Andamento incassi</div>
+    <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--text);margin-bottom:16px">Andamento incassi per anno</div>
     <div id="stats-trend-chart"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--text);margin-bottom:16px">Media per categoria</div>
+    <div id="stats-media-categorie"></div>
   </div>
 
   <div id="stats-recuperare-card" class="card" style="margin-bottom:16px;cursor:pointer;display:none" onclick="openClientiDaRecuperare()">
@@ -905,13 +910,13 @@
     </div>
   </div>
 
-  <div class="card" style="margin-bottom:16px">
-    <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--text);margin-bottom:16px">Top clienti</div>
+  <div class="card collapsible collapsed" style="margin-bottom:16px">
+    <div class="collapsible-title" style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--text);margin-bottom:16px" onclick="this.closest('.collapsible').classList.toggle('collapsed')">Top clienti</div>
     <div id="stats-top-clients"></div>
   </div>
 
-  <div class="card">
-    <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--text);margin-bottom:16px">Per trattamento</div>
+  <div class="card collapsible collapsed">
+    <div class="collapsible-title" style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--text);margin-bottom:16px" onclick="this.closest('.collapsible').classList.toggle('collapsed')">Per trattamento</div>
     <div id="stats-treatments"></div>
   </div>
 </div>
@@ -1644,6 +1649,7 @@ function resetSpeseForm() {
   document.getElementById('sp-save-btn').textContent = 'Aggiungi spesa';
   document.getElementById('sp-save-btn').onclick = saveSpesa;
   document.getElementById('sp-cancel-edit')?.style && (document.getElementById('sp-cancel-edit').style.display = 'none');
+  document.getElementById('card-new-spesa')?.classList.add('collapsed');
 }
 
 // ── ENTRATE EXTRA ───────────────────────────────────
@@ -4236,6 +4242,16 @@ function detectCategory(trattamento) {
 function catLabel(id) { return TREATMENT_CATS.find(c=>c.id===id)?.label || 'Altro'; }
 function catColor(id) { return TREATMENT_CATS.find(c=>c.id===id)?.color || '#6a5880'; }
 
+// Raggruppamento delle categorie fini in 4 gruppi macro per "Media per categoria" in Statistiche:
+// la media generale mescola trattamenti con prezzi molto diversi (ceretta ~20€ vs tatuaggio 300€),
+// quindi qui si spacca nei gruppi che contano davvero per l'utente.
+const MACRO_GROUPS = [
+  { label: 'Estetica',           cats: ['viso','corpo','mani','piedi','ceretta','massaggi','altro'] },
+  { label: 'PMU',                cats: ['pmu'] },
+  { label: 'Tatuaggi artistici', cats: ['tatuaggi'] },
+  { label: 'Piercing',           cats: ['piercing'] },
+];
+
 // ── Follow-up automatico per cadenza trattamento (regole configurabili in "Msg") ──
 function detectFollowupCategories(trattamento) {
   const t = (trattamento||'').toLowerCase();
@@ -4485,6 +4501,82 @@ function openStatsTreatment(catId, filterYear) {
     </div>`);
 }
 
+// Dettaglio di un gruppo di "Media per categoria" (es. PMU): mostra tutte le sedute che
+// compongono quella media, per capire eventuali numeri che sembrano anomali (es. una
+// media bassa perché un trattamento a più sedute viene segnato con importo solo su una).
+function openStatsMacroGroup(groupIndex, filterYear) {
+  const group = MACRO_GROUPS[groupIndex];
+  if (!group) return;
+  const catIds = group.cats;
+  const light = document.body.classList.contains('light-mode');
+  const bg     = light ? '#f0faf9' : '#0d1f1f';
+  const border = light ? 'rgba(26,138,138,0.28)' : 'rgba(78,205,196,0.28)';
+  const color = 'var(--accent)';
+
+  const sedute = [];
+  Object.entries(storico).forEach(([clientId, arr]) => {
+    if (clientId.endsWith('_precauzioni') || !Array.isArray(arr)) return;
+    const client = clients.find(c => c.id === clientId);
+    const clientName = client?.name || arr.find(s=>s.clientName)?.clientName || '(profilo eliminato)';
+    arr.forEach(s => {
+      if (!s.data) return;
+      if (filterYear !== null && new Date(s.data+'T12:00').getFullYear() !== filterYear) return;
+      if (!catIds.includes(s.categoria || detectCategory(s.trattamento))) return;
+      sedute.push({ ...s, clientName });
+    });
+  });
+  seduteAnonime.forEach(s => {
+    if (!s.data) return;
+    if (filterYear !== null && new Date(s.data+'T12:00').getFullYear() !== filterYear) return;
+    if (!catIds.includes(s.categoria || detectCategory(s.trattamento))) return;
+    sedute.push({ ...s });
+  });
+  sedute.sort((a,b) => b.data.localeCompare(a.data));
+  const totale = sedute.reduce((t,s) => t + (parseFloat(s.importo)||0), 0);
+  const media = sedute.length > 0 ? totale / sedute.length : 0;
+
+  const rows = sedute.map(s => {
+    const dataFmt = new Date(s.data+'T12:00').toLocaleDateString('it-IT',{day:'numeric',month:'short',year:'numeric'});
+    const imp = parseFloat(s.importo)||0;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid ${border}">
+      <div style="font-size:11px;color:rgba(168,230,224,0.6);min-width:72px">${dataFmt}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;color:#edf7f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(s.clientName)}</div>
+        ${s.trattamento ? `<div style="font-size:11px;color:rgba(168,230,224,0.6);margin-top:1px">${escHtml(s.trattamento)}</div>` : ''}
+      </div>
+      <div style="font-size:14px;color:${color};font-weight:500;white-space:nowrap">${imp>0?'€ '+imp.toFixed(2):'—'}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('stats-macrogroup-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="stats-macrogroup-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)this.remove()">
+      <div style="background:${bg};border:1.5px solid ${border};border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:80vh;display:flex;flex-direction:column;padding:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <span style="font-family:'Cormorant Garamond',serif;font-size:20px;color:#edf7f6">${escHtml(group.label)}${filterYear ? ' · '+filterYear : ''}</span>
+          <button onclick="document.getElementById('stats-macrogroup-modal').remove()" style="background:transparent;border:none;color:rgba(237,247,246,0.6);font-size:22px;cursor:pointer;line-height:1">✕</button>
+        </div>
+        <div style="display:flex;gap:16px;margin-bottom:16px">
+          <div style="flex:1;background:rgba(78,205,196,0.08);border:1px solid ${border};border-radius:10px;padding:10px;text-align:center">
+            <div style="font-size:9px;color:rgba(168,230,224,0.6);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:4px">Totale</div>
+            <div style="font-size:18px;color:var(--accent);font-family:'Cormorant Garamond',serif">€ ${totale.toFixed(2)}</div>
+          </div>
+          <div style="flex:1;background:rgba(78,205,196,0.08);border:1px solid ${border};border-radius:10px;padding:10px;text-align:center">
+            <div style="font-size:9px;color:rgba(168,230,224,0.6);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:4px">Sedute</div>
+            <div style="font-size:18px;color:#edf7f6;font-family:'Cormorant Garamond',serif">${sedute.length}</div>
+          </div>
+          <div style="flex:1;background:rgba(78,205,196,0.08);border:1px solid ${border};border-radius:10px;padding:10px;text-align:center">
+            <div style="font-size:9px;color:rgba(168,230,224,0.6);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:4px">Media</div>
+            <div style="font-size:18px;color:#edf7f6;font-family:'Cormorant Garamond',serif">€ ${media.toFixed(2)}</div>
+          </div>
+        </div>
+        <div style="overflow-y:auto;flex:1">
+          ${rows || '<div style="padding:20px 0;text-align:center;color:rgba(168,230,224,0.6)">Nessuna seduta</div>'}
+        </div>
+      </div>
+    </div>`);
+}
+
 function initStatsYearSelect() {
   const sel = document.getElementById('stats-year');
   if (!sel) return;
@@ -4615,23 +4707,18 @@ function renderStats() {
 
   // Media per categoria: la media generale mescola trattamenti con prezzi molto
   // diversi (es. ceretta ~20€ vs tatuaggio ~300€), quindi qui si spacca nei gruppi
-  // che contano davvero per l'utente.
-  const MACRO_GROUPS = [
-    { label: 'Estetica',           cats: ['viso','corpo','mani','piedi','ceretta','massaggi','altro'] },
-    { label: 'PMU',                cats: ['pmu'] },
-    { label: 'Tatuaggi artistici', cats: ['tatuaggi'] },
-    { label: 'Piercing',           cats: ['piercing'] },
-  ];
+  // che contano davvero per l'utente. Ogni riga è cliccabile e apre le singole sedute
+  // che compongono quella media, utile per capire eventuali numeri anomali.
   const mediaCatEl = document.getElementById('stats-media-categorie');
   if (mediaCatEl) {
-    const rows = MACRO_GROUPS.map(g => {
+    const rows = MACRO_GROUPS.map((g, i) => {
       let gTotal = 0, gSessions = 0;
       g.cats.forEach(catId => { const t = byTreatment[catId]; if (t) { gTotal += t.total; gSessions += t.sessions; } });
-      return { label: g.label, sessions: gSessions, avg: gSessions > 0 ? gTotal / gSessions : 0 };
+      return { i, label: g.label, sessions: gSessions, avg: gSessions > 0 ? gTotal / gSessions : 0 };
     });
     const anyData = rows.some(r => r.sessions > 0);
     mediaCatEl.innerHTML = anyData ? rows.map(r => `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid ${TC.cardBorder}">
+      <div onclick="${r.sessions > 0 ? `openStatsMacroGroup(${r.i},${filterYear})` : ''}" style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid ${TC.cardBorder}${r.sessions > 0 ? ';cursor:pointer' : ''}">
         <div style="font-size:13px;color:${TC.nameColor}">${r.label}</div>
         <div style="text-align:right">
           <div style="font-size:15px;color:${TC.valColor};font-weight:${TC.fw}">${r.sessions > 0 ? '€ ' + r.avg.toFixed(2) : '—'}</div>
@@ -4723,13 +4810,13 @@ function renderStats() {
   renderClientiDaRecuperareCard();
 }
 
-// ── Grafico andamento incassi (tutti i mesi, tutti gli anni con dati) ──
-function computeAllTimeMonthly() {
-  const byYM = {}; // 'YYYY-MM' → totale
+// ── Grafico andamento incassi (un punto per anno, tutta la storia) ──
+function computeAllTimeYearly() {
+  const byY = {}; // 'YYYY' → totale
   const add = (data, imp) => {
     if (!data) return;
-    const ym = data.slice(0, 7);
-    byYM[ym] = (byYM[ym] || 0) + imp;
+    const y = data.slice(0, 4);
+    byY[y] = (byY[y] || 0) + imp;
   };
   Object.entries(storico).forEach(([key, sedute]) => {
     if (key.endsWith('_precauzioni') || !Array.isArray(sedute)) return;
@@ -4738,23 +4825,19 @@ function computeAllTimeMonthly() {
   seduteAnonime.forEach(s => add(s.data, parseFloat(s.importo) || 0));
   spese.filter(s => s.tipo === 'entrata' && (s.fonte || '').toLowerCase().includes('glam'))
     .forEach(s => add(s.data, parseFloat(s.importo) || 0));
-  return Object.keys(byYM).sort().map(ym => ({ ym, total: byYM[ym] }));
+  return Object.keys(byY).sort().map(y => ({ y, total: byY[y] }));
 }
 
 function renderTrendChart(TC) {
   const el = document.getElementById('stats-trend-chart');
   if (!el) return;
-  const points = computeAllTimeMonthly();
+  const points = computeAllTimeYearly();
   if (points.length < 2) {
-    el.innerHTML = '<div class="empty" style="padding:12px 0">Servono almeno due mesi con incassi per il grafico</div>';
+    el.innerHTML = '<div class="empty" style="padding:12px 0">Servono almeno due anni con incassi per il grafico</div>';
     return;
   }
 
-  const MONTHS_SHORT = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
-  const labelFor = ym => {
-    const [y, m] = ym.split('-');
-    return MONTHS_SHORT[parseInt(m, 10) - 1] + (m === '01' ? ` '${y.slice(2)}` : '');
-  };
+  const labelFor = y => y;
 
   const n = points.length;
   const W = 300, H = 150, L = 40, R = 10, T = 16, B = 24;
@@ -4770,7 +4853,7 @@ function renderTrendChart(TC) {
   const labelEvery = Math.max(1, Math.ceil(n / 6));
   const xLabels = points.map((p, i) => {
     if (i % labelEvery !== 0 && i !== n - 1) return '';
-    return `<text x="${xFor(i).toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="9" fill="${TC.sedColor}">${labelFor(p.ym)}</text>`;
+    return `<text x="${xFor(i).toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="9" fill="${TC.sedColor}">${labelFor(p.y)}</text>`;
   }).join('');
 
   const gridLines = [0, 0.5, 1].map(f => {
@@ -4810,13 +4893,11 @@ function renderTrendChart(TC) {
     document.querySelectorAll('.trend-dot').forEach(d => d.setAttribute('r', d.dataset.i == nearest ? '5' : '3.5'));
     document.getElementById('trend-peek')?.remove();
     const p = points[nearest];
-    const [y, m] = p.ym.split('-');
-    const monthName = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'][parseInt(m,10)-1];
     const peek = document.createElement('div');
     peek.id = 'trend-peek';
     peek.className = 'cal-peek';
     peek.style.pointerEvents = 'none';
-    peek.innerHTML = `<div class="cal-peek-name">${monthName} ${y}</div><div class="cal-peek-importo">€ ${p.total.toFixed(2)}</div>`;
+    peek.innerHTML = `<div class="cal-peek-name">${p.y}</div><div class="cal-peek-importo">€ ${p.total.toFixed(2)}</div>`;
     document.body.appendChild(peek);
     const pw = peek.offsetWidth || 160, ph = peek.offsetHeight || 60;
     const svgPointX = rect.left + (cx / W) * rect.width;
