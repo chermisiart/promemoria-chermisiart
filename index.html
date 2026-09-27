@@ -1793,13 +1793,36 @@ function renderSpese() {
   const entrateExtra = entrateFiltrate.reduce((t, s) => t + parseFloat(s.importo || 0), 0);
   const entrate = entrateStorico + entrateExtra;
   const uscite  = usciteFiltrate.reduce((t, s) => t + parseFloat(s.importo || 0), 0);
-  const margine = entrate - uscite;
   const fmt = v => v.toLocaleString('it-IT', { minimumFractionDigits:2, maximumFractionDigits:2 });
+
+  // Quando è selezionato un mese specifico, il "Margine" non è il risultato del solo
+  // mese (quello si vede già da Entrate/Uscite qui sopra), ma il saldo accumulato
+  // dal 1° gennaio di quell'anno fino alla fine del mese selezionato — coerente con
+  // l'idea che il margine di un mese si porta avanti nei mesi successivi.
+  let margine, margineLabel;
+  if (month === 'all') {
+    margine = entrate - uscite;
+    margineLabel = 'Margine';
+  } else {
+    const cumBound = `${year}-${month}`; // confronto lessicografico su 'YYYY-MM' di 'YYYY-MM-DD'
+    let cumEntrate = 0, cumUscite = 0;
+    const inRange = data => data && data.slice(0,4) === String(year) && data.slice(0,7) <= cumBound;
+    Object.values(storico).forEach(sedute => {
+      (Array.isArray(sedute) ? sedute : []).forEach(s => { if (inRange(s.data)) cumEntrate += parseFloat(s.importo || 0); });
+    });
+    seduteAnonime.forEach(s => { if (inRange(s.data)) cumEntrate += parseFloat(s.importo || 0); });
+    spese.forEach(s => {
+      if (!inRange(s.data)) return;
+      if (s.tipo === 'entrata') cumEntrate += parseFloat(s.importo || 0); else cumUscite += parseFloat(s.importo || 0);
+    });
+    margine = cumEntrate - cumUscite;
+    margineLabel = 'Saldo (da gennaio)';
+  }
 
   summEl.innerHTML = `<div class="spese-summary-box">
     <div><div class="s-val s-entrate">€ ${fmt(entrate)}</div><div class="s-lbl">Entrate</div></div>
     <div><div class="s-val s-uscite">− € ${fmt(uscite)}</div><div class="s-lbl">Uscite</div></div>
-    <div><div class="s-val s-margine" style="color:${margine>=0?'var(--accent)':'#e06060'}">€ ${fmt(margine)}</div><div class="s-lbl">Margine</div></div>
+    <div><div class="s-val s-margine" style="color:${margine>=0?'var(--accent)':'#e06060'}">€ ${fmt(margine)}</div><div class="s-lbl">${margineLabel}</div></div>
   </div>`;
 
   if (!sorted.length) {
