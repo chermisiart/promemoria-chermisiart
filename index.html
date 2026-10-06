@@ -323,11 +323,6 @@
   .add-seduta-title::after { content:'▾'; font-size:12px; transition:transform 0.2s; }
   .add-seduta-box.collapsed .add-seduta-title::after { transform:rotate(-90deg); }
   .add-seduta-box.collapsed > *:not(.add-seduta-title) { display:none !important; }
-  .collapsible-title { cursor:pointer; user-select:none; display:flex; align-items:center; justify-content:space-between; }
-  .collapsible-title::after { content:'▾'; font-size:12px; transition:transform 0.2s; margin-left:8px; }
-  .collapsible.collapsed .collapsible-title::after { transform:rotate(-90deg); }
-  .collapsible.collapsed .collapsible-title { margin-bottom:0 !important; }
-  .collapsible.collapsed > *:not(.collapsible-title) { display:none !important; }
 
   /* ── Responsive ── */
   @media (max-width:360px) { .tab-label { font-size:9px; } .tab-icon { font-size:16px; } }
@@ -910,13 +905,13 @@
     </div>
   </div>
 
-  <div class="card collapsible collapsed" style="margin-bottom:16px">
-    <div class="collapsible-title" style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--text);margin-bottom:16px" onclick="this.closest('.collapsible').classList.toggle('collapsed')">Top clienti</div>
+  <div class="card collapsed" id="card-stats-top" style="margin-bottom:16px">
+    <div class="card-title" onclick="toggleCard('card-stats-top')">Top clienti <span class="card-toggle">▾</span></div>
     <div id="stats-top-clients"></div>
   </div>
 
-  <div class="card collapsible collapsed">
-    <div class="collapsible-title" style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--text);margin-bottom:16px" onclick="this.closest('.collapsible').classList.toggle('collapsed')">Per trattamento</div>
+  <div class="card collapsed" id="card-stats-tratt">
+    <div class="card-title" onclick="toggleCard('card-stats-tratt')">Per trattamento <span class="card-toggle">▾</span></div>
     <div id="stats-treatments"></div>
   </div>
 </div>
