@@ -1009,29 +1009,6 @@
   </div>
 </div>
 
-<!-- Patch: rimuove applicationPubKey dal body delle registrazioni FCM.
-     La chiave VAPID in Firebase Console non corrisponde a quella nel codice, causando HTTP 401.
-     Per Chrome/FCM, la consegna push non richiede VAPID lato server, quindi questo fix è sicuro. -->
-<script>
-(function() {
-  var _fetch = window.fetch.bind(window);
-  window.fetch = function(input, init) {
-    if (typeof input === 'string' && input.includes('fcmregistrations') &&
-        init && init.method === 'POST' && typeof init.body === 'string') {
-      try {
-        var body = JSON.parse(init.body);
-        if (body && body.web && body.web.applicationPubKey) {
-          delete body.web.applicationPubKey;
-          init = Object.assign({}, init, { body: JSON.stringify(body) });
-          console.log('[FCM patch] applicationPubKey rimosso dalla registrazione');
-        }
-      } catch(e) {}
-    }
-    return _fetch(input, init);
-  };
-})();
-</script>
-
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
@@ -1181,8 +1158,8 @@ document.addEventListener('firebaseReady', async function autoRefreshFcmToken() 
       serviceWorkerRegistration: swReg,
     });
     if (token) {
-      localStorage.setItem('chermisi_fcm_token', token);
       await saveFcmToken(token);
+      localStorage.setItem('chermisi_fcm_token', token);
       console.log('[autoRefresh] Token FCM aggiornato su Firestore:', token.slice(-12));
     }
   } catch(e) {
@@ -1910,16 +1887,12 @@ async function requestPushNotif() {
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') { showToast('Notifiche non autorizzate'); return; }
     const swReg = await getSwRegistration();
-    // Forza una nuova sottoscrizione push (elimina quella vecchia con VAPID errata)
-    try {
-      const existingSub = await swReg.pushManager.getSubscription();
-      if (existingSub) { await existingSub.unsubscribe(); console.log('Vecchia subscription eliminata'); }
-    } catch (ue) { console.warn('unsubscribe fallito:', ue.message); }
+    if (!swReg) throw new Error('Service worker notifiche non disponibile');
     const token = await window._getToken(window._firebaseMessaging, { vapidKey: window._vapidKey, serviceWorkerRegistration: swReg });
     if (token) {
-      localStorage.setItem(KEY_FCM, token);
       // Salva il token su Firestore così la Cloud Function può usarlo
       await saveFcmToken(token);
+      localStorage.setItem(KEY_FCM, token);
       updateNotifUI(true);
       showToast('✅ Notifiche push attivate!');
     }
@@ -1935,7 +1908,7 @@ async function saveFcmToken(token) {
     await new Promise(r => setTimeout(r, 200));
     attempts++;
   }
-  if (!window._db || !window._currentUid) { showToast('❌ DB non pronto'); return; }
+  if (!window._db || !window._currentUid) throw new Error('Accedi con Google e riprova: account non pronto');
   try {
     const tokenDoc = window._fsDoc(window._db, 'users', window._currentUid, 'config', 'fcm_token');
     await window._fsSetDoc(tokenDoc, { token, updatedAt: new Date().toISOString() });
@@ -1944,6 +1917,7 @@ async function saveFcmToken(token) {
   } catch(e) { 
     showToast('❌ Errore: ' + e.message.slice(0,40));
     console.warn('Errore token FCM:', e.message);
+    throw e;
   }
 }
 
@@ -1960,24 +1934,21 @@ function updateNotifUI(granted) {
 async function forceSaveToken() {
   showToast('Recupero token...');
   try {
-    if (!window._firebaseReady) { showToast('❌ Firebase non pronto, riprova'); return; }
-    if (Notification.permission !== 'granted') { showToast('❌ Notifiche non autorizzate'); return; }
+    if (!window._firebaseReady) throw new Error('Firebase non pronto, riprova');
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') throw new Error('Notifiche non autorizzate');
     const swReg = await getSwRegistration();
-    // Forza una nuova sottoscrizione push (elimina quella vecchia con VAPID errata)
-    try {
-      const existingSub = await swReg.pushManager.getSubscription();
-      if (existingSub) { await existingSub.unsubscribe(); console.log('Vecchia subscription eliminata (forceSave)'); }
-    } catch (ue) { console.warn('unsubscribe fallito:', ue.message); }
+    if (!swReg) throw new Error('Service worker notifiche non disponibile');
     const token = await window._getToken(window._firebaseMessaging, { vapidKey: window._vapidKey, serviceWorkerRegistration: swReg });
     if (token) {
-      localStorage.setItem('chermisi_fcm_token', token);
       await saveFcmToken(token);
+      localStorage.setItem('chermisi_fcm_token', token);
     } else {
-      showToast('❌ Token non ottenuto da Firebase');
+      throw new Error('Token non ottenuto da Firebase');
     }
   } catch(e) {
     showToast('❌ ' + e.message.slice(0,50));
     console.error('forceSaveToken error:', e);
+    throw e;
   }
 }
 
@@ -1991,12 +1962,11 @@ async function reRegisterNotif() {
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') { if (txt) txt.textContent = '❌ Permesso negato. Abilitale nelle impostazioni del browser.'; return; }
   }
-  // Cancella token vecchio e ri-registra
-  localStorage.removeItem(KEY_FCM);
+  // Mantiene il token precedente finché la nuova registrazione non è salvata.
   if (txt) txt.textContent = '⏳ Ri-registro il token...';
   try {
     await forceSaveToken();
-    if (txt) txt.textContent = '✅ Notifiche ri-registrate! Arriveranno di nuovo.';
+    if (txt) txt.textContent = '✅ Registrazione notifiche salvata. Verifica con un promemoria di prova.';
   } catch(e) {
     if (txt) txt.textContent = '❌ Errore: ' + e.message;
   }
