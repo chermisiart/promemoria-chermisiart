@@ -74,7 +74,7 @@ function buildPushMessage({ token, nome, phone, testo, tag }) {
 
 exports.sendReminderNotifications = onSchedule(
   { schedule: "every 1 minutes", timeZone: "Europe/Rome" },
-  async () => {
+  async (event) => {
     const db = getFirestore();
     const messaging = getMessaging();
 
@@ -107,7 +107,12 @@ exports.sendReminderNotifications = onSchedule(
     // La Function gira in UTC, quindi new Date("2026-04-14T19:00") lo interpreta come UTC.
     // Fix: convertiamo "now" in orario italiano locale con lo stesso trucco,
     // così il confronto avviene tra due valori nello stesso "spazio" (locale italiano).
-    const nowItaly = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
+    // Usa il minuto pianificato anche se Scheduler avvia la funzione in ritardo.
+    // Non estende la finestra ai vecchi promemoria e non cambia i dati salvati.
+    const scheduledAt = event?.scheduleTime ? new Date(event.scheduleTime) : now;
+    const reference = Number.isNaN(scheduledAt.getTime()) ? now : scheduledAt;
+    const nowItaly = new Date(reference.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
+    nowItaly.setSeconds(0, 0);
     const pad = n => String(n).padStart(2, '0');
     const todayStr = nowItaly.getFullYear() + '-' + pad(nowItaly.getMonth() + 1) + '-' + pad(nowItaly.getDate());
 
