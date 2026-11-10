@@ -1056,7 +1056,9 @@ window._getToken = (messaging, options) => {
       const different = actual.length !== expected.length ||
         actual.some((value, index) => value !== expected[index]);
       if (different) {
-        await deleteToken(messaging);
+        if (!await subscription.unsubscribe()) {
+          throw new Error('Rinnovo sottoscrizione push non riuscito');
+        }
         const stale = await manager.getSubscription();
         if (stale && !await stale.unsubscribe()) {
           throw new Error('Rinnovo push non riuscito: riprova');
