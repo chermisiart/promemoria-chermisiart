@@ -1012,7 +1012,7 @@
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getMessaging, getToken, onMessage } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js';
+import { getMessaging, getToken, deleteToken, onMessage } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js';
 import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
@@ -1036,7 +1036,37 @@ const googleProvider = new GoogleAuthProvider();
 
 window._firebaseMessaging = messaging;
 window._vapidKey = VAPID_KEY;
-window._getToken = getToken;
+// Rinnovo push selettivo VAPID
+let pendingPushToken;
+window._getToken = (messaging, options) => {
+  if (pendingPushToken) return pendingPushToken;
+  pendingPushToken = (async () => {
+    const manager = options.serviceWorkerRegistration.pushManager;
+    const subscription = await manager.getSubscription();
+    const currentKey = subscription?.options?.applicationServerKey;
+    const expected = Uint8Array.from(
+      atob(options.vapidKey.replace(/-/g, '+').replace(/_/g, '/')),
+      c => c.charCodeAt(0)
+    );
+    if (subscription && !currentKey) {
+      throw new Error('Chiave push non verificabile: nessun rinnovo eseguito');
+    }
+    if (currentKey) {
+      const actual = new Uint8Array(currentKey);
+      const different = actual.length !== expected.length ||
+        actual.some((value, index) => value !== expected[index]);
+      if (different) {
+        await deleteToken(messaging);
+        const stale = await manager.getSubscription();
+        if (stale && !await stale.unsubscribe()) {
+          throw new Error('Rinnovo push non riuscito: riprova');
+        }
+      }
+    }
+    return getToken(messaging, options);
+  })().finally(() => { pendingPushToken = null; });
+  return pendingPushToken;
+};
 window._db = db;
 window._fsDoc = doc;
 window._fsSetDoc = setDoc;
